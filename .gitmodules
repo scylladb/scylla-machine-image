@@ -7,3 +7,12 @@
 [submodule "scylla-tools-java"]
 	path = scylla-tools-java
 	url = https://github.com/scylladb/scylla-tools-java.git
+[submodule "scylla-ccm"]
+	path = scylla-ccm
+	url = https://github.com/cloudius-systems/scylla-ccm.git
+[submodule "scylla-dtest"]
+	path = scylla-dtest
+	url = https://github.com/cloudius-systems/scylla-dtest.git
+[submodule "cassandra-unit-tests"]
+	path = cassandra-unit-tests
+	url = https://github.com/cloudius-systems/cassandra-unit-tests.git
