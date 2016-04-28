@@ -1,18 +1,18 @@
 [submodule "scylla"]
 	path = scylla
-	url = https://github.com/scylladb/scylla.git
+	url = git@github.com:scylladb/scylla.git
 [submodule "scylla-jmx"]
 	path = scylla-jmx
-	url = https://github.com/scylladb/scylla-jmx.git
+	url = git@github.com:scylladb/scylla-jmx.git
 [submodule "scylla-tools-java"]
 	path = scylla-tools-java
-	url = https://github.com/scylladb/scylla-tools-java.git
+	url = git@github.com:scylladb/scylla-tools-java.git
 [submodule "scylla-ccm"]
 	path = scylla-ccm
-	url = https://github.com/cloudius-systems/scylla-ccm.git
+	url = git@github.com:cloudius-systems/scylla-ccm.git
 [submodule "scylla-dtest"]
 	path = scylla-dtest
-	url = https://github.com/cloudius-systems/scylla-dtest.git
+	url = git@github.com:cloudius-systems/scylla-dtest.git
 [submodule "cassandra-unit-tests"]
 	path = cassandra-unit-tests
-	url = https://github.com/cloudius-systems/cassandra-unit-tests.git
+	url = git@github.com:cloudius-systems/cassandra-unit-tests.git
