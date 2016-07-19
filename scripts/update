@@ -1,0 +1,27 @@
+#!/bin/bash
+#
+# Script for updating submodules to point to the latest commit of the specified
+# branch across all the release Git repositories.
+
+update_submodule() {
+    module=$1
+    branch=$2
+    echo "Updating $module to point to $branch ..."
+    cd $module && git fetch && git reset --hard $branch
+    cd ~-
+}
+
+if [ $# -eq 0 ]; then
+    echo "usage: $0 branch"
+    exit 1
+fi
+
+BRANCH=$1
+
+update_submodule "scylla" "origin/$BRANCH"
+update_submodule "scylla-jmx" "origin/$BRANCH"
+update_submodule "scylla-tools-java" "origin/$BRANCH"
+update_submodule "scylla-dtest" "origin/$BRANCH"
+update_submodule "cassandra-unit-tests" "origin/$BRANCH"
+update_submodule "scylla-artifact-tests" "origin/master"
+update_submodule "scylla-ccm" "origin/master"
