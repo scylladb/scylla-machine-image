@@ -1,0 +1,1134 @@
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  AWS CloudFormation Scylla Sample Template: This would create a new Scylla Cluster
+  Including it's own VPC and subnet, Elastic IPs are used for accessing those node publicly
+
+  Use `SGUser` security group to enable access from outside to this cluster
+  By default only SSH port is out to the outside world.
+
+  Caution: password authentication isn't enabled by default
+
+Parameters:
+  ClusterName:
+    Type: String
+
+  InstanceCount:
+    Description: Number of EC2 instances (must be between 1 and 10).
+    Type: Number
+    Default: 1
+    MinValue: 1
+    MaxValue: 10
+    ConstraintDescription: Must be a number between 1 and 10.
+
+  ScyllaAmi:
+    Type: 'AWS::EC2::Image::Id'
+    ConstraintDescription: must be a valid scylla AMI in this region.
+
+  InstanceType:
+    Description: EC2 instance type
+    Type: String
+    Default: i3.large
+    AllowedValues:
+      - i3.large
+      - i3.xlarge
+      - i3.2xlarge
+      - i3.4xlarge
+      - i3.8xlarge
+      - i3.16xlarge
+      - i3en.large
+      - i3en.xlarge
+      - i3en.2xlarge
+      - i3en.3xlarge
+      - i3en.6xlarge
+      - i3en.12xlarge
+      - i3en.24xlarge
+      - i3en.metal
+    ConstraintDescription: must be a valid EC2 instance type.
+
+  AvailabilityZone:
+    Type: 'AWS::EC2::AvailabilityZone::Name'
+    ConstraintDescription: must be the name of available AvailabilityZone.
+
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instances
+    Type: 'AWS::EC2::KeyPair::KeyName'
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+
+# Those conditions would be used to enable nodes based on InstanceCount parameter
+Conditions:
+    Launch1: !Equals [1, 1]
+    Launch2: !Not [!Equals [1, !Ref InstanceCount]]
+    Launch3: !And
+      - !Not [!Equals [1, !Ref InstanceCount]]
+      - !Not [!Equals [2, !Ref InstanceCount]]
+    Launch4: !And
+      - !Not [!Equals [1, !Ref InstanceCount]]
+      - !Not [!Equals [2, !Ref InstanceCount]]
+      - !Not [!Equals [3, !Ref InstanceCount]]
+    Launch5: !And
+      - !Not [!Equals [1, !Ref InstanceCount]]
+      - !Not [!Equals [2, !Ref InstanceCount]]
+      - !Not [!Equals [3, !Ref InstanceCount]]
+      - !Not [!Equals [4, !Ref InstanceCount]]
+    Launch6: !And
+      - !Not [!Equals [1, !Ref InstanceCount]]
+      - !Not [!Equals [2, !Ref InstanceCount]]
+      - !Not [!Equals [3, !Ref InstanceCount]]
+      - !Not [!Equals [4, !Ref InstanceCount]]
+      - !Not [!Equals [5, !Ref InstanceCount]]
+    Launch7: !And
+      - !Not [!Equals [1, !Ref InstanceCount]]
+      - !Not [!Equals [2, !Ref InstanceCount]]
+      - !Not [!Equals [3, !Ref InstanceCount]]
+      - !Not [!Equals [4, !Ref InstanceCount]]
+      - !Not [!Equals [5, !Ref InstanceCount]]
+      - !Not [!Equals [6, !Ref InstanceCount]]
+    Launch8: !And
+      - !Not [!Equals [1, !Ref InstanceCount]]
+      - !Not [!Equals [2, !Ref InstanceCount]]
+      - !Not [!Equals [3, !Ref InstanceCount]]
+      - !Not [!Equals [4, !Ref InstanceCount]]
+      - !Not [!Equals [5, !Ref InstanceCount]]
+      - !Not [!Equals [6, !Ref InstanceCount]]
+      - !Not [!Equals [7, !Ref InstanceCount]]
+    Launch9: !And
+      - !Not [!Equals [1, !Ref InstanceCount]]
+      - !Not [!Equals [2, !Ref InstanceCount]]
+      - !Not [!Equals [3, !Ref InstanceCount]]
+      - !Not [!Equals [4, !Ref InstanceCount]]
+      - !Not [!Equals [5, !Ref InstanceCount]]
+      - !Not [!Equals [6, !Ref InstanceCount]]
+      - !Not [!Equals [7, !Ref InstanceCount]]
+      - !Not [!Equals [8, !Ref InstanceCount]]
+    Launch10: !Equals [10, !Ref InstanceCount]
+
+Resources:
+  GatewayAttachment:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  InternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-Gateway'
+        - Key: ClusterName
+          Value: !Ref ClusterName
+  Node0:
+    Condition: Launch1
+    Type: 'AWS::EC2::Instance'
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT10M
+    DependsOn: SGCluster
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            DeleteOnTermination: true
+            VolumeSize: 50
+      ImageId: !Ref ScyllaAmi
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-Node-1'
+        - Key: ClusterName
+          Value: !Ref ClusterName
+      UserData: !Base64
+        'Fn::Join':
+          - ''
+          - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
+            - !Join
+              - ','
+              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
+                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
+                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+            - '"}]}]'
+            - !Sub ', "cluster_name": "${ClusterName}", '
+            - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
+            - '"post_configuration_script" : "'
+            - !Base64
+              'Fn::Join':
+                - ''
+                - - !Sub |
+                    #!/bin/bash -ex
+
+                    sudo yum -y install epel-release
+                    sudo yum -y install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.amzn1.noarch.rpm
+                    ln -s /usr/local/lib/python2.7/site-packages/cfnbootstrap /usr/lib/python2.7/site-packages/cfnbootstrap
+                    /opt/aws/bin/cfn-signal --exit-code 0 --resource Node0 --region ${AWS::Region} --stack ${AWS::StackName}
+            - '"}'
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref Node0ETH0
+          DeviceIndex: '0'
+  Node0ETH0:
+    Condition: Launch1
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      GroupSet:
+        - !Ref SGAdmin
+        - !Ref SGCluster
+        - !Ref SGUser
+      PrivateIpAddress: 172.31.0.11
+      SubnetId: !Ref Subnet
+  Node0ElasticIP:
+    Condition: Launch1
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Domain: vpc
+  Node0ElasticIPAssociation:
+    Condition: Launch1
+    Type: 'AWS::EC2::EIPAssociation'
+    DependsOn: Node0
+    Properties:
+      AllocationId: !GetAtt
+        - Node0ElasticIP
+        - AllocationId
+      NetworkInterfaceId: !Ref Node0ETH0
+      PrivateIpAddress: 172.31.0.11
+  Node1:
+    Condition: Launch2
+    Type: 'AWS::EC2::Instance'
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT10M
+    DependsOn: SGCluster
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            DeleteOnTermination: true
+            VolumeSize: 50
+      ImageId: !Ref ScyllaAmi
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-Node-2'
+        - Key: ClusterName
+          Value: !Ref ClusterName
+      UserData: !Base64
+        'Fn::Join':
+          - ''
+          - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
+            - !Join
+              - ','
+              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
+                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
+                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+            - '"}]}]'
+            - !Sub ', "cluster_name": "${ClusterName}", '
+            - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
+            - '"post_configuration_script" : "'
+            - !Base64
+              'Fn::Join':
+                - ''
+                - - !Sub |
+                    #!/bin/bash -ex
+
+                    sudo yum -y install epel-release
+                    sudo yum -y install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.amzn1.noarch.rpm
+                    ln -s /usr/local/lib/python2.7/site-packages/cfnbootstrap /usr/lib/python2.7/site-packages/cfnbootstrap
+                    /opt/aws/bin/cfn-signal --exit-code 0 --resource Node1 --region ${AWS::Region} --stack ${AWS::StackName}
+            - '"}'
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref Node1ETH0
+          DeviceIndex: '0'
+  Node1ETH0:
+    Condition: Launch2
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      GroupSet:
+        - !Ref SGAdmin
+        - !Ref SGCluster
+        - !Ref SGUser
+      PrivateIpAddress: 172.31.1.11
+      SubnetId: !Ref Subnet
+  Node1ElasticIP:
+    Condition: Launch2
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Domain: vpc
+  Node1ElasticIPAssociation:
+    Condition: Launch2
+    Type: 'AWS::EC2::EIPAssociation'
+    DependsOn: Node1
+    Properties:
+      AllocationId: !GetAtt
+        - Node1ElasticIP
+        - AllocationId
+      NetworkInterfaceId: !Ref Node1ETH0
+      PrivateIpAddress: 172.31.1.11
+  Node2:
+    Condition: Launch3
+    Type: 'AWS::EC2::Instance'
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT10M
+    DependsOn: SGCluster
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            DeleteOnTermination: true
+            VolumeSize: 50
+      ImageId: !Ref ScyllaAmi
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-Node-3'
+        - Key: ClusterName
+          Value: !Ref ClusterName
+      UserData: !Base64
+        'Fn::Join':
+          - ''
+          - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
+            - !Join
+              - ','
+              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
+                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
+                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+            - '"}]}]'
+            - !Sub ', "cluster_name": "${ClusterName}", '
+            - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
+            - '"post_configuration_script" : "'
+            - !Base64
+              'Fn::Join':
+                - ''
+                - - !Sub |
+                    #!/bin/bash -ex
+
+                    sudo yum -y install epel-release
+                    sudo yum -y install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.amzn1.noarch.rpm
+                    ln -s /usr/local/lib/python2.7/site-packages/cfnbootstrap /usr/lib/python2.7/site-packages/cfnbootstrap
+                    /opt/aws/bin/cfn-signal --exit-code 0 --resource Node2 --region ${AWS::Region} --stack ${AWS::StackName}
+            - '"}'
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref Node2ETH0
+          DeviceIndex: '0'
+  Node2ETH0:
+    Condition: Launch3
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      GroupSet:
+        - !Ref SGAdmin
+        - !Ref SGCluster
+        - !Ref SGUser
+      PrivateIpAddress: 172.31.2.11
+      SubnetId: !Ref Subnet
+  Node2ElasticIP:
+    Condition: Launch3
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Domain: vpc
+  Node2ElasticIPAssociation:
+    Condition: Launch3
+    Type: 'AWS::EC2::EIPAssociation'
+    DependsOn: Node2
+    Properties:
+      AllocationId: !GetAtt
+        - Node2ElasticIP
+        - AllocationId
+      NetworkInterfaceId: !Ref Node2ETH0
+      PrivateIpAddress: 172.31.2.11
+  Node3:
+    Condition: Launch4
+    Type: 'AWS::EC2::Instance'
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT10M
+    DependsOn: SGCluster
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            DeleteOnTermination: true
+            VolumeSize: 50
+      ImageId: !Ref ScyllaAmi
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-Node-4'
+        - Key: ClusterName
+          Value: !Ref ClusterName
+      UserData: !Base64
+        'Fn::Join':
+          - ''
+          - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
+            - !Join
+              - ','
+              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
+                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
+                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+            - '"}]}]'
+            - !Sub ', "cluster_name": "${ClusterName}", '
+            - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
+            - '"post_configuration_script" : "'
+            - !Base64
+              'Fn::Join':
+                - ''
+                - - !Sub |
+                    #!/bin/bash -ex
+
+                    sudo yum -y install epel-release
+                    sudo yum -y install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.amzn1.noarch.rpm
+                    ln -s /usr/local/lib/python2.7/site-packages/cfnbootstrap /usr/lib/python2.7/site-packages/cfnbootstrap
+                    /opt/aws/bin/cfn-signal --exit-code 0 --resource Node3 --region ${AWS::Region} --stack ${AWS::StackName}
+            - '"}'
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref Node3ETH0
+          DeviceIndex: '0'
+  Node3ETH0:
+    Condition: Launch4
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      GroupSet:
+        - !Ref SGAdmin
+        - !Ref SGCluster
+        - !Ref SGUser
+      PrivateIpAddress: 172.31.3.11
+      SubnetId: !Ref Subnet
+  Node3ElasticIP:
+    Condition: Launch4
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Domain: vpc
+  Node3ElasticIPAssociation:
+    Condition: Launch4
+    Type: 'AWS::EC2::EIPAssociation'
+    DependsOn: Node3
+    Properties:
+      AllocationId: !GetAtt
+        - Node3ElasticIP
+        - AllocationId
+      NetworkInterfaceId: !Ref Node3ETH0
+      PrivateIpAddress: 172.31.3.11
+  Node4:
+    Condition: Launch5
+    Type: 'AWS::EC2::Instance'
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT10M
+    DependsOn: SGCluster
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            DeleteOnTermination: true
+            VolumeSize: 50
+      ImageId: !Ref ScyllaAmi
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-Node-5'
+        - Key: ClusterName
+          Value: !Ref ClusterName
+      UserData: !Base64
+        'Fn::Join':
+          - ''
+          - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
+            - !Join
+              - ','
+              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
+                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
+                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+            - '"}]}]'
+            - !Sub ', "cluster_name": "${ClusterName}", '
+            - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
+            - '"post_configuration_script" : "'
+            - !Base64
+              'Fn::Join':
+                - ''
+                - - !Sub |
+                    #!/bin/bash -ex
+
+                    sudo yum -y install epel-release
+                    sudo yum -y install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.amzn1.noarch.rpm
+                    ln -s /usr/local/lib/python2.7/site-packages/cfnbootstrap /usr/lib/python2.7/site-packages/cfnbootstrap
+                    /opt/aws/bin/cfn-signal --exit-code 0 --resource Node4 --region ${AWS::Region} --stack ${AWS::StackName}
+            - '"}'
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref Node4ETH0
+          DeviceIndex: '0'
+  Node4ETH0:
+    Condition: Launch5
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      GroupSet:
+        - !Ref SGAdmin
+        - !Ref SGCluster
+        - !Ref SGUser
+      PrivateIpAddress: 172.31.4.11
+      SubnetId: !Ref Subnet
+  Node4ElasticIP:
+    Condition: Launch5
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Domain: vpc
+  Node4ElasticIPAssociation:
+    Condition: Launch5
+    Type: 'AWS::EC2::EIPAssociation'
+    DependsOn: Node4
+    Properties:
+      AllocationId: !GetAtt
+        - Node4ElasticIP
+        - AllocationId
+      NetworkInterfaceId: !Ref Node4ETH0
+      PrivateIpAddress: 172.31.4.11
+  Node5:
+    Condition: Launch6
+    Type: 'AWS::EC2::Instance'
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT10M
+    DependsOn: SGCluster
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            DeleteOnTermination: true
+            VolumeSize: 50
+      ImageId: !Ref ScyllaAmi
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-Node-6'
+        - Key: ClusterName
+          Value: !Ref ClusterName
+      UserData: !Base64
+        'Fn::Join':
+          - ''
+          - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
+            - !Join
+              - ','
+              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
+                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
+                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+            - '"}]}]'
+            - !Sub ', "cluster_name": "${ClusterName}", '
+            - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
+            - '"post_configuration_script" : "'
+            - !Base64
+              'Fn::Join':
+                - ''
+                - - !Sub |
+                    #!/bin/bash -ex
+
+                    sudo yum -y install epel-release
+                    sudo yum -y install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.amzn1.noarch.rpm
+                    ln -s /usr/local/lib/python2.7/site-packages/cfnbootstrap /usr/lib/python2.7/site-packages/cfnbootstrap
+                    /opt/aws/bin/cfn-signal --exit-code 0 --resource Node5 --region ${AWS::Region} --stack ${AWS::StackName}
+            - '"}'
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref Node5ETH0
+          DeviceIndex: '0'
+  Node5ETH0:
+    Condition: Launch6
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      GroupSet:
+        - !Ref SGAdmin
+        - !Ref SGCluster
+        - !Ref SGUser
+      PrivateIpAddress: 172.31.5.11
+      SubnetId: !Ref Subnet
+  Node5ElasticIP:
+    Condition: Launch6
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Domain: vpc
+  Node5ElasticIPAssociation:
+    Condition: Launch6
+    Type: 'AWS::EC2::EIPAssociation'
+    DependsOn: Node5
+    Properties:
+      AllocationId: !GetAtt
+        - Node5ElasticIP
+        - AllocationId
+      NetworkInterfaceId: !Ref Node5ETH0
+      PrivateIpAddress: 172.31.5.11
+  Node6:
+    Condition: Launch7
+    Type: 'AWS::EC2::Instance'
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT10M
+    DependsOn: SGCluster
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            DeleteOnTermination: true
+            VolumeSize: 50
+      ImageId: !Ref ScyllaAmi
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-Node-7'
+        - Key: ClusterName
+          Value: !Ref ClusterName
+      UserData: !Base64
+        'Fn::Join':
+          - ''
+          - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
+            - !Join
+              - ','
+              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
+                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
+                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+            - '"}]}]'
+            - !Sub ', "cluster_name": "${ClusterName}", '
+            - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
+            - '"post_configuration_script" : "'
+            - !Base64
+              'Fn::Join':
+                - ''
+                - - !Sub |
+                    #!/bin/bash -ex
+
+                    sudo yum -y install epel-release
+                    sudo yum -y install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.amzn1.noarch.rpm
+                    ln -s /usr/local/lib/python2.7/site-packages/cfnbootstrap /usr/lib/python2.7/site-packages/cfnbootstrap
+                    /opt/aws/bin/cfn-signal --exit-code 0 --resource Node6 --region ${AWS::Region} --stack ${AWS::StackName}
+            - '"}'
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref Node6ETH0
+          DeviceIndex: '0'
+  Node6ETH0:
+    Condition: Launch7
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      GroupSet:
+        - !Ref SGAdmin
+        - !Ref SGCluster
+        - !Ref SGUser
+      PrivateIpAddress: 172.31.6.11
+      SubnetId: !Ref Subnet
+  Node6ElasticIP:
+    Condition: Launch7
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Domain: vpc
+  Node6ElasticIPAssociation:
+    Condition: Launch7
+    Type: 'AWS::EC2::EIPAssociation'
+    DependsOn: Node6
+    Properties:
+      AllocationId: !GetAtt
+        - Node6ElasticIP
+        - AllocationId
+      NetworkInterfaceId: !Ref Node6ETH0
+      PrivateIpAddress: 172.31.6.11
+  Node7:
+    Condition: Launch8
+    Type: 'AWS::EC2::Instance'
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT10M
+    DependsOn: SGCluster
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            DeleteOnTermination: true
+            VolumeSize: 50
+      ImageId: !Ref ScyllaAmi
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-Node-8'
+        - Key: ClusterName
+          Value: !Ref ClusterName
+      UserData: !Base64
+        'Fn::Join':
+          - ''
+          - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
+            - !Join
+              - ','
+              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
+                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
+                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+            - '"}]}]'
+            - !Sub ', "cluster_name": "${ClusterName}", '
+            - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
+            - '"post_configuration_script" : "'
+            - !Base64
+              'Fn::Join':
+                - ''
+                - - !Sub |
+                    #!/bin/bash -ex
+
+                    sudo yum -y install epel-release
+                    sudo yum -y install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.amzn1.noarch.rpm
+                    ln -s /usr/local/lib/python2.7/site-packages/cfnbootstrap /usr/lib/python2.7/site-packages/cfnbootstrap
+                    /opt/aws/bin/cfn-signal --exit-code 0 --resource Node7 --region ${AWS::Region} --stack ${AWS::StackName}
+            - '"}'
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref Node7ETH0
+          DeviceIndex: '0'
+  Node7ETH0:
+    Condition: Launch8
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      GroupSet:
+        - !Ref SGAdmin
+        - !Ref SGCluster
+        - !Ref SGUser
+      PrivateIpAddress: 172.31.7.11
+      SubnetId: !Ref Subnet
+  Node7ElasticIP:
+    Condition: Launch8
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Domain: vpc
+  Node7ElasticIPAssociation:
+    Condition: Launch8
+    Type: 'AWS::EC2::EIPAssociation'
+    DependsOn: Node7
+    Properties:
+      AllocationId: !GetAtt
+        - Node7ElasticIP
+        - AllocationId
+      NetworkInterfaceId: !Ref Node7ETH0
+      PrivateIpAddress: 172.31.7.11
+  Node8:
+    Condition: Launch9
+    Type: 'AWS::EC2::Instance'
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT10M
+    DependsOn: SGCluster
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            DeleteOnTermination: true
+            VolumeSize: 50
+      ImageId: !Ref ScyllaAmi
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-Node-9'
+        - Key: ClusterName
+          Value: !Ref ClusterName
+      UserData: !Base64
+        'Fn::Join':
+          - ''
+          - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
+            - !Join
+              - ','
+              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
+                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
+                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+            - '"}]}]'
+            - !Sub ', "cluster_name": "${ClusterName}", '
+            - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
+            - '"post_configuration_script" : "'
+            - !Base64
+              'Fn::Join':
+                - ''
+                - - !Sub |
+                    #!/bin/bash -ex
+
+                    sudo yum -y install epel-release
+                    sudo yum -y install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.amzn1.noarch.rpm
+                    ln -s /usr/local/lib/python2.7/site-packages/cfnbootstrap /usr/lib/python2.7/site-packages/cfnbootstrap
+                    /opt/aws/bin/cfn-signal --exit-code 0 --resource Node8 --region ${AWS::Region} --stack ${AWS::StackName}
+            - '"}'
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref Node8ETH0
+          DeviceIndex: '0'
+  Node8ETH0:
+    Condition: Launch9
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      GroupSet:
+        - !Ref SGAdmin
+        - !Ref SGCluster
+        - !Ref SGUser
+      PrivateIpAddress: 172.31.8.11
+      SubnetId: !Ref Subnet
+  Node8ElasticIP:
+    Condition: Launch9
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Domain: vpc
+  Node8ElasticIPAssociation:
+    Condition: Launch9
+    Type: 'AWS::EC2::EIPAssociation'
+    DependsOn: Node8
+    Properties:
+      AllocationId: !GetAtt
+        - Node8ElasticIP
+        - AllocationId
+      NetworkInterfaceId: !Ref Node8ETH0
+      PrivateIpAddress: 172.31.8.11
+  Node9:
+    Condition: Launch10
+    Type: 'AWS::EC2::Instance'
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT10M
+    DependsOn: SGCluster
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            DeleteOnTermination: true
+            VolumeSize: 50
+      ImageId: !Ref ScyllaAmi
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-Node-10'
+        - Key: ClusterName
+          Value: !Ref ClusterName
+      UserData: !Base64
+        'Fn::Join':
+          - ''
+          - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
+            - !Join
+              - ','
+              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
+                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
+                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+            - '"}]}]'
+            - !Sub ', "cluster_name": "${ClusterName}", '
+            - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
+            - '"post_configuration_script" : "'
+            - !Base64
+              'Fn::Join':
+                - ''
+                - - !Sub |
+                    #!/bin/bash -ex
+
+                    sudo yum -y install epel-release
+                    sudo yum -y install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.amzn1.noarch.rpm
+                    ln -s /usr/local/lib/python2.7/site-packages/cfnbootstrap /usr/lib/python2.7/site-packages/cfnbootstrap
+                    /opt/aws/bin/cfn-signal --exit-code 0 --resource Node9 --region ${AWS::Region} --stack ${AWS::StackName}
+            - '"}'
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref Node9ETH0
+          DeviceIndex: '0'
+  Node9ETH0:
+    Condition: Launch10
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      GroupSet:
+        - !Ref SGAdmin
+        - !Ref SGCluster
+        - !Ref SGUser
+      PrivateIpAddress: 172.31.9.11
+      SubnetId: !Ref Subnet
+  Node9ElasticIP:
+    Condition: Launch10
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Domain: vpc
+  Node9ElasticIPAssociation:
+    Condition: Launch10
+    Type: 'AWS::EC2::EIPAssociation'
+    DependsOn: Node9
+    Properties:
+      AllocationId: !GetAtt
+        - Node9ElasticIP
+        - AllocationId
+      NetworkInterfaceId: !Ref Node9ETH0
+      PrivateIpAddress: 172.31.9.11
+  Route:
+    Type: 'AWS::EC2::Route'
+    DependsOn: GatewayAttachment
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref RouteTable
+  RouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-RT'
+        - Key: ClusterName
+          Value: !Ref ClusterName
+
+      VpcId: !Ref VPC
+  SGAdmin:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Security group for the admin
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-SGAdmin'
+        - Key: ClusterName
+          Value: !Ref ClusterName
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          FromPort: 22
+          ToPort: 22
+          IpProtocol: tcp
+        - CidrIpv6: ::/0
+          FromPort: 22
+          ToPort: 22
+          IpProtocol: tcp
+      VpcId: !Ref VPC
+
+  SGCluster:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Security group for the cluster
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-SGCluster'
+        - Key: ClusterName
+          Value: !Ref ClusterName
+      SecurityGroupIngress:
+        - CidrIp: 172.31.0.0/16
+          FromPort: 22
+          ToPort: 22
+          IpProtocol: '-1'
+      VpcId: !Ref VPC
+
+  SGUser:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Security group for the user CQL access
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-SGUser'
+        - Key: ClusterName
+          Value: !Ref ClusterName
+      VpcId: !Ref VPC
+
+  Subnet:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Ref AvailabilityZone
+      CidrBlock: 172.31.0.0/16
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-Subnet'
+        - Key: ClusterName
+          Value: !Ref ClusterName
+      VpcId: !Ref VPC
+
+  SubnetRouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref RouteTable
+      SubnetId: !Ref Subnet
+
+  VPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: 172.31.0.0/16
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-VPC'
+        - Key: ClusterName
+          Value: !Ref ClusterName
+
+Outputs:
+  Node0:
+    Condition: Launch1
+    Value: !Ref Node0
+  Node0PrivateDnsName:
+    Condition: Launch1
+    Value: !GetAtt
+      - Node0
+      - PrivateDnsName
+  Node0PrivateIp:
+    Condition: Launch1
+    Value: !GetAtt
+      - Node0
+      - PrivateIp
+  Node0PublicIp:
+    Condition: Launch1
+    Value: !GetAtt
+      - Node0
+      - PublicIp
+  Node1:
+    Condition: Launch2
+    Value: !Ref Node1
+  Node1PrivateDnsName:
+    Condition: Launch2
+    Value: !GetAtt
+      - Node1
+      - PrivateDnsName
+  Node1PrivateIp:
+    Condition: Launch2
+    Value: !GetAtt
+      - Node1
+      - PrivateIp
+  Node1PublicIp:
+    Condition: Launch2
+    Value: !GetAtt
+      - Node1
+      - PublicIp
+  Node2:
+    Condition: Launch3
+    Value: !Ref Node2
+  Node2PrivateDnsName:
+    Condition: Launch3
+    Value: !GetAtt
+      - Node2
+      - PrivateDnsName
+  Node2PrivateIp:
+    Condition: Launch3
+    Value: !GetAtt
+      - Node2
+      - PrivateIp
+  Node2PublicIp:
+    Condition: Launch3
+    Value: !GetAtt
+      - Node2
+      - PublicIp
+  Node3:
+    Condition: Launch4
+    Value: !Ref Node3
+  Node3PrivateDnsName:
+    Condition: Launch4
+    Value: !GetAtt
+      - Node3
+      - PrivateDnsName
+  Node3PrivateIp:
+    Condition: Launch4
+    Value: !GetAtt
+      - Node3
+      - PrivateIp
+  Node3PublicIp:
+    Condition: Launch4
+    Value: !GetAtt
+      - Node3
+      - PublicIp
+  Node4:
+    Condition: Launch5
+    Value: !Ref Node4
+  Node4PrivateDnsName:
+    Condition: Launch5
+    Value: !GetAtt
+      - Node4
+      - PrivateDnsName
+  Node4PrivateIp:
+    Condition: Launch5
+    Value: !GetAtt
+      - Node4
+      - PrivateIp
+  Node4PublicIp:
+    Condition: Launch5
+    Value: !GetAtt
+      - Node4
+      - PublicIp
+  Node5:
+    Condition: Launch6
+    Value: !Ref Node5
+  Node5PrivateDnsName:
+    Condition: Launch6
+    Value: !GetAtt
+      - Node5
+      - PrivateDnsName
+  Node5PrivateIp:
+    Condition: Launch6
+    Value: !GetAtt
+      - Node5
+      - PrivateIp
+  Node5PublicIp:
+    Condition: Launch6
+    Value: !GetAtt
+      - Node5
+      - PublicIp
+  Node6:
+    Condition: Launch7
+    Value: !Ref Node6
+  Node6PrivateDnsName:
+    Condition: Launch7
+    Value: !GetAtt
+      - Node6
+      - PrivateDnsName
+  Node6PrivateIp:
+    Condition: Launch7
+    Value: !GetAtt
+      - Node6
+      - PrivateIp
+  Node6PublicIp:
+    Condition: Launch7
+    Value: !GetAtt
+      - Node6
+      - PublicIp
+  Node7:
+    Condition: Launch8
+    Value: !Ref Node7
+  Node7PrivateDnsName:
+    Condition: Launch8
+    Value: !GetAtt
+      - Node7
+      - PrivateDnsName
+  Node7PrivateIp:
+    Condition: Launch8
+    Value: !GetAtt
+      - Node7
+      - PrivateIp
+  Node7PublicIp:
+    Condition: Launch8
+    Value: !GetAtt
+      - Node7
+      - PublicIp
+  Node8:
+    Condition: Launch9
+    Value: !Ref Node8
+  Node8PrivateDnsName:
+    Condition: Launch9
+    Value: !GetAtt
+      - Node8
+      - PrivateDnsName
+  Node8PrivateIp:
+    Condition: Launch9
+    Value: !GetAtt
+      - Node8
+      - PrivateIp
+  Node8PublicIp:
+    Condition: Launch9
+    Value: !GetAtt
+      - Node8
+      - PublicIp
+  Node9:
+    Condition: Launch10
+    Value: !Ref Node9
+  Node9PrivateDnsName:
+    Condition: Launch10
+    Value: !GetAtt
+      - Node9
+      - PrivateDnsName
+  Node9PrivateIp:
+    Condition: Launch10
+    Value: !GetAtt
+      - Node9
+      - PrivateIp
+  Node9PublicIp:
+    Condition: Launch10
+    Value: !GetAtt
+      - Node9
+      - PublicIp
+  SGAdmin:
+    Value: !Ref SGAdmin
+  SGCluster:
+    Value: !Ref SGCluster
+  SGUser:
+    Value: !Ref SGUser
+  Subnet:
+    Value: !Ref Subnet
+  VPC:
+    Value: !Ref VPC

@@ -1,0 +1,73 @@
+#!groovy
+pipeline {
+    agent {
+        label {
+            label "aws-sct-builders-eu-west-1"
+        }
+    }
+    parameters {
+        string(defaultValue: "us-east-1",
+            description: 'aws region to use, ex. us-east-1 or eu-west-1',
+            name: 'region')
+
+        string(defaultValue: '', description: '', name: 'scylla_ami_id')
+    }
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+        timeout([time: 30, unit: 'MINUTES'])
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+    }
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        stage('create virtualenv') {
+            steps {
+                script {
+                    wrap([$class: 'BuildUser']) {
+                        dir('cloudformation') {
+                            sh """
+                            #!/bin/bash
+                            set -xe
+
+                            python3 -m venv .venv3
+                            source .venv3/bin/activate
+
+                            pip install --upgrade pip
+                            pip install -r requirements.txt
+                            """
+                        }
+                    }
+                }
+            }
+        }
+        stage('test') {
+            steps {
+                script {
+                    wrap([$class: 'BuildUser']) {
+                        dir('cloudformation') {
+                            sh """
+                            #!/bin/bash
+                            set -xe
+
+                            source .venv3/bin/activate
+
+                            # regenerate the teample
+                            jinja2 scylla.yaml.j2  > scylla.yaml
+
+                            # lint the template
+                            cfn-lint --template scylla.yaml --region us-east-1
+
+                            # running the test
+                            pytest --log-cli-level info --ami ${params.scylla_ami_id} --region ${params.region}
+                            """
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

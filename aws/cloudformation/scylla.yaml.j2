@@ -1,0 +1,334 @@
+{%- set total_num_node = 10 %}
+{%- set ip_address_list = [] %}
+{%- for node_index in range(total_num_node) %}
+  {%- do ip_address_list.append("172.31.%d.11" % node_index) %}
+{%- endfor -%}
+{%- set new_ami_boot = True %}
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  AWS CloudFormation Scylla Sample Template: This would create a new Scylla Cluster
+  Including it's own VPC and subnet, Elastic IPs are used for accessing those node publicly
+
+  Use `SGUser` security group to enable access from outside to this cluster
+  By default only SSH port is out to the outside world.
+
+  Caution: password authentication isn't enabled by default
+
+Parameters:
+  ClusterName:
+    Type: String
+
+  InstanceCount:
+    Description: Number of EC2 instances (must be between 1 and {{ total_num_node }}).
+    Type: Number
+    Default: 1
+    MinValue: 1
+    MaxValue: {{ total_num_node }}
+    ConstraintDescription: Must be a number between 1 and {{ total_num_node }}.
+
+  ScyllaAmi:
+    Type: 'AWS::EC2::Image::Id'
+    ConstraintDescription: must be a valid scylla AMI in this region.
+
+  InstanceType:
+    Description: EC2 instance type
+    Type: String
+    Default: i3.large
+    AllowedValues:
+      - i3.large
+      - i3.xlarge
+      - i3.2xlarge
+      - i3.4xlarge
+      - i3.8xlarge
+      - i3.16xlarge
+      - i3en.large
+      - i3en.xlarge
+      - i3en.2xlarge
+      - i3en.3xlarge
+      - i3en.6xlarge
+      - i3en.12xlarge
+      - i3en.24xlarge
+      - i3en.metal
+    ConstraintDescription: must be a valid EC2 instance type.
+
+  AvailabilityZone:
+    Type: 'AWS::EC2::AvailabilityZone::Name'
+    ConstraintDescription: must be the name of available AvailabilityZone.
+
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instances
+    Type: 'AWS::EC2::KeyPair::KeyName'
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+
+# Those conditions would be used to enable nodes based on InstanceCount parameter
+Conditions:
+    Launch1: !Equals [1, 1]
+    Launch2: !Not [!Equals [1, !Ref InstanceCount]]
+{%- for node_index in range(3, total_num_node) %}
+    Launch{{ node_index }}: !And
+{%- for i in range(1, node_index) %}
+      - !Not [!Equals [{{ i }}, !Ref InstanceCount]]
+{%- endfor %}
+{%- endfor %}
+    Launch{{ total_num_node }}: !Equals [{{ total_num_node }}, !Ref InstanceCount]
+
+Resources:
+  GatewayAttachment:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  InternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-Gateway'
+        - Key: ClusterName
+          Value: !Ref ClusterName
+
+{%- for node_index in range(total_num_node) %}
+  Node{{ node_index }}:
+    Condition: Launch{{ node_index + 1 }}
+    Type: 'AWS::EC2::Instance'
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT10M
+    DependsOn: SGCluster
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            DeleteOnTermination: true
+            VolumeSize: 50
+      ImageId: !Ref ScyllaAmi
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-Node-{{ node_index + 1 }}'
+        - Key: ClusterName
+          Value: !Ref ClusterName
+{%- if new_ami_boot %}
+      UserData: !Base64
+        'Fn::Join':
+          - ''
+          - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
+            - !Join
+              - ','
+              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
+                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
+                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+            - '"}]}]'
+            - !Sub ', "cluster_name": "${ClusterName}", '
+            - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
+            - '"start_scylla_on_first_boot": true, '
+            - '"post_configuration_script" : "'
+            - !Base64
+              'Fn::Join':
+                - ''
+                - - !Sub |
+                    #!/bin/bash -ex
+
+                    sudo yum -y install epel-release
+                    sudo yum -y install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.amzn1.noarch.rpm
+                    ln -s /usr/local/lib/python2.7/site-packages/cfnbootstrap /usr/lib/python2.7/site-packages/cfnbootstrap
+                    /opt/aws/bin/cfn-signal --exit-code 0 --resource Node{{ node_index }} --region ${AWS::Region} --stack ${AWS::StackName}
+            - '"}'
+{%- else %}
+      UserData: !Base64
+        'Fn::Join':
+          - ''
+          - - !Sub '--clustername ${ClusterName}'
+            - |+
+
+            - '--base64postscript '
+            - !Base64
+              'Fn::Join':
+                - ''
+                - - !Sub |
+                    #!/bin/bash -ex
+
+                    sudo yum -y install epel-release
+                    sudo yum -y install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.amzn1.noarch.rpm
+                    ln -s /usr/local/lib/python2.7/site-packages/cfnbootstrap /usr/lib/python2.7/site-packages/cfnbootstrap
+
+                    trap '/opt/aws/bin/cfn-signal --exit-code 1 --resource Node{{ node_index }} --region ${AWS::Region} --stack ${AWS::StackName}' ERR
+
+                    export PUBLIC_IP=${Node2ElasticIP}
+                    export PRIVATE_IP=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
+                    sed -i "s|# broadcast_address: 1.2.3.4|broadcast_address: $PRIVATE_IP|g" /etc/scylla/scylla.yaml
+                  - |+
+
+                  - export SEEDS=
+                  - !Join
+                    - ','
+                    - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
+                      - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
+                      - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+                  - |+
+
+                  - !Sub |
+                    sed -i "s|          - seeds: \"$PRIVATE_IP\"|          - seeds: \"$SEEDS\"|g" /etc/scylla/scylla.yaml
+                    /opt/aws/bin/cfn-signal --exit-code 0 --resource Node{{ node_index }} --region ${AWS::Region} --stack ${AWS::StackName}
+                  - |+
+
+            - |+
+
+            - |
+              --totalnodes 1 --reflector example.com
+{%- endif %}
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref Node{{ node_index }}ETH0
+          DeviceIndex: '0'
+  Node{{ node_index }}ETH0:
+    Condition: Launch{{ node_index + 1 }}
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      GroupSet:
+        - !Ref SGAdmin
+        - !Ref SGCluster
+        - !Ref SGUser
+      PrivateIpAddress: {{ ip_address_list[node_index] }}
+      SubnetId: !Ref Subnet
+  Node{{ node_index }}ElasticIP:
+    Condition: Launch{{ node_index + 1 }}
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Domain: vpc
+  Node{{ node_index }}ElasticIPAssociation:
+    Condition: Launch{{ node_index + 1 }}
+    Type: 'AWS::EC2::EIPAssociation'
+    DependsOn: Node{{ node_index }}
+    Properties:
+      AllocationId: !GetAtt
+        - Node{{ node_index }}ElasticIP
+        - AllocationId
+      NetworkInterfaceId: !Ref Node{{ node_index }}ETH0
+      PrivateIpAddress: {{ ip_address_list[node_index] }}
+{%- endfor %}
+  Route:
+    Type: 'AWS::EC2::Route'
+    DependsOn: GatewayAttachment
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref RouteTable
+  RouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-RT'
+        - Key: ClusterName
+          Value: !Ref ClusterName
+
+      VpcId: !Ref VPC
+  SGAdmin:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Security group for the admin
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-SGAdmin'
+        - Key: ClusterName
+          Value: !Ref ClusterName
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          FromPort: 22
+          ToPort: 22
+          IpProtocol: tcp
+        - CidrIpv6: ::/0
+          FromPort: 22
+          ToPort: 22
+          IpProtocol: tcp
+      VpcId: !Ref VPC
+
+  SGCluster:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Security group for the cluster
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-SGCluster'
+        - Key: ClusterName
+          Value: !Ref ClusterName
+      SecurityGroupIngress:
+        - CidrIp: 172.31.0.0/16
+          FromPort: 22
+          ToPort: 22
+          IpProtocol: '-1'
+      VpcId: !Ref VPC
+
+  SGUser:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Security group for the user CQL access
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-SGUser'
+        - Key: ClusterName
+          Value: !Ref ClusterName
+      VpcId: !Ref VPC
+
+  Subnet:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Ref AvailabilityZone
+      CidrBlock: 172.31.0.0/16
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-Subnet'
+        - Key: ClusterName
+          Value: !Ref ClusterName
+      VpcId: !Ref VPC
+
+  SubnetRouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref RouteTable
+      SubnetId: !Ref Subnet
+
+  VPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: 172.31.0.0/16
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-VPC'
+        - Key: ClusterName
+          Value: !Ref ClusterName
+
+Outputs:
+{%- for node_index in range(total_num_node) %}
+  Node{{ node_index }}:
+    Condition: Launch{{ node_index + 1 }}
+    Value: !Ref Node{{ node_index }}
+  Node{{ node_index }}PrivateDnsName:
+    Condition: Launch{{ node_index + 1 }}
+    Value: !GetAtt
+      - Node{{ node_index }}
+      - PrivateDnsName
+  Node{{ node_index }}PrivateIp:
+    Condition: Launch{{ node_index + 1 }}
+    Value: !GetAtt
+      - Node{{ node_index }}
+      - PrivateIp
+  Node{{ node_index }}PublicIp:
+    Condition: Launch{{ node_index + 1 }}
+    Value: !GetAtt
+      - Node{{ node_index }}
+      - PublicIp
+{%- endfor %}
+  SGAdmin:
+    Value: !Ref SGAdmin
+  SGCluster:
+    Value: !Ref SGCluster
+  SGUser:
+    Value: !Ref SGUser
+  Subnet:
+    Value: !Ref Subnet
+  VPC:
+    Value: !Ref VPC
