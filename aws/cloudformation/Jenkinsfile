@@ -45,6 +45,10 @@ pipeline {
             }
         }
         stage('test') {
+            environment {
+				AWS_ACCESS_KEY_ID     = credentials('jenkins2-aws-secret-key-id')
+				AWS_SECRET_ACCESS_KEY = credentials('jenkins2-aws-secret-access-key')
+			}
             steps {
                 script {
                     wrap([$class: 'BuildUser']) {
