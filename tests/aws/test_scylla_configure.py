@@ -1,3 +1,4 @@
+import sys
 import base64
 import json
 import shutil
@@ -10,6 +11,9 @@ from unittest import TestCase
 from pathlib import Path
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
+
+sys.path.append('../..')
+
 from lib.log import setup_logging
 from aws.scylla_configure import ScyllaAmiConfigurator
 
