@@ -28,7 +28,7 @@ pipeline {
             steps {
                 script {
                     wrap([$class: 'BuildUser']) {
-                        dir('cloudformation') {
+                        dir('aws/cloudformation') {
                             sh """
                             #!/bin/bash
                             set -xe
@@ -52,7 +52,7 @@ pipeline {
             steps {
                 script {
                     wrap([$class: 'BuildUser']) {
-                        dir('cloudformation') {
+                        dir('aws/cloudformation') {
                             sh """
                             #!/bin/bash
                             set -xe
