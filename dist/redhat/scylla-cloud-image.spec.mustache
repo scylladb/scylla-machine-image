@@ -55,7 +55,7 @@ install -m755 {{cloud_provider}}/.bash_profile $RPM_BUILD_ROOT/home/centos
 %systemd_preun scylla-image-setup.service
 
 %postun
-%systemd_postun
+%systemd_postun scylla-image-setup.service
 
 %clean
 rm -rf $RPM_BUILD_ROOT
