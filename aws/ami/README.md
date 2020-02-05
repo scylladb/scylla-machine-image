@@ -29,6 +29,10 @@ https://github.com/scylladb/scylla/blob/master/docs/building-packages.md#scylla-
 
 To build AMI from locally built rpm, run
 ```
+# bulild scyll-cloud-image (it's not yet part of the repo, since not merge to master yet)
+./dist/redhat/build_rpm.sh -t centos -c aws
+cp build/RPMS/noarch/scylla-cloud-image-*.rpm ./aws/ami/files/
+
 SCYLLA_DIR=~/Projects/scylla
 
 cd $SCYLLA_DIR
@@ -36,65 +40,21 @@ cd $SCYLLA_DIR
 PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
 REPO=`./scripts/scylla_current_repo --target centos`
 
-cd - 
+cd ./aws/ami
+
+# optionaly: download all other rpms except scylla-server from the repo
+./build_with_docker.sh --product $PRODUCT --repo $REPO --download-no-server
+
+# copy the built scylla RPMs
+cp $SCYLLA_DIR/build/redhat/RPMS/x86_64/*.rpm ./files/
+
 ./build_with_docker.sh --localrpm --product $PRODUCT --repo-for-update $REPO
+
 ```
+
 
 ### Build AMI from yum repository
 To build AMI from unstable yum repository, run
 ```
 ./build_with_docker.sh --repo http://downloads.scylladb.com.s3.amazonaws.com/rpm/unstable/centos/master/latest/scylla.repo
-```
-
-
-### Build AMI with personal branch
-
-#### Method 1
-
-```
-sudo rm -rf scylla_new
-git clone https://github.com/scylladb/scylla scylla_new
-cd scylla_new
-
-## different branch uses different submodules, first checkout to right scylla branch (same as your branch)
-git checkout -b branch-1.5 remotes/origin/branch-1.5
-
-## init the submoudles
-git submodule init
-
-## checkout your own branch
-git remote add glommer git@github.com:glommer/scylla.git
-git fetch glommer
-git checkout -b dev_branch remotes/glommer/for-amos-1.5-preview
-
-## update submodules (which is using the right url)
-git submodule update --init --recursive
-
-sudo ./dist/ami/build_ami.sh --localrpm
-
-```
-
-#### Method 2
-
-```
-sudo rm -rf scylla_new
-git clone https://github.com/scylladb/scylla scylla_new
-cd scylla_new
-git submodule init
-git submodule update --init --recursive
-
-## add scylla-seastar of upstream
-cd seastar
-git remote add scylla-seastar  git@github.com:scylladb/scylla-seastar.git
-git fetch scylla-seastar
-cd -
-
-git remote add glommer git@github.com:glommer/scylla.git
-git fetch glommer
-git checkout -b dev_branch remotes/glommer/for-amos-1.5-preview
-
-## reupdate submodules
-git submodule update --init --recursive
-
-sudo ./dist/ami/build_ami.sh --localrpm
 ```
