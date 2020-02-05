@@ -10,9 +10,12 @@ print_usage() {
     echo "  --repo-for-install  repository for install, specify .repo/.list file URL"
     echo "  --repo-for-update  repository for update, specify .repo/.list file URL"
     echo "  --product          scylla or scylla-enterprise"
+    echo "  --download-no-server  download all rpm needed excluding scylla from `repo-for-install`"
     exit 1
 }
 LOCALRPM=0
+DOWNLOAD_ONLY=0
+
 REPO_FOR_INSTALL=
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -37,6 +40,10 @@ while [ $# -gt 0 ]; do
         "--product")
             PRODUCT=$2
             shift 2
+            ;;
+        "--download-no-server")
+            DOWNLOAD_ONLY=1
+            shift 1
             ;;
         *)
             print_usage
@@ -78,6 +85,18 @@ if [ $LOCALRPM -eq 1 ]; then
     SCYLLA_JMX_VERSION=$(get_version_from_rpm $DIR/files/$PRODUCT-jmx*.noarch.rpm)
     SCYLLA_TOOLS_VERSION=$(get_version_from_rpm $DIR/files/$PRODUCT-tools-*.noarch.rpm)
     SCYLLA_PYTHON3_VERSION=$(get_version_from_rpm $DIR/files/$PRODUCT-python3*.x86_64.rpm)
+elif [ $DOWNLOAD_ONLY -eq 1 ]; then
+    if [ -z "$REPO_FOR_INSTALL" ]; then
+        print_usage
+        exit 1
+    fi
+
+    TMPREPO=$(mktemp -u -p /etc/yum.repos.d/ --suffix .repo)
+    sudo curl -o $TMPREPO $REPO_FOR_INSTALL
+    cd files
+    yumdownloader $PRODUCT $PRODUCT-cloud-image $PRODUCT-jmx $PRODUCT-tools-core $PRODUCT-tools $PRODUCT-python3
+    sudo rm -f $TMPREPO
+    exit 0
 else
     if [ -z "$REPO_FOR_INSTALL" ]; then
         print_usage
@@ -89,7 +108,7 @@ else
     rm -rf build/ami_packages
     mkdir -p build/ami_packages
     cd build/ami_packages/
-    yumdownloader $RELVER_HACK $PRODUCT $PRODUCT-kernel-conf $PRODUCT-conf $PRODUCT-server $PRODUCT-debuginfo $PRODUCT-ami $PRODUCT-jmx $PRODUCT-tools-core $PRODUCT-tools $PRODUCT-python3
+    yumdownloader $PRODUCT $PRODUCT-kernel-conf $PRODUCT-conf $PRODUCT-server $PRODUCT-debuginfo $PRODUCT-cloud-image $PRODUCT-jmx $PRODUCT-tools-core $PRODUCT-tools $PRODUCT-python3
     sudo rm -f $TMPREPO
 
     check_rpm_exists build/ami_packages
