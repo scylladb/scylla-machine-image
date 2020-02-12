@@ -68,6 +68,12 @@ if [[ ! -f /usr/bin/pystache ]]; then
     pkg_install python2-pystache || pkg_install pystache
 fi
 
+echo "Ruuning unit tests"
+cd tests/aws
+pip3 install pyyaml==5.3
+python3 -m unittest test_scylla_configure.py
+cd -
+
 echo "Building in $PWD..."
 
 VERSION=$(./SCYLLA-VERSION-GEN)
