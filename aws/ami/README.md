@@ -29,9 +29,9 @@ https://github.com/scylladb/scylla/blob/master/docs/building-packages.md#scylla-
 
 To build AMI from locally built rpm, run
 ```
-# bulild scyll-cloud-image (it's not yet part of the repo, since not merge to master yet)
+# bulild scyll-machine-image (it's not yet part of the repo, since not merge to master yet)
 ./dist/redhat/build_rpm.sh -t centos -c aws
-cp build/RPMS/noarch/scylla-cloud-image-*.rpm ./aws/ami/files/
+cp build/RPMS/noarch/scylla-machine-image-*.rpm ./aws/ami/files/
 
 SCYLLA_DIR=~/Projects/scylla
 

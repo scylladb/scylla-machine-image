@@ -11,4 +11,4 @@ PATH=$PATH:$HOME/.local/bin:$HOME/bin
 
 export PATH
 
-/opt/scylladb/scylla-cloud-image/scylla_login
+/opt/scylladb/scylla-machine-image/scylla_login

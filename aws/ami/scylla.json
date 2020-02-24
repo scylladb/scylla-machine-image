@@ -60,7 +60,7 @@
       "ami_description": "{{user `scylla_ami_description`}}",
       "tags": {
           "ScyllaVersion": "{{user `scylla_version`}}",
-          "ScyllaCloudImageVersion": "{{user `scylla_cloud_image_version`}}",
+          "ScyllaMachineImageVersion": "{{user `scylla_machine_image_version`}}",
           "ScyllaJMXVersion": "{{user `scylla_jmx_version`}}",
           "ScyllaToolsVersion": "{{user `scylla_tools_version`}}",
           "ScyllaPython3Version": "{{user `scylla_python3_version`}}"
