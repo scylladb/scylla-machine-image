@@ -6,7 +6,7 @@ ConditionPathExists=!/etc/scylla/cloud_image_configured
 
 [Service]
 Type=oneshot
-ExecStart=/opt/scylladb/scylla-cloud-image/scylla_image_setup
+ExecStart=/opt/scylladb/scylla-machine-image/scylla_image_setup
 RemainAfterExit=yes
 TimeoutStartSec=900
 

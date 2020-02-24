@@ -1,7 +1,7 @@
 #!/bin/bash -e
 # Author: Takuya ASADA <syuu@scylladb.com>, Bentsi Magidovich <bentsi@scylladb.com>
 
-PACKAGE_NAME="scylla-cloud-image"
+PACKAGE_NAME="scylla-machine-image"
 
 . /etc/os-release
 
@@ -49,7 +49,7 @@ pkg_install() {
 }
 
 if [[ ! -e dist/redhat/build_rpm.sh ]]; then
-    echo "run build_rpm.sh in top of scylla-cloud-image dir"
+    echo "run build_rpm.sh in top of scylla-machine-image dir"
     exit 1
 fi
 
@@ -68,7 +68,7 @@ if [[ ! -f /usr/bin/pystache ]]; then
     pkg_install python2-pystache || pkg_install pystache
 fi
 
-echo "Ruuning unit tests"
+echo "Running unit tests"
 cd tests/aws
 pip3 install pyyaml==5.3
 python3 -m unittest test_scylla_configure.py

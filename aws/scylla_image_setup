@@ -27,8 +27,8 @@ from scylla_util import *
 
 if __name__ == '__main__':
     aws = aws_instance()
-    run('/opt/scylladb/scylla-cloud-image/scylla_configure.py')
-    run('/opt/scylladb/scylla-cloud-image/scylla_create_devices')
+    run('/opt/scylladb/scylla-machine-image/scylla_configure.py')
+    run('/opt/scylladb/scylla-machine-image/scylla_create_devices')
     run('/opt/scylladb/scripts/scylla_sysconfig_setup --nic eth0 --setup-nic --ami')
     if aws.is_supported_instance_class():
         run('/opt/scylladb/scripts/scylla_io_setup --ami')

@@ -60,7 +60,7 @@ get_version_from_rpm () {
 
 check_rpm_exists () {
     BASE_DIR=$1
-    rpm_files="$BASE_DIR/$PRODUCT-server*.x86_64.rpm $BASE_DIR/$PRODUCT-cloud-image*.noarch.rpm $BASE_DIR/$PRODUCT-jmx*.noarch.rpm $BASE_DIR/$PRODUCT-tools-*.noarch.rpm $BASE_DIR/$PRODUCT-python3*.x86_64.rpm"
+    rpm_files="$BASE_DIR/$PRODUCT-server*.x86_64.rpm $BASE_DIR/$PRODUCT-machine-image*.noarch.rpm $BASE_DIR/$PRODUCT-jmx*.noarch.rpm $BASE_DIR/$PRODUCT-tools-*.noarch.rpm $BASE_DIR/$PRODUCT-python3*.x86_64.rpm"
     for rpm in $rpm_files
     do
         if [[ ! -f "$rpm" ]]; then
@@ -74,14 +74,12 @@ REGION=us-east-1
 SSH_USERNAME=centos
 
 if [ $LOCALRPM -eq 1 ]; then
-    # TODO move to new repo
-    # REPO=`./scripts/scylla_current_repo --target centos`
     INSTALL_ARGS="$INSTALL_ARGS --localrpm"
 
     check_rpm_exists $DIR/files
 
     SCYLLA_VERSION=$(get_version_from_rpm $DIR/files/$PRODUCT-server*.x86_64.rpm)
-    SCYLLA_CLOUD_IMAGE_VERSION=$(get_version_from_rpm $DIR/files/$PRODUCT-cloud-image*.noarch.rpm)
+    SCYLLA_MACHINE_IMAGE_VERSION=$(get_version_from_rpm $DIR/files/$PRODUCT-machine-image*.noarch.rpm)
     SCYLLA_JMX_VERSION=$(get_version_from_rpm $DIR/files/$PRODUCT-jmx*.noarch.rpm)
     SCYLLA_TOOLS_VERSION=$(get_version_from_rpm $DIR/files/$PRODUCT-tools-*.noarch.rpm)
     SCYLLA_PYTHON3_VERSION=$(get_version_from_rpm $DIR/files/$PRODUCT-python3*.x86_64.rpm)
@@ -94,7 +92,7 @@ elif [ $DOWNLOAD_ONLY -eq 1 ]; then
     TMPREPO=$(mktemp -u -p /etc/yum.repos.d/ --suffix .repo)
     sudo curl -o $TMPREPO $REPO_FOR_INSTALL
     cd files
-    yumdownloader $PRODUCT $PRODUCT-cloud-image $PRODUCT-jmx $PRODUCT-tools-core $PRODUCT-tools $PRODUCT-python3
+    yumdownloader $PRODUCT $PRODUCT-machine-image $PRODUCT-jmx $PRODUCT-tools-core $PRODUCT-tools $PRODUCT-python3
     sudo rm -f $TMPREPO
     exit 0
 else
@@ -108,13 +106,13 @@ else
     rm -rf build/ami_packages
     mkdir -p build/ami_packages
     cd build/ami_packages/
-    yumdownloader $PRODUCT $PRODUCT-kernel-conf $PRODUCT-conf $PRODUCT-server $PRODUCT-debuginfo $PRODUCT-cloud-image $PRODUCT-jmx $PRODUCT-tools-core $PRODUCT-tools $PRODUCT-python3
+    yumdownloader $PRODUCT $PRODUCT-kernel-conf $PRODUCT-conf $PRODUCT-server $PRODUCT-debuginfo $PRODUCT-machine-image $PRODUCT-jmx $PRODUCT-tools-core $PRODUCT-tools $PRODUCT-python3
     sudo rm -f $TMPREPO
 
     check_rpm_exists build/ami_packages
 
     SCYLLA_VERSION=$(get_version_from_rpm build/ami_packages/$PRODUCT-server*.x86_64.rpm)
-    SCYLLA_CLOUD_IMAGE_VERSION=$(get_version_from_rpm build/ami_packages/$PRODUCT-cloud-image*.noarch.rpm)
+    SCYLLA_MACHINE_IMAGE_VERSION=$(get_version_from_rpm build/ami_packages/$PRODUCT-machine-image*.noarch.rpm)
     SCYLLA_JMX_VERSION=$(get_version_from_rpm build/ami_packages/$PRODUCT-jmx*.noarch.rpm)
     SCYLLA_TOOLS_VERSION=$(get_version_from_rpm build/ami_packages/$PRODUCT-tools-*.noarch.rpm)
     SCYLLA_PYTHON3_VERSION=$(get_version_from_rpm build/ami_packages/$PRODUCT-python3*.x86_64.rpm)
@@ -122,7 +120,7 @@ else
     cd -
 fi
 
-SCYLLA_AMI_DESCRIPTION="scylla-$SCYLLA_VERSION scylla-cloud-image-$SCYLLA_CLOUD_IMAGE_VERSION scylla-jmx-$SCYLLA_JMX_VERSION scylla-tools-$SCYLLA_TOOLS_VERSION scylla-python3-$SCYLLA_PYTHON3_VERSION"
+SCYLLA_AMI_DESCRIPTION="scylla-$SCYLLA_VERSION scylla-machine-image-$SCYLLA_MACHINE_IMAGE_VERSION scylla-jmx-$SCYLLA_JMX_VERSION scylla-tools-$SCYLLA_TOOLS_VERSION scylla-python3-$SCYLLA_PYTHON3_VERSION"
 
 if [ ! -f variables.json ]; then
     echo "create variables.json before start building AMI"
@@ -136,4 +134,4 @@ mkdir -p build
 export PACKER_LOG=1
 export PACKER_LOG_PATH=build/ami.log
 
-/usr/bin/packer build -var-file=variables.json -var install_args="$INSTALL_ARGS" -var region="$REGION" -var source_ami="$AMI" -var ssh_username="$SSH_USERNAME" -var scylla_version="$SCYLLA_VERSION" -var scylla_cloud_image_version="$SCYLLA_CLOUD_IMAGE_VERSION" -var scylla_jmx_version="$SCYLLA_JMX_VERSION" -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" -var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}" scylla.json
+/usr/bin/packer build -var-file=variables.json -var install_args="$INSTALL_ARGS" -var region="$REGION" -var source_ami="$AMI" -var ssh_username="$SSH_USERNAME" -var scylla_version="$SCYLLA_VERSION" -var scylla_machine_image_version="$SCYLLA_MACHINE_IMAGE_VERSION" -var scylla_jmx_version="$SCYLLA_JMX_VERSION" -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" -var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}" scylla.json
