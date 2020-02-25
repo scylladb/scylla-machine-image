@@ -61,6 +61,8 @@ fi
 pkg_install rpm-build
 pkg_install git
 pkg_install python3
+pkg_install python3-devel
+pkg_install python3-pip
 
 if [[ ! -f /usr/bin/pystache ]]; then
     pkg_install epel-release
@@ -70,7 +72,7 @@ fi
 
 echo "Running unit tests"
 cd tests/aws
-pip3 install pyyaml==5.3
+sudo pip3 install pyyaml==5.3
 python3 -m unittest test_scylla_configure.py
 cd -
 
