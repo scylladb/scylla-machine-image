@@ -82,8 +82,9 @@ VERSION=$(./SCYLLA-VERSION-GEN)
 SCYLLA_VERSION=$(cat build/SCYLLA-VERSION-FILE)
 SCYLLA_RELEASE=$(cat build/SCYLLA-RELEASE-FILE)
 
+
 RPMBUILD=$(readlink -f build/)
-mkdir -pv ${RPMBUILD}/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
+mkdir -pv ${RPMBUILD}/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS,CLOUDFORMATION}
 
 git archive --format=tar --prefix=$PACKAGE_NAME-$SCYLLA_VERSION/ HEAD -o $RPMBUILD/SOURCES/$PACKAGE_NAME-$VERSION.tar
 pystache dist/redhat/$PACKAGE_NAME.spec.mustache "{ \"version\": \"$SCYLLA_VERSION\", \"release\":
@@ -94,3 +95,5 @@ if [[ "$TARGET" = "centos7" ]]; then
 else
     rpmbuild -ba --define "_topdir $RPMBUILD" $RPM_JOBS_OPTS $RPMBUILD/SPECS/$PACKAGE_NAME.spec
 fi
+
+cp ${RPMBUILD}/../aws/cloudformation/scylla.yaml $RPMBUILD/CLOUDFORMATION/scylla_cluster_${SCYLLA_VERSION}_${SCYLLA_RELEASE}.yaml
