@@ -2,7 +2,7 @@
 Description=Scylla Cloud Image Setup service
 Before=scylla-server.service
 After=network.target
-ConditionPathExists=!/etc/scylla/cloud_image_configured
+ConditionPathExists=!/etc/scylla/machine_image_configured
 
 [Service]
 Type=oneshot
