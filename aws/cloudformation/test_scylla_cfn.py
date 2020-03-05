@@ -27,6 +27,9 @@ def run_on_node(node_ip, cmd):
 def cfn_scylla_cluster(request):
     region = request.config.getoption("--region")
     client = boto3.client("cloudformation", region_name=region)
+    ec2 = boto3.client('ec2', region_name=region)
+    availability_zone = ec2.describe_availability_zones()['AvailabilityZones'][0]['ZoneName']
+
     if request.config.getoption("--stack-name"):
         name = request.config.getoption("--stack-name")
     else:
@@ -40,7 +43,7 @@ def cfn_scylla_cluster(request):
             Parameters=[
                 {"ParameterKey": "KeyName", "ParameterValue": "scylla-qa-ec2"},
                 {"ParameterKey": "InstanceType", "ParameterValue": "i3.large"},
-                {"ParameterKey": "AvailabilityZone", "ParameterValue": "us-east-1a"},
+                {"ParameterKey": "AvailabilityZone", "ParameterValue": availability_zone},
                 {"ParameterKey": "ClusterName", "ParameterValue": name},
                 {"ParameterKey": "InstanceCount", "ParameterValue": "3"},
                 {
