@@ -36,5 +36,5 @@ if __name__ == '__main__':
         run('/opt/scylladb/scripts/scylla_coredump_setup --dump-to-raiddir')
     else:
         run('/opt/scylladb/scripts/scylla_coredump_setup')
-    pathlib.Path('/etc/scylla/cloud_image_configured').touch()
+    pathlib.Path('/etc/scylla/machine_image_configured').touch()
                                                                                                                         

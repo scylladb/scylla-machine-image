@@ -111,7 +111,7 @@ if __name__ == '__main__':
         colorprint(MSG_UNSUPPORTED_INSTANCE_TYPE, type=aws.instance_class())
     else:
         skip_scylla_server = False
-        if not os.path.exists('/etc/scylla/cloud_image_configured'):
+        if not os.path.exists('/etc/scylla/machine_image_configured'):
             setup = systemd_unit('scylla-ami-setup.service')
             res = setup.is_active()
             if res == 'activating':
