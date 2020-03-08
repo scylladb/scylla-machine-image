@@ -91,9 +91,9 @@ pystache dist/redhat/$PACKAGE_NAME.spec.mustache "{ \"version\": \"$SCYLLA_VERSI
 \"$SCYLLA_RELEASE\", \"package_name\": \"$PACKAGE_NAME\", \"cloud_provider\": \"$CLOUD_PROVIDER\",
 \"scylla\": true }" > $RPMBUILD/SPECS/$PACKAGE_NAME.spec
 if [[ "$TARGET" = "centos7" ]]; then
-    rpmbuild -ba --define "_topdir $RPMBUILD" --define "dist .el7" $RPM_JOBS_OPTS $RPMBUILD/SPECS/$PACKAGE_NAME.spec
+    rpmbuild -ba --define '_binary_payload w2.xzdio' --define "_topdir $RPMBUILD" --define "dist .el7" $RPM_JOBS_OPTS $RPMBUILD/SPECS/$PACKAGE_NAME.spec
 else
-    rpmbuild -ba --define "_topdir $RPMBUILD" $RPM_JOBS_OPTS $RPMBUILD/SPECS/$PACKAGE_NAME.spec
+    rpmbuild -ba --define '_binary_payload w2.xzdio' --define "_topdir $RPMBUILD" $RPM_JOBS_OPTS $RPMBUILD/SPECS/$PACKAGE_NAME.spec
 fi
 
 cp ${RPMBUILD}/../aws/cloudformation/scylla.yaml $RPMBUILD/CLOUDFORMATION/scylla_cluster_${SCYLLA_VERSION}_${SCYLLA_RELEASE}.yaml
