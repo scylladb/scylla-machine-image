@@ -1,7 +1,8 @@
 #!/bin/bash -e
 # Author: Takuya ASADA <syuu@scylladb.com>, Bentsi Magidovich <bentsi@scylladb.com>
 
-PACKAGE_NAME="scylla-machine-image"
+PRODUCT="scylla-enterprise"
+PACKAGE_NAME="$PRODUCT-machine-image"
 
 . /etc/os-release
 
@@ -87,9 +88,9 @@ RPMBUILD=$(readlink -f build/)
 mkdir -pv ${RPMBUILD}/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS,CLOUDFORMATION}
 
 git archive --format=tar --prefix=$PACKAGE_NAME-$SCYLLA_VERSION/ HEAD -o $RPMBUILD/SOURCES/$PACKAGE_NAME-$VERSION.tar
-pystache dist/redhat/$PACKAGE_NAME.spec.mustache "{ \"version\": \"$SCYLLA_VERSION\", \"release\":
+pystache dist/redhat/scylla-machine-image.spec.mustache "{ \"version\": \"$SCYLLA_VERSION\", \"release\":
 \"$SCYLLA_RELEASE\", \"package_name\": \"$PACKAGE_NAME\", \"cloud_provider\": \"$CLOUD_PROVIDER\",
-\"scylla\": true }" > $RPMBUILD/SPECS/$PACKAGE_NAME.spec
+\"$PRODUCT\": true , \"product\": \"$PRODUCT\"}" > $RPMBUILD/SPECS/$PACKAGE_NAME.spec
 if [[ "$TARGET" = "centos7" ]]; then
     rpmbuild -ba --define "_topdir $RPMBUILD" --define "dist .el7" $RPM_JOBS_OPTS $RPMBUILD/SPECS/$PACKAGE_NAME.spec
 else
