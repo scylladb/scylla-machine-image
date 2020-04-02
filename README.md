@@ -70,3 +70,14 @@ Build using Docker
 ```
 docker run -it -v $PWD:/scylla-machine-image -w /scylla-machine-image  --rm centos:7.2.1511 bash -c './dist/redhat/build_rpm.sh -t centos7 -c aws'
 ```
+
+## Building docs
+
+```bash
+python3 -m .venv
+source .venv/bin/activate
+pip install sphinx sphinx-jsondomain
+make html
+```
+
+TODO: upload to gh-pages
