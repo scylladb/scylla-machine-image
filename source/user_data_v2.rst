@@ -49,6 +49,10 @@ https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-add-user-data.h
     :property experimental: To enable all experimental features add to the scylla.yaml
     :proptype experimental: boolean
     :options experimental: default='false'
+
+    :property auto_bootstrap: Enable auto bootstreap
+    :proptype experimental: boolean
+    :options experimental: default='true'
  
     :property listen_address: Defaults to ec2 instance private ip
     :proptype listen_address: string

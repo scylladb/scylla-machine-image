@@ -14,41 +14,56 @@ Responsible for configuring Scylla during first boot of the instance.
 aws/ami/build_ami.sh
 ```
 
-## Configure ScyllaDB
-When an instance is created using Scylla Machine Image we can configure it during first boot.
-We do this via user-data (AWS)
-### User data format
-The format is JSON and allows us:
-- set any `scylla.yaml` paramater
-- run a script after the configuration is done
-- control whether to start Scylla after the first boot
+## Scylla AMI user-data Format v2
 
-Defaults are:
+Scylla AMI user-data should be passed as a json object, as described below
+
+see AWS docs for how to pass user-data into ec2 instances:
+[https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-add-user-data.html](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-add-user-data.html)
+---
+### EC2 User-Data
+User Data that can pass when create EC2 instances
+
+* **Object Properties**
+    * **scylla_yaml** ([`Scylla YAML`](#scylla_yaml)) – Mapping of all fields that would pass down to scylla.yaml configuration file
+    * **scylla_startup_args** (*list*) – embedded information about the user that created the issue (NOT YET IMPLEMENTED) (*default=’[]’*)
+    * **developer_mode** ([*boolean*](https://docs.python.org/library/stdtypes.html#boolean-values)) – Enables developer mode (*default=’false’*)
+    * **post_configuration_script** ([*string*](https://docs.python.org/library/stdtypes.html#str)) – A script to run once AMI first configuration is finished, can be a string encoded in base64. (*default=’’*)
+    * **post_configuration_script_timeout** ([*int*](https://docs.python.org/library/stdtypes.html#int)) – Time in seconds to limit the post_configuration_script (*default=’600’*)
+    * **start_scylla_on_first_boot** ([*boolean*](https://docs.python.org/library/stdtypes.html#boolean-values)) – If true, scylla-server would boot at AMI boot (*default=’true’*)
+
+### <a href="scylla_yaml"></a>Scylla YAML
+All fields that would pass down to scylla.yaml configuration file
+
+see [https://docs.scylladb.com/operating-scylla/scylla-yaml/](https://docs.scylladb.com/operating-scylla/scylla-yaml/) for all the possible configuration availble
+listed here only the one get defaults scylla AMI
+
+* **Object Properties**    
+    * **cluster_name** ([*string*](https://docs.python.org/library/stdtypes.html#str)) – Name of the cluster (*default=`generated name that would work for only one node cluster`*)
+    * **experimental** ([*boolean*](https://docs.python.org/library/stdtypes.html#boolean-values)) – To enable all experimental features add to the scylla.yaml (*default=’false’*)
+    * **auto_bootstrap** ([*boolean*](https://docs.python.org/library/stdtypes.html#boolean-values)) – Enable auto bootstrap (*default=’true’*)
+    * **listen_address** ([*string*](https://docs.python.org/library/stdtypes.html#str)) – Defaults to ec2 instance private ip
+    * **broadcast_rpc_address** ([*string*](https://docs.python.org/library/stdtypes.html#str)) – Defaults to ec2 instance private ip
+    * **endpoint_snitch** ([*string*](https://docs.python.org/library/stdtypes.html#str)) – Defaults to ‘org.apache.cassandra.locator.Ec2Snitch’
+    * **rpc_address** ([*string*](https://docs.python.org/library/stdtypes.html#str)) – Defaults to ‘0.0.0.0’
+    * **seed_provider** (*mapping*) – Defaults to ec2 instance private ip
+
+### Example usage of user-data
+
+Spinning a new node connecting to “10.0.219.209” as a seed, and installing cloud-init-cfn package at first boot.
+
 ```json
 {
-    'scylla_yaml': {
-        'cluster_name': "scylladb-cluster-<LINUX time now>",
-        'experimental': false,
-        'auto_bootstrap': true,
-        'listen_address': "<a private IP of the instance>",
-        'broadcast_rpc_address': "<a private IP of the instance>",
-        'endpoint_snitch': "org.apache.cassandra.locator.Ec2Snitch",
-        'rpc_address': "0.0.0.0",
-        'seed_provider': [{'class_name': 'org.apache.cassandra.locator.SimpleSeedProvider',
-                           'parameters': [{'seeds': "<a private IP of the instance>"}]}],
-    },
-    'developer_mode': false,
-    'post_configuration_script': '',
-    'post_configuration_script_timeout': 600,
-    'start_scylla_on_first_boot': true
+     "scylla_yaml": {
+         "cluster_name": "test-cluster",
+         "experimental": true,
+         "seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider",
+                            "parameters": [{"seeds": "10.0.219.209"}]}],
+     },
+     "post_configuration_script": "#! /bin/bash\nyum install cloud-init-cfn",
+     "start_scylla_on_first_boot": true
 }
 ```
-
-- `scylla_yaml` - same params that are supported in `scylla.yaml` but in JSON format
-- `developer_mode` - will set Scylla in developer mode
-- `post_configuration_script` -  base64 encoded bash script that will be executed after the configuraiton is done
-- `post_configuration_script_timeout` - maximum run time for the `post_configuration_script` in seconds
-- `start_scylla_on_first_boot` - whether to start Scylla after the configuration is finished
 
 ## Creating a Scylla cluster using the Machine Image
 ### AWS - CloudFormation
@@ -76,8 +91,8 @@ docker run -it -v $PWD:/scylla-machine-image -w /scylla-machine-image  --rm cent
 ```bash
 python3 -m .venv
 source .venv/bin/activate
-pip install sphinx sphinx-jsondomain
+pip install sphinx sphinx-jsondomain sphinx-markdown-builder
 make html
+make markdown
 ```
 
-TODO: upload to gh-pages
