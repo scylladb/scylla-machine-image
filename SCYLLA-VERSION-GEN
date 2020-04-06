@@ -1,6 +1,6 @@
 #!/bin/sh
 
-VERSION=4.0.rc0
+VERSION=4.0.rc1
 
 if test -f version
 then
