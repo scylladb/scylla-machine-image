@@ -19,7 +19,7 @@ class ScyllaAmiConfigurator:
         'scylla_yaml': {
             'cluster_name': "scylladb-cluster-%s" % int(time.time()),
             'experimental': False,
-            'auto_bootstrap': False,
+            'auto_bootstrap': True,
             'listen_address': "",  # will be configured as a private IP when instance meta data is read
             'broadcast_rpc_address': "",  # will be configured as a private IP when instance meta data is read
             'endpoint_snitch': "org.apache.cassandra.locator.Ec2Snitch",
