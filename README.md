@@ -29,7 +29,7 @@ Defaults are:
     'scylla_yaml': {
         'cluster_name': "scylladb-cluster-<LINUX time now>",
         'experimental': false,
-        'auto_bootstrap': false,
+        'auto_bootstrap': true,
         'listen_address': "<a private IP of the instance>",
         'broadcast_rpc_address': "<a private IP of the instance>",
         'endpoint_snitch': "org.apache.cassandra.locator.Ec2Snitch",
