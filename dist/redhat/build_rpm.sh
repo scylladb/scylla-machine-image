@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-PACKAGE_NAME="scylla-machine-image"
-
 . /etc/os-release
 
 TARGET=
@@ -88,13 +86,15 @@ echo "Building in $PWD..."
 VERSION=$(./SCYLLA-VERSION-GEN)
 SCYLLA_VERSION=$(cat build/SCYLLA-VERSION-FILE)
 SCYLLA_RELEASE=$(cat build/SCYLLA-RELEASE-FILE)
+PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
 
+PACKAGE_NAME="$PRODUCT-machine-image"
 
 RPMBUILD=$(readlink -f build/)
 mkdir -pv ${RPMBUILD}/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS,CLOUDFORMATION}
 
 git archive --format=tar --prefix=$PACKAGE_NAME-$SCYLLA_VERSION/ HEAD -o $RPMBUILD/SOURCES/$PACKAGE_NAME-$VERSION.tar
-cp dist/redhat/$PACKAGE_NAME.spec $RPMBUILD/SPECS/$PACKAGE_NAME.spec
+cp dist/redhat/scylla-machine-image.spec $RPMBUILD/SPECS/$PACKAGE_NAME.spec
 
 parameters=(
     -D"version $SCYLLA_VERSION"
