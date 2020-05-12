@@ -77,12 +77,6 @@ pkg_install python3
 pkg_install python3-devel
 pkg_install python3-pip
 
-if [[ ! -f /usr/bin/pystache ]]; then
-    pkg_install epel-release
-    pkg_install python-pip
-    pkg_install python2-pystache || pkg_install pystache
-fi
-
 echo "Running unit tests"
 cd tests/aws
 sudo pip3 install pyyaml==5.3
@@ -100,13 +94,20 @@ RPMBUILD=$(readlink -f build/)
 mkdir -pv ${RPMBUILD}/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS,CLOUDFORMATION}
 
 git archive --format=tar --prefix=$PACKAGE_NAME-$SCYLLA_VERSION/ HEAD -o $RPMBUILD/SOURCES/$PACKAGE_NAME-$VERSION.tar
-pystache dist/redhat/$PACKAGE_NAME.spec.mustache "{ \"version\": \"$SCYLLA_VERSION\", \"release\":
-\"$SCYLLA_RELEASE\", \"package_name\": \"$PACKAGE_NAME\", \"cloud_provider\": \"$CLOUD_PROVIDER\",
-\"scylla\": true }" > $RPMBUILD/SPECS/$PACKAGE_NAME.spec
+cp dist/redhat/$PACKAGE_NAME.spec $RPMBUILD/SPECS/$PACKAGE_NAME.spec
+
+parameters=(
+    -D"version $SCYLLA_VERSION"
+    -D"release $SCYLLA_RELEASE"
+    -D"package_name $PACKAGE_NAME"
+    -D"cloud_provider $CLOUD_PROVIDER"
+    -D"scylla true"
+)
+
 if [[ "$TARGET" = "centos7" ]]; then
-    rpmbuild -ba --define '_binary_payload w2.xzdio' --define "_topdir $RPMBUILD" --define "dist .el7" $RPM_JOBS_OPTS $RPMBUILD/SPECS/$PACKAGE_NAME.spec
+    rpmbuild "${parameters[@]}" -ba --define '_binary_payload w2.xzdio' --define "_topdir $RPMBUILD" --define "dist .el7" $RPM_JOBS_OPTS $RPMBUILD/SPECS/$PACKAGE_NAME.spec
 else
-    rpmbuild -ba --define '_binary_payload w2.xzdio' --define "_topdir $RPMBUILD" $RPM_JOBS_OPTS $RPMBUILD/SPECS/$PACKAGE_NAME.spec
+    rpmbuild "${parameters[@]}" -ba --define '_binary_payload w2.xzdio' --define "_topdir $RPMBUILD" $RPM_JOBS_OPTS $RPMBUILD/SPECS/$PACKAGE_NAME.spec
 fi
 
 cp ${RPMBUILD}/../aws/cloudformation/scylla.yaml $RPMBUILD/CLOUDFORMATION/scylla_cluster_${SCYLLA_VERSION}_${SCYLLA_RELEASE}.yaml

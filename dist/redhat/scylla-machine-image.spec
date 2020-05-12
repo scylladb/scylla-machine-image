@@ -1,13 +1,13 @@
-Name:           {{package_name}}
-Version:        {{version}}
-Release:        {{release}}
+Name:           %{package_name}
+Version:        %{version}
+Release:        %{release}
 Summary:        Scylla Machine Image
 Group:          Applications/Databases
 
 License:        ASL 2.0
 URL:            http://www.scylladb.com/
-Source0:        %{name}-{{version}}-{{release}}.tar
-Requires:       scylla = {{version}} scylla-python3 curl
+Source0:        %{name}-%{version}-%{release}.tar
+Requires:       scylla = %{version} scylla-python3 curl
 
 BuildArch:      noarch
 
@@ -28,21 +28,21 @@ BuildArch:      noarch
 rm -rf $RPM_BUILD_ROOT
 
 install -d m755 $RPM_BUILD_ROOT%{_unitdir}
-install -m644 {{cloud_provider}}/scylla-image-setup.service $RPM_BUILD_ROOT%{_unitdir}/
+install -m644 %{cloud_provider}/scylla-image-setup.service $RPM_BUILD_ROOT%{_unitdir}/
 install -d -m755 $RPM_BUILD_ROOT/opt/scylladb
-install -d -m755 $RPM_BUILD_ROOT/opt/scylladb/{{package_name}}
-install -d -m755 $RPM_BUILD_ROOT/opt/scylladb/{{package_name}}/lib
-install -m644 lib/log.py $RPM_BUILD_ROOT/opt/scylladb/{{package_name}}/lib
-install -m755 {{cloud_provider}}/scylla_configure.py {{cloud_provider}}/scylla_create_devices \
-$RPM_BUILD_ROOT/opt/scylladb/{{package_name}}/
+install -d -m755 $RPM_BUILD_ROOT/opt/scylladb/%{package_name}
+install -d -m755 $RPM_BUILD_ROOT/opt/scylladb/%{package_name}/lib
+install -m644 lib/log.py $RPM_BUILD_ROOT/opt/scylladb/%{package_name}/lib
+install -m755 %{cloud_provider}/scylla_configure.py %{cloud_provider}/scylla_create_devices \
+$RPM_BUILD_ROOT/opt/scylladb/%{package_name}/
 ./tools/relocate_python_scripts.py \
-    --installroot $RPM_BUILD_ROOT/opt/scylladb/{{package_name}}/ \
+    --installroot $RPM_BUILD_ROOT/opt/scylladb/%{package_name}/ \
     --with-python3 ${RPM_BUILD_ROOT}/opt/scylladb/python3/bin/python3 \
-    {{cloud_provider}}/scylla_image_setup {{cloud_provider}}/scylla_login {{cloud_provider}}/scylla_configure.py \
-    {{cloud_provider}}/scylla_create_devices
+    %{cloud_provider}/scylla_image_setup %{cloud_provider}/scylla_login %{cloud_provider}/scylla_configure.py \
+    %{cloud_provider}/scylla_create_devices
 install -d -m755 $RPM_BUILD_ROOT/home
 install -d -m755 $RPM_BUILD_ROOT/home/centos
-install -m755 {{cloud_provider}}/.bash_profile $RPM_BUILD_ROOT/home/centos
+install -m755 %{cloud_provider}/.bash_profile $RPM_BUILD_ROOT/home/centos
 
 %pre
 /usr/sbin/groupadd scylla 2> /dev/null || :
@@ -67,7 +67,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %config /home/centos/.bash_profile
 %{_unitdir}/scylla-image-setup.service
-/opt/scylladb/{{package_name}}/*
+/opt/scylladb/%{package_name}/*
 
 %changelog
 * Wed Nov 20 2019 Bentsi Magidovich <bentsi@scylladb.com>
