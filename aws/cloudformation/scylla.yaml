@@ -36,6 +36,7 @@ Parameters:
       - i3.4xlarge
       - i3.8xlarge
       - i3.16xlarge
+      - i3.metal
       - i3en.large
       - i3en.xlarge
       - i3en.2xlarge
@@ -151,6 +152,7 @@ Resources:
             - '"}]}]'
             - !Sub ', "cluster_name": "${ClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
+            - '"start_scylla_on_first_boot": true, '
             - '"post_configuration_script" : "'
             - !Base64
               'Fn::Join':
@@ -224,6 +226,7 @@ Resources:
             - '"}]}]'
             - !Sub ', "cluster_name": "${ClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
+            - '"start_scylla_on_first_boot": true, '
             - '"post_configuration_script" : "'
             - !Base64
               'Fn::Join':
@@ -297,6 +300,7 @@ Resources:
             - '"}]}]'
             - !Sub ', "cluster_name": "${ClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
+            - '"start_scylla_on_first_boot": true, '
             - '"post_configuration_script" : "'
             - !Base64
               'Fn::Join':
@@ -370,6 +374,7 @@ Resources:
             - '"}]}]'
             - !Sub ', "cluster_name": "${ClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
+            - '"start_scylla_on_first_boot": true, '
             - '"post_configuration_script" : "'
             - !Base64
               'Fn::Join':
@@ -443,6 +448,7 @@ Resources:
             - '"}]}]'
             - !Sub ', "cluster_name": "${ClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
+            - '"start_scylla_on_first_boot": true, '
             - '"post_configuration_script" : "'
             - !Base64
               'Fn::Join':
@@ -516,6 +522,7 @@ Resources:
             - '"}]}]'
             - !Sub ', "cluster_name": "${ClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
+            - '"start_scylla_on_first_boot": true, '
             - '"post_configuration_script" : "'
             - !Base64
               'Fn::Join':
@@ -589,6 +596,7 @@ Resources:
             - '"}]}]'
             - !Sub ', "cluster_name": "${ClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
+            - '"start_scylla_on_first_boot": true, '
             - '"post_configuration_script" : "'
             - !Base64
               'Fn::Join':
@@ -662,6 +670,7 @@ Resources:
             - '"}]}]'
             - !Sub ', "cluster_name": "${ClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
+            - '"start_scylla_on_first_boot": true, '
             - '"post_configuration_script" : "'
             - !Base64
               'Fn::Join':
@@ -735,6 +744,7 @@ Resources:
             - '"}]}]'
             - !Sub ', "cluster_name": "${ClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
+            - '"start_scylla_on_first_boot": true, '
             - '"post_configuration_script" : "'
             - !Base64
               'Fn::Join':
@@ -808,6 +818,7 @@ Resources:
             - '"}]}]'
             - !Sub ', "cluster_name": "${ClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
+            - '"start_scylla_on_first_boot": true, '
             - '"post_configuration_script" : "'
             - !Base64
               'Fn::Join':
