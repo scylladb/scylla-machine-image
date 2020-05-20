@@ -1,0 +1,21 @@
+language: python
+
+python:
+- '3.6'
+
+services:
+  - docker
+
+install: 
+ - pip install pyyaml==5.3
+
+jobs:
+  include:
+    - stage: unittest
+      script: 
+       - cd $TRAVIS_BUILD_DIR/tests/aws && python -m unittest test_scylla_configure.py
+
+    - stage: building RPM
+      script:
+       - cd $TRAVIS_BUILD_DIR && docker run -it -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm centos:7.2.1511 bash -c './dist/redhat/build_rpm.sh -t centos7 -c aws'
+
