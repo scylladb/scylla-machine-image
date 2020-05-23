@@ -51,3 +51,12 @@ html_theme = 'sphinx_scylladb_theme'
 #html_static_path = ['_static']
 
 master_doc = 'index'
+
+
+html_theme_options = {
+    'header_links': [
+    ('Scylla Cloud', 'https://docs.scylladb.com/scylla-cloud/'),
+    ('Scylla University', 'https://university.scylladb.com/'),
+    ('ScyllaDB Home', 'https://www.scylladb.com/')],
+    'github_issues_repository': 'scylladb/scylla-doc-issues'
+}
