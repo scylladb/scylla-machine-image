@@ -17,5 +17,5 @@ jobs:
 
     - stage: building RPM
       script:
-       - cd $TRAVIS_BUILD_DIR && docker run -it -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm centos:7.2.1511 bash -c './dist/redhat/build_rpm.sh -t centos7 -c aws'
+       - cd $TRAVIS_BUILD_DIR && docker run -it -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm docker.io/scylladb/scylla-toolchain:fedora-31-20200402 bash -c './dist/redhat/build_rpm.sh -t centos7 -c aws'
 
