@@ -7,7 +7,7 @@ Group:          Applications/Databases
 License:        ASL 2.0
 URL:            http://www.scylladb.com/
 Source0:        %{name}-%{version}-%{release}.tar
-Requires:       scylla = %{version} scylla-python3 curl
+Requires:       %{product} = %{version} %{product}-python3 curl
 
 BuildArch:      noarch
 
