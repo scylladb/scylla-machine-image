@@ -97,6 +97,7 @@ git archive --format=tar --prefix=$PACKAGE_NAME-$SCYLLA_VERSION/ HEAD -o $RPMBUI
 cp dist/redhat/scylla-machine-image.spec $RPMBUILD/SPECS/$PACKAGE_NAME.spec
 
 parameters=(
+    -D"product $PRODUCT"
     -D"version $SCYLLA_VERSION"
     -D"release $SCYLLA_RELEASE"
     -D"package_name $PACKAGE_NAME"
