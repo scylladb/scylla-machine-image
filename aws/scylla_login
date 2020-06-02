@@ -51,7 +51,7 @@ MSG_SETUP_ACTIVATING = '''
     {green}Constructing RAID volume...{nocolor}
 
 Please wait for setup. To see status, run 
- 'systemctl status scylla-ami-setup'
+ 'systemctl status scylla-image-setup'
 
 After setup finished, scylla-server service will launch.
 To see status of scylla-server, run 
@@ -62,7 +62,7 @@ MSG_SETUP_FAILED = '''
     {red}AMI initial configuration failed!{nocolor}
 
 To see status, run 
- 'systemctl status scylla-ami-setup'
+ 'systemctl status scylla-image-setup'
 
 '''[1:-1]
 MSG_SCYLLA_ACTIVATING = '''
@@ -108,7 +108,7 @@ if __name__ == '__main__':
     else:
         skip_scylla_server = False
         if not os.path.exists('/etc/scylla/machine_image_configured'):
-            setup = systemd_unit('scylla-ami-setup.service')
+            setup = systemd_unit('scylla-image-setup.service')
             res = setup.is_active()
             if res == 'activating':
                 colorprint(MSG_SETUP_ACTIVATING)
