@@ -41,6 +41,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Construct AMI')
     parser.add_argument('--localrpm', action='store_true', default=False,
                         help='deploy locally built rpms')
+    parser.add_argument('--product',
+                        help='name of the product', default='scylla')
     parser.add_argument('--repo',
                         help='repository for both install and update, specify .repo/.list file URL')
     parser.add_argument('--repo-for-install',
@@ -66,7 +68,7 @@ if __name__ == '__main__':
         rpms = glob.glob('/home/centos/scylla*.*.rpm')
         run('yum install -y {}'.format(' '.join(rpms)))
     else:
-        run('yum install -y scylla-machine-image scylla-debuginfo')
+        run('yum install -y {0}-machine-image {0}-debuginfo'.format(args.product))
 
     if args.repo_for_install:
         os.remove('/etc/yum.repos.d/scylla_install.repo')
