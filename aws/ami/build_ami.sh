@@ -53,6 +53,7 @@ while [ $# -gt 0 ]; do
             ;;
         "--product")
             PRODUCT=$2
+            INSTALL_ARGS="$INSTALL_ARGS --product $2"
             shift 2
             ;;
         "--download-no-server")
