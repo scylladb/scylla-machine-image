@@ -89,7 +89,7 @@ docker run -it -v $PWD:/scylla-machine-image -w /scylla-machine-image  --rm cent
 ## Building docs
 
 ```bash
-python3 -m .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install sphinx sphinx-jsondomain sphinx-markdown-builder
 make html

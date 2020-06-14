@@ -123,7 +123,7 @@ else
     yumdownloader $PRODUCT $PRODUCT-kernel-conf $PRODUCT-conf $PRODUCT-server $PRODUCT-debuginfo $PRODUCT-machine-image $PRODUCT-jmx $PRODUCT-tools-core $PRODUCT-tools $PRODUCT-python3
     sudo rm -f $TMPREPO
 
-    check_rpm_exists build/ami_packages
+    check_rpm_exists $DIR/build/ami_packages
 
     SCYLLA_VERSION=$(get_version_from_rpm build/ami_packages/$PRODUCT-server*.x86_64.rpm)
     SCYLLA_MACHINE_IMAGE_VERSION=$(get_version_from_rpm build/ami_packages/$PRODUCT-machine-image*.noarch.rpm)
