@@ -82,8 +82,7 @@ def config_array(disks, role, mdidx):
     subprocess.run([raid_script, "--raiddev",
                     raid_device % mdidx, "--disks", ",".join(disk_devs),
                     "--root", scylla_root,
-                    "--volume-role", role,
-                    "--update-fstab"], check=True)
+                    "--volume-role", role], check=True)
 
 
 def xenify(devname):
