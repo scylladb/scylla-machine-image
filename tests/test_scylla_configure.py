@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import random
 import sys
 import base64
 import json
@@ -20,74 +20,35 @@ import shutil
 import tempfile
 import yaml
 import logging
-import threading
 from textwrap import dedent
 from unittest import TestCase
 from pathlib import Path
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from socketserver import ThreadingMixIn
 
-sys.path.append('../..')
+sys.path.append('..')
 
 from lib.log import setup_logging
-from aws.scylla_configure import ScyllaAmiConfigurator
+from common.scylla_configure import ScyllaMachineImageConfigurator
 
 LOGGER = logging.getLogger(__name__)
 
 
-class ThreadingSimpleServer(ThreadingMixIn, HTTPServer):
-    """Thread per request HTTP server."""
+SNITCHS = ["GoogleCloudSnitch", "Ec2Snitch"]
 
 
-class BaseHandler(BaseHTTPRequestHandler):
-    """HTTP handler that gives metrics from ``core.REGISTRY``."""
+class DummyCloudInstance:
+
+    ENDPOINT_SNITCH = random.choice(SNITCHS)
+
+    def __init__(self, user_data, private_ipv4):
+        self._user_data = user_data
+        self.private_ip_v4 = private_ipv4
+
+    def private_ipv4(self):
+        return self.private_ip_v4
 
     @property
-    def response(self):
-        return {"/": {"code": 200, "text": ""}}
-
-    def do_GET(self):
-        LOGGER.debug("Handling GET: %s", self.path)
-        path = self.response.get(self.path)
-        response_code = 200  # default
-        response_text = ""
-        if path:
-            response_code = self.response[self.path]["code"]
-            response_text = self.response[self.path]["text"]
-            LOGGER.info("GET response: %s", response_text)
-        self.send_response(code=response_code)
-        self.send_header('Content-type', 'text/html')
-        self.end_headers()
-        self.wfile.write(bytes(response_text, 'UTF-8'))
-
-
-def http_response_factory(resp_dict):
-    class TestHttpResponse(BaseHandler):
-        @property
-        def response(self):
-            return resp_dict
-    return TestHttpResponse
-
-
-class TestHttpServer:
-    def __init__(self, port=0, addr="localhost", handler_class=BaseHandler):
-        self.port = port
-        self.addr = addr
-        self.handler_class = handler_class
-        self.httpd = None
-        self.httpd_thread = None
-
-    def __enter__(self):
-        """Starts an HTTP server for prometheus metrics as a daemon thread"""
-        self.httpd = ThreadingSimpleServer((self.addr, self.port), self.handler_class)
-        self.http_thread = threading.Thread(target=self.httpd.serve_forever)
-        self.http_thread.daemon = True
-        self.http_thread.start()
-        return self.httpd
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.httpd.shutdown()
-        self.httpd.server_close()
+    def user_data(self):
+        return self._user_data
 
 
 class TestScyllaConfigurator(TestCase):
@@ -100,38 +61,39 @@ class TestScyllaConfigurator(TestCase):
         LOGGER.info("Test dir: %s", self.temp_dir_path)
         shutil.copyfile("tests-data/scylla.yaml", str(self.temp_dir_path / "scylla.yaml"))
         self.private_ip = "172.16.16.1"
-        self.configurator = ScyllaAmiConfigurator(scylla_yaml_path=str(self.temp_dir_path / "scylla.yaml"))
+        self.configurator = ScyllaMachineImageConfigurator(scylla_yaml_path=str(self.temp_dir_path / "scylla.yaml"))
         self.test_cluster_name = "test-cluster"
 
     def tearDown(self):
         self.temp_dir.cleanup()
 
     def default_instance_metadata(self):
-        return {"/user-data": {"code": 404, "text": ""},
-                "/meta-data/local-ipv4": {"code": 200, "text": self.private_ip}}
+        return dict(
+            user_data="",
+            private_ipv4=self.private_ip
+        )
 
     def check_yaml_files_exist(self):
         assert self.configurator.scylla_yaml_example_path.exists(), "scylla.yaml example file not created"
         assert self.configurator.scylla_yaml_path.exists(), "scylla.yaml file not created"
 
-    def run_scylla_configure(self, user_data):
-        with TestHttpServer(handler_class=http_response_factory(user_data)) as http_server:
-            self.configurator.INSTANCE_METADATA_URL = "http://localhost:%d" % http_server.server_port
-            self.configurator.configure_scylla_yaml()
+    def run_scylla_configure(self, user_data, private_ipv4):
+        self.configurator._cloud_instance = DummyCloudInstance(user_data=user_data, private_ipv4=private_ipv4)
+        self.configurator.configure_scylla_yaml()
 
     def test_empty_user_data(self):
-        self.run_scylla_configure(user_data=self.default_instance_metadata())
+        self.run_scylla_configure(**self.default_instance_metadata())
         self.check_yaml_files_exist()
         assert not self.configurator.DISABLE_START_FILE_PATH.exists(), "ami_disabled not created"
         with self.configurator.scylla_yaml_path.open() as scylla_yaml_file:
-            LOGGER.info("Testing that defaults are set as expected")
-            scyll_yaml = yaml.load(scylla_yaml_file, Loader=yaml.SafeLoader)
-            assert scyll_yaml["listen_address"] == self.private_ip
-            assert scyll_yaml["broadcast_rpc_address"] == self.private_ip
-            assert scyll_yaml["endpoint_snitch"] == "org.apache.cassandra.locator.Ec2Snitch"
-            assert scyll_yaml["rpc_address"] == "0.0.0.0"
-            assert scyll_yaml["seed_provider"][0]['parameters'][0]['seeds'] == self.private_ip
-            assert "scylladb-cluster-" in scyll_yaml["cluster_name"], "Cluster name was not autogenerated"
+            LOGGER.info("Checking that defaults are set as expected...")
+            scylla_yaml = yaml.load(scylla_yaml_file, Loader=yaml.SafeLoader)
+            assert scylla_yaml["listen_address"] == self.private_ip
+            assert scylla_yaml["broadcast_rpc_address"] == self.private_ip
+            self.assertIn(scylla_yaml["endpoint_snitch"], self.configurator.cloud_instance.ENDPOINT_SNITCH)
+            assert scylla_yaml["rpc_address"] == "0.0.0.0"
+            assert scylla_yaml["seed_provider"][0]['parameters'][0]['seeds'] == self.private_ip
+            assert "scylladb-cluster-" in scylla_yaml["cluster_name"], "Cluster name was not autogenerated"
 
     def test_user_data_params_are_set(self):
         ip_to_set = "172.16.16.84"
@@ -147,8 +109,7 @@ class TestScyllaConfigurator(TestCase):
                 )
             )
         )
-        self.run_scylla_configure(user_data={"/user-data": {"code": 200, "text": raw_user_data},
-                                             "/meta-data/local-ipv4": {"code": 200, "text": self.private_ip}})
+        self.run_scylla_configure(user_data=raw_user_data, private_ipv4=ip_to_set)
         self.check_yaml_files_exist()
         with self.configurator.scylla_yaml_path.open() as scylla_yaml_file:
             scylla_yaml = yaml.load(scylla_yaml_file, Loader=yaml.SafeLoader)
@@ -170,8 +131,7 @@ class TestScyllaConfigurator(TestCase):
                 post_configuration_script=base64.b64encode(bytes(script, "utf-8")).decode("utf-8")
             )
         )
-        self.run_scylla_configure(user_data={"/user-data": {"code": 200, "text": raw_user_data},
-                                             "/meta-data/local-ipv4": {"code": 200, "text": self.private_ip}})
+        self.run_scylla_configure(user_data=raw_user_data, private_ipv4=self.private_ip)
         self.configurator.run_post_configuration_script()
         assert (self.temp_dir_path / test_file).exists(), "Post configuration script didn't run"
 
@@ -189,8 +149,7 @@ class TestScyllaConfigurator(TestCase):
             )
         )
 
-        self.run_scylla_configure(user_data={"/user-data": {"code": 200, "text": raw_user_data},
-                                             "/meta-data/local-ipv4": {"code": 200, "text": self.private_ip}})
+        self.run_scylla_configure(user_data=raw_user_data, private_ipv4=self.private_ip)
 
         with self.assertRaises(expected_exception=SystemExit):
             self.configurator.run_post_configuration_script()
@@ -205,8 +164,7 @@ class TestScyllaConfigurator(TestCase):
                 post_configuration_script=base64.b64encode(bytes(script, "utf-8")).decode("utf-8"),
             )
         )
-        self.run_scylla_configure(user_data={"/user-data": {"code": 200, "text": raw_user_data},
-                                             "/meta-data/local-ipv4": {"code": 200, "text": self.private_ip}})
+        self.run_scylla_configure(user_data=raw_user_data, private_ipv4=self.private_ip)
         with self.assertRaises(expected_exception=SystemExit):
             self.configurator.run_post_configuration_script()
 
@@ -217,7 +175,6 @@ class TestScyllaConfigurator(TestCase):
             )
         )
         self.configurator.DISABLE_START_FILE_PATH = self.temp_dir_path / "ami_disabled"
-        self.run_scylla_configure(user_data={"/user-data": {"code": 200, "text": raw_user_data},
-                                             "/meta-data/local-ipv4": {"code": 200, "text": self.private_ip}})
+        self.run_scylla_configure(user_data=raw_user_data, private_ipv4=self.private_ip)
         self.configurator.start_scylla_on_first_boot()
         assert self.configurator.DISABLE_START_FILE_PATH.exists(), "ami_disabled not created"

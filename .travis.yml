@@ -13,9 +13,12 @@ jobs:
   include:
     - stage: unittest
       script: 
-       - cd $TRAVIS_BUILD_DIR/tests/aws && python -m unittest test_scylla_configure.py
+       - cd $TRAVIS_BUILD_DIR/tests && python -m unittest test_scylla_configure.py
 
-    - stage: building RPM
+    - stage: Build Centos 7 RPM for AWS
       script:
        - cd $TRAVIS_BUILD_DIR && docker run -it -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm centos:7.2.1511 bash -c './dist/redhat/build_rpm.sh -t centos7 -c aws'
+    - stage: Build Centos 8 RPM for GCE
+      script:
+       - cd $TRAVIS_BUILD_DIR && docker run -it -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm centos:8 bash -c './dist/redhat/build_rpm.sh -t centos8 -c gce'
 
