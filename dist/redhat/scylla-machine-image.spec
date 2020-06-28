@@ -29,21 +29,21 @@ Obsoletes:      %{product}-ami
 rm -rf $RPM_BUILD_ROOT
 
 install -d m755 $RPM_BUILD_ROOT%{_unitdir}
-install -m644 %{cloud_provider}/scylla-image-setup.service $RPM_BUILD_ROOT%{_unitdir}/
+install -m644 common/scylla-image-setup.service $RPM_BUILD_ROOT%{_unitdir}/
 install -d -m755 $RPM_BUILD_ROOT/opt/scylladb
 install -d -m755 $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image
 install -d -m755 $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/lib
 install -m644 lib/log.py $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/lib
-install -m755 %{cloud_provider}/scylla_configure.py %{cloud_provider}/scylla_create_devices \
-$RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/
+install -m755 common/scylla_configure.py %{cloud_provider}/scylla_create_devices \
+        $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/
 ./tools/relocate_python_scripts.py \
     --installroot $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/ \
     --with-python3 ${RPM_BUILD_ROOT}/opt/scylladb/python3/bin/python3 \
-    %{cloud_provider}/scylla_image_setup %{cloud_provider}/scylla_login %{cloud_provider}/scylla_configure.py \
+    common/scylla_image_setup common/scylla_login common/scylla_configure.py \
     %{cloud_provider}/scylla_create_devices
 install -d -m755 $RPM_BUILD_ROOT/home
 install -d -m755 $RPM_BUILD_ROOT/home/centos
-install -m755 %{cloud_provider}/.bash_profile $RPM_BUILD_ROOT/home/centos
+install -m755 common/.bash_profile $RPM_BUILD_ROOT/home/centos
 
 %pre
 /usr/sbin/groupadd scylla 2> /dev/null || :
@@ -71,6 +71,8 @@ rm -rf $RPM_BUILD_ROOT
 /opt/scylladb/scylla-machine-image/*
 
 %changelog
+* Sun Jun 28 2020 Bentsi Magidovich <bentsi@scylladb.com>
+- generalize code and support GCE image
 * Wed Nov 20 2019 Bentsi Magidovich <bentsi@scylladb.com>
 - Rename package to scylla-machine-image
 * Mon Aug 20 2018 Takuya ASADA <syuu@scylladb.com>

@@ -20,7 +20,7 @@ TARGET=
 CLOUD_PROVIDER=
 
 print_usage() {
-    echo "build_rpm.sh -t [centos7|redhat] -c [aws|gce|azure]"
+    echo "build_rpm.sh -t [centos7/8|redhat] -c [aws|gce|azure]"
     echo "  -t target target distribution"
     echo "  -c cloud provider"
     exit 1
@@ -36,10 +36,14 @@ do
 done
 
 
-echo ${CLOUD_PROVIDER}
-echo ${TARGET}
 
-
+if [[ -n "${CLOUD_PROVIDER}" ]] && [[ -n "${TARGET}" ]] ; then
+  echo ${CLOUD_PROVIDER}
+  echo ${TARGET}
+else
+    echo "please provide valid target (-t) and cloud provider (-c)"
+    exit 1
+fi
 
 if [[ ! -f /etc/redhat-release ]]; then
     echo "Need Redhat like OS to build RPM"
@@ -76,7 +80,7 @@ pkg_install python3-devel
 pkg_install python3-pip
 
 echo "Running unit tests"
-cd tests/aws
+cd tests
 sudo pip3 install pyyaml==5.3
 python3 -m unittest test_scylla_configure.py
 cd -
@@ -105,10 +109,11 @@ parameters=(
     -D"scylla true"
 )
 
-if [[ "$TARGET" = "centos7" ]]; then
+if [[ "$TARGET" = "centos7" ]] || [[ "$TARGET" = "centos8" ]]; then
     rpmbuild "${parameters[@]}" -ba --define '_binary_payload w2.xzdio' --define "_topdir $RPMBUILD" --define "dist .el7" $RPM_JOBS_OPTS $RPMBUILD/SPECS/$PACKAGE_NAME.spec
 else
     rpmbuild "${parameters[@]}" -ba --define '_binary_payload w2.xzdio' --define "_topdir $RPMBUILD" $RPM_JOBS_OPTS $RPMBUILD/SPECS/$PACKAGE_NAME.spec
 fi
-
-cp ${RPMBUILD}/../aws/cloudformation/scylla.yaml $RPMBUILD/CLOUDFORMATION/scylla_cluster_${SCYLLA_VERSION}_${SCYLLA_RELEASE}.yaml
+if [[ "$CLOUD_PROVIDER" = "aws" ]]; then
+  cp ${RPMBUILD}/../aws/cloudformation/scylla.yaml $RPMBUILD/CLOUDFORMATION/scylla_cluster_${SCYLLA_VERSION}_${SCYLLA_RELEASE}.yaml
+fi

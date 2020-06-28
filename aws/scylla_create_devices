@@ -18,16 +18,10 @@ import re
 import os
 import sys
 import time
-import logging
 import subprocess
 import urllib.request
 import urllib.error
 from pathlib import Path
-from lib.log import setup_logging
-
-
-setup_logging()
-logger = logging.getLogger(__name__)
 
 
 raid_script = "/opt/scylladb/scripts/scylla_raid_setup"
@@ -50,7 +44,7 @@ def curl_instance_data(url):
             req = urllib.request.Request(url)
             return urllib.request.urlopen(req).read().decode("utf-8")
         except urllib.error.HTTPError:
-            logger.info("Failed to grab %s..." % url)
+            print("Failed to grab %s..." % url)
             time.sleep(5)
             retries += 1
             if retries >= max_retries:
@@ -72,12 +66,12 @@ def config_array(disks, role, mdidx):
         for l in mdstate:
             if find_disk(disks, l):
                 dev = re.search(r"^md\w+", l).group()
-                logger.info("Found existing RAID %s, will mount it" % dev)
+                print("Found existing RAID %s, will mount it" % dev)
                 subprocess.check_call(["mount", "-o", "noatime",
                                        "/dev/%s" % dev,
                                        scylla_directory(role)])
                 return
-    logger.info("RAID Array containing %s not found. Creating..." % str(disks))
+    print("RAID Array containing %s not found. Creating..." % str(disks))
     disk_devs = ['/dev/%s' % x for x in disks]
     subprocess.run([raid_script, "--raiddev",
                     raid_device % mdidx, "--disks", ",".join(disk_devs),
