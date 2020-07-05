@@ -10,6 +10,7 @@ Source0:        %{name}-{{version}}-{{release}}.tar
 Requires:       scylla = {{version}} scylla-python3 curl
 
 BuildArch:      noarch
+Obsoletes:      scylla-ami
 
 %global _python_bytecompile_errors_terminate_build 0
 %global __brp_python_bytecompile %{nil}
