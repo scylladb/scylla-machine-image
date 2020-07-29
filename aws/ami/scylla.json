@@ -45,7 +45,7 @@
         {
           "delete_on_termination": true,
           "device_name": "/dev/xvda",
-          "volume_size": 10
+          "volume_size": 30
         }
       ],
       "region": "{{user `region`}}",
