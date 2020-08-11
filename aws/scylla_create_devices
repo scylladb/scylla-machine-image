@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import argparse
 import re
 import os
 import sys
@@ -26,8 +27,7 @@ from pathlib import Path
 
 raid_script = "/opt/scylladb/scripts/scylla_raid_setup"
 raid_device = "/dev/md%d"
-scylla_root = "/var/lib/scylla"
-
+scylla_root = ""
 
 def scylla_directory(role):
     if role == "all":
@@ -183,6 +183,12 @@ def get_disk_bundles():
         config_array(typemap[t], role[t], mdidx)
         mdidx += 1
 
-
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Disk creation script for Scylla.')
+    parser.add_argument('--scylla-data-root', dest='scylla_data_root', action='store',
+                        help='location of Scylla root data directory', default="/var/lib/scylla")
+    args = parser.parse_args()
+
+    scylla_root = args.scylla_data_root
+
     get_disk_bundles()
