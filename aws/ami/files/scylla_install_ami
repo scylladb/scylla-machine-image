@@ -90,9 +90,10 @@ if __name__ == '__main__':
     run('yum -y update kernel')
     run('yum -y install dkms git grubby kernel-devel')
     run('rpm -e kernel-$(uname -r)', shell=True)
-    run('rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org')
-    run('rpm -Uvh http://www.elrepo.org/elrepo-release-7.0-3.el7.elrepo.noarch.rpm')
-    run('yum -y --enablerepo=elrepo-kernel install kernel-ml kernel-ml-devel')
+    # kernel-ml 5.8.0, 5.8.1 are known to have a performance regression with aws i3en family https://github.com/scylladb/scylla/issues/7036
+    # force installing kernel 5.7.6 that is known to be good
+    run('cp elrepo-archive.repo /etc/yum.repos.d/')
+    run('yum -y install kernel-ml-5.7.6 kernel-ml-devel-5.7.6')
     os.remove('/etc/udev/rules.d/80-net-name-slot.rules')
     with open('/etc/default/grub') as f:
         grub = f.read()
