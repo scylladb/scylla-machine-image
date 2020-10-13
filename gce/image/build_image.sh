@@ -150,4 +150,4 @@ echo "SCYLLA_JMX_VERSION: $SCYLLA_JMX_VERSION"
 echo "SCYLLA_TOOLS_VERSION: $SCYLLA_TOOLS_VERSION"
 echo "SCYLLA_PYTHON3_VERSION: $SCYLLA_PYTHON3_VERSION"
 echo "Calling Packer..."
-/usr/bin/packer build -on-error=abort -var-file=variables.json -var install_args="$INSTALL_ARGS" -var scylla_version="$SCYLLA_VERSION" -var scylla_machine_image_version="$SCYLLA_MACHINE_IMAGE_VERSION" -var scylla_jmx_version="$SCYLLA_JMX_VERSION" -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION"  scylla_gce.json
+/usr/bin/packer build -force -on-error=abort -var-file=variables.json -var install_args="$INSTALL_ARGS" -var scylla_version="$SCYLLA_VERSION" -var scylla_machine_image_version="$SCYLLA_MACHINE_IMAGE_VERSION" -var scylla_jmx_version="$SCYLLA_JMX_VERSION" -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION"  scylla_gce.json
