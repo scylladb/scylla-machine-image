@@ -122,11 +122,11 @@ else
 
     check_rpm_exists $DIR/build/scylla_packages
 
-    SCYLLA_VERSION=$(get_version_from_rpm build/scylla_packages/$PRODUCT-server*.x86_64.rpm)
-    SCYLLA_MACHINE_IMAGE_VERSION=$(get_version_from_rpm build/scylla_packages/$PRODUCT-machine-image*.noarch.rpm)
-    SCYLLA_JMX_VERSION=$(get_version_from_rpm build/scylla_packages/$PRODUCT-jmx*.noarch.rpm)
-    SCYLLA_TOOLS_VERSION=$(get_version_from_rpm build/scylla_packages/$PRODUCT-tools-*.noarch.rpm)
-    SCYLLA_PYTHON3_VERSION=$(get_version_from_rpm build/scylla_packages/$PRODUCT-python3*.x86_64.rpm)
+    SCYLLA_VERSION=$(get_version_from_rpm $DIR/build/scylla_packages/$PRODUCT-server*.x86_64.rpm)
+    SCYLLA_MACHINE_IMAGE_VERSION=$(get_version_from_rpm $DIR/build/scylla_packages/$PRODUCT-machine-image*.noarch.rpm)
+    SCYLLA_JMX_VERSION=$(get_version_from_rpm $DIR/build/scylla_packages/$PRODUCT-jmx*.noarch.rpm)
+    SCYLLA_TOOLS_VERSION=$(get_version_from_rpm $DIR/build/scylla_packages/$PRODUCT-tools-*.noarch.rpm)
+    SCYLLA_PYTHON3_VERSION=$(get_version_from_rpm $DIR/build/scylla_packages/$PRODUCT-python3*.x86_64.rpm)
 
     cd -
 fi
