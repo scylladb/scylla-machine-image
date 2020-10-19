@@ -66,11 +66,17 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-get_version_from_rpm () {
+get_version_from_local_rpm () {
     RPM=$1
     RELEASE=$(rpm -qi $RPM | awk '/Release/ { print $3 }' )
     VERSION=$(rpm -qi $RPM | awk '/Version/ { print $3 }' )
     echo "$VERSION-$RELEASE"
+}
+
+get_version_from_remote_rpm () {
+    RPM=$1
+    VERSION=$(yum provides $RPM | grep "Provide.*=" | awk '{print $5}')
+    echo "$VERSION"
 }
 
 check_rpm_exists () {
@@ -92,11 +98,11 @@ if [ $LOCALRPM -eq 1 ]; then
 
     check_rpm_exists $DIR/files
 
-    SCYLLA_VERSION=$(get_version_from_rpm $DIR/files/$PRODUCT-server*.x86_64.rpm)
-    SCYLLA_MACHINE_IMAGE_VERSION=$(get_version_from_rpm $DIR/files/$PRODUCT-machine-image*.noarch.rpm)
-    SCYLLA_JMX_VERSION=$(get_version_from_rpm $DIR/files/$PRODUCT-jmx*.noarch.rpm)
-    SCYLLA_TOOLS_VERSION=$(get_version_from_rpm $DIR/files/$PRODUCT-tools-*.noarch.rpm)
-    SCYLLA_PYTHON3_VERSION=$(get_version_from_rpm $DIR/files/$PRODUCT-python3*.x86_64.rpm)
+    SCYLLA_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-server*.x86_64.rpm)
+    SCYLLA_MACHINE_IMAGE_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-machine-image*.noarch.rpm)
+    SCYLLA_JMX_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-jmx*.noarch.rpm)
+    SCYLLA_TOOLS_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-tools-*.noarch.rpm)
+    SCYLLA_PYTHON3_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-python3*.x86_64.rpm)
 elif [ $DOWNLOAD_ONLY -eq 1 ]; then
     if [ -z "$REPO_FOR_INSTALL" ]; then
         print_usage
@@ -117,21 +123,15 @@ else
 
     TMPREPO=$(mktemp -u -p /etc/yum.repos.d/ --suffix .repo)
     sudo curl -o $TMPREPO $REPO_FOR_INSTALL
-    rm -rf build/ami_packages
-    mkdir -p build/ami_packages
-    cd build/ami_packages/
-    yumdownloader $PRODUCT $PRODUCT-kernel-conf $PRODUCT-conf $PRODUCT-server $PRODUCT-debuginfo $PRODUCT-machine-image $PRODUCT-jmx $PRODUCT-tools-core $PRODUCT-tools $PRODUCT-python3
+
+    SCYLLA_VERSION=$(get_version_from_remote_rpm $PRODUCT-server)
+    SCYLLA_MACHINE_IMAGE_VERSION=$(get_version_from_remote_rpm $PRODUCT-machine-image)
+    SCYLLA_JMX_VERSION=$(get_version_from_remote_rpm $PRODUCT-jmx)
+    SCYLLA_TOOLS_VERSION=$(get_version_from_remote_rpm $PRODUCT-tools)
+    SCYLLA_PYTHON3_VERSION=$(get_version_from_remote_rpm $PRODUCT-python3)
+
     sudo rm -f $TMPREPO
 
-    check_rpm_exists $DIR/build/ami_packages
-
-    SCYLLA_VERSION=$(get_version_from_rpm $DIR/build/ami_packages/$PRODUCT-server*.x86_64.rpm)
-    SCYLLA_MACHINE_IMAGE_VERSION=$(get_version_from_rpm $DIR/build/ami_packages/$PRODUCT-machine-image*.noarch.rpm)
-    SCYLLA_JMX_VERSION=$(get_version_from_rpm $DIR/build/ami_packages/$PRODUCT-jmx*.noarch.rpm)
-    SCYLLA_TOOLS_VERSION=$(get_version_from_rpm $DIR/build/ami_packages/$PRODUCT-tools-*.noarch.rpm)
-    SCYLLA_PYTHON3_VERSION=$(get_version_from_rpm $DIR/build/ami_packages/$PRODUCT-python3*.x86_64.rpm)
-
-    cd -
 fi
 
 SCYLLA_AMI_DESCRIPTION="scylla-$SCYLLA_VERSION scylla-machine-image-$SCYLLA_MACHINE_IMAGE_VERSION scylla-jmx-$SCYLLA_JMX_VERSION scylla-tools-$SCYLLA_TOOLS_VERSION scylla-python3-$SCYLLA_PYTHON3_VERSION"
