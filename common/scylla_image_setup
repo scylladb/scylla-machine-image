@@ -25,6 +25,7 @@ if __name__ == '__main__':
     run('/opt/scylladb/scylla-machine-image/scylla_configure.py')
     run('/opt/scylladb/scylla-machine-image/scylla_create_devices')
     run('/opt/scylladb/scripts/scylla_sysconfig_setup --nic eth0 --setup-nic --ami')
+    run('/opt/scylladb/scripts/scylla_bootparam_setup --ami')
     if cloud_instance.is_supported_instance_class():
         cloud_instance.io_setup()
     if os.path.ismount('/var/lib/scylla'):
