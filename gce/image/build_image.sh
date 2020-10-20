@@ -74,7 +74,7 @@ get_version_from_local_rpm () {
 
 get_version_from_remote_rpm () {
     RPM=$1
-    VERSION=$(yum provides $RPM | grep "Provide.*=" | awk '{print $5}')
+    VERSION=$(yum provides $RPM | grep "Provide.*=" | awk '{print $5}'| tail -1)
     echo "$VERSION"
 }
 
