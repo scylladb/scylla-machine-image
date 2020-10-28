@@ -1,5 +1,0 @@
-[kernel-ml-archive]
-name=kernel-ml-archive
-baseurl=http://mirror.imt-systems.com/elrepo/archive/kernel/el7/x86_64/
-enabled=1
-gpgcheck=0
