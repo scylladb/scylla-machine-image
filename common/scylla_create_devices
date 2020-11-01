@@ -23,6 +23,11 @@ import subprocess
 import urllib.request
 import urllib.error
 from pathlib import Path
+from subprocess import run, PIPE
+
+
+sys.path.append('/opt/scylladb/scripts')
+from scylla_util import is_ec2, is_gce
 
 
 raid_script = "/opt/scylladb/scripts/scylla_raid_setup"
@@ -183,6 +188,23 @@ def get_disk_bundles():
         config_array(typemap[t], role[t], mdidx)
         mdidx += 1
 
+
+def get_nvme_devices():
+    result = run(["ls /dev/nvme0n*"], stdout=PIPE, text=True, shell=True)
+    devices = result.stdout.strip().split()
+    assert devices, "No NVMe devices found!"
+    return devices
+
+
+def create_raid(devices):
+    scylla_path = Path("/var/lib/scylla")
+    if scylla_path.is_mount():
+        print(f"{scylla_path} is already mounted. Will not run 'scylla_raid_setup'!")
+        sys.exit(0)
+    run(["/opt/scylladb/scripts/scylla_raid_setup", "--raiddev", "/dev/md0", "--disks", ",".join(devices),
+        "--root", "/var/lib/scylla", "--volume-role", "all", "--update-fstab"], check=True)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Disk creation script for Scylla.')
     parser.add_argument('--scylla-data-root', dest='scylla_data_root', action='store',
@@ -190,5 +212,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     scylla_root = args.scylla_data_root
-
-    get_disk_bundles()
+    if is_ec2():
+        get_disk_bundles()
+    elif is_gce():
+        nvme_devices = get_nvme_devices()
+        create_raid(devices=nvme_devices)
+    else:
+        raise Exception("Running in unknown cloud environment")
