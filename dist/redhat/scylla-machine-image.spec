@@ -34,13 +34,13 @@ install -d -m755 $RPM_BUILD_ROOT/opt/scylladb
 install -d -m755 $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image
 install -d -m755 $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/lib
 install -m644 lib/log.py $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/lib
-install -m755 common/scylla_configure.py %{cloud_provider}/scylla_create_devices \
+install -m755 common/scylla_configure.py common/scylla_create_devices \
         $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/
 ./tools/relocate_python_scripts.py \
     --installroot $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/ \
     --with-python3 ${RPM_BUILD_ROOT}/opt/scylladb/python3/bin/python3 \
     common/scylla_image_setup common/scylla_login common/scylla_configure.py \
-    %{cloud_provider}/scylla_create_devices
+    common/scylla_create_devices
 install -d -m755 $RPM_BUILD_ROOT/home
 install -d -m755 $RPM_BUILD_ROOT/home/centos
 install -m755 common/.bash_profile $RPM_BUILD_ROOT/home/centos
@@ -71,6 +71,8 @@ rm -rf $RPM_BUILD_ROOT
 /opt/scylladb/scylla-machine-image/*
 
 %changelog
+* Sun Nov 1 2020 Bentsi Magidovich <bentsi@scylladb.com>
+- generalize scylla_create_devices
 * Sun Jun 28 2020 Bentsi Magidovich <bentsi@scylladb.com>
 - generalize code and support GCE image
 * Wed Nov 20 2019 Bentsi Magidovich <bentsi@scylladb.com>
