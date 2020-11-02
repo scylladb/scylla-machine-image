@@ -78,7 +78,7 @@ if __name__ == '__main__':
 
     run('systemctl daemon-reload')
     run('systemctl enable scylla-image-setup.service')
-    run('/opt/scylladb/scripts/scylla_setup --no-coredump-setup --no-sysconfig-setup --no-raid-setup --no-io-setup --no-bootparam-setup --no-ec2-check')
+    run('/opt/scylladb/scripts/scylla_setup --no-coredump-setup --no-sysconfig-setup --no-raid-setup --no-io-setup --no-bootparam-setup --no-ec2-check --no-swap-setup')
     run('/opt/scylladb/scripts/scylla_sysconfig_setup --ami')
     housekeeping_uuid_path = Path('/var/lib/scylla-housekeeping/housekeeping.uuid')
     if housekeeping_uuid_path.exists():
