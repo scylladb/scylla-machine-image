@@ -15,6 +15,7 @@
 # limitations under the License.
 
 PRODUCT=scylla
+BUILD_ID=$(date -u '+%FT%H-%M-%S')
 DIR=$(dirname $(readlink -f $0))
 
 print_usage() {
@@ -26,6 +27,7 @@ print_usage() {
     echo "  --product            scylla or scylla-enterprise"
     echo "  --download-no-server download all rpms needed excluding scylla using .repo provided in --repo-for-install"
     echo "  --dry-run            validate template only (image is not built)"
+    echo "  --build-id           Set unique build ID, will be part of GCE image name"
     exit 1
 }
 LOCALRPM=0
@@ -54,6 +56,10 @@ while [ $# -gt 0 ]; do
             ;;
         "--product")
             PRODUCT=$2
+            shift 2
+            ;;
+        "--build-id")
+            BUILD_ID=$2
             shift 2
             ;;
         "--download-no-server")
@@ -132,6 +138,7 @@ else
     SCYLLA_JMX_VERSION=$(get_version_from_remote_rpm $PRODUCT-jmx)
     SCYLLA_TOOLS_VERSION=$(get_version_from_remote_rpm $PRODUCT-tools)
     SCYLLA_PYTHON3_VERSION=$(get_version_from_remote_rpm $PRODUCT-python3)
+    BRANCH_VERSION=$(cat ../../SCYLLA-VERSION-GEN | grep ^VERSION= | sed 's/VERSION=//')
 
     sudo rm -f $TMPREPO
 
@@ -155,6 +162,8 @@ echo "SCYLLA_MACHINE_IMAGE_VERSION: $SCYLLA_MACHINE_IMAGE_VERSION"
 echo "SCYLLA_JMX_VERSION: $SCYLLA_JMX_VERSION"
 echo "SCYLLA_TOOLS_VERSION: $SCYLLA_TOOLS_VERSION"
 echo "SCYLLA_PYTHON3_VERSION: $SCYLLA_PYTHON3_VERSION"
+echo "BUILD_ID: $BUILD_ID"
+echo "WORKING_BRANCH: $BRANCH_VERSION"
 echo "Calling Packer..."
 
 /usr/bin/packer ${PACKER_SUB_CMD} \
@@ -165,4 +174,6 @@ echo "Calling Packer..."
   -var scylla_jmx_version="$SCYLLA_JMX_VERSION" \
   -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" \
   -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" \
+  -var scylla_build_id="$BUILD_ID" \
+  -var scylla_branch_version="$BRANCH_VERSION" \
   scylla_gce.json
