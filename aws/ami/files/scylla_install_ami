@@ -61,7 +61,6 @@ if __name__ == '__main__':
 
     run('yum update -y')
 
-    run('curl -L -o /etc/yum.repos.d/scylla-ami-drivers.repo https://copr.fedorainfracloud.org/coprs/scylladb/scylla-ami-drivers/repo/epel-7/scylladb-scylla-ami-drivers-epel-7.repo')
     if args.repo_for_install:
         run('curl -L -o /etc/yum.repos.d/scylla_install.repo {REPO_FOR_INSTALL}'.format(REPO_FOR_INSTALL=args.repo_for_install))
 
@@ -90,12 +89,10 @@ if __name__ == '__main__':
     os.remove('{}/.ssh/authorized_keys'.format(homedir))
     os.remove('/var/lib/scylla-housekeeping/housekeeping.uuid')
 
-    run('yum -y update kernel')
-    run('yum -y install dkms git grubby kernel-devel')
-    run('rpm -e kernel-$(uname -r)', shell=True)
+    run('yum -y install grubby')
     run('rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org')
     run('rpm -Uvh http://www.elrepo.org/elrepo-release-7.0-3.el7.elrepo.noarch.rpm')
-    run('yum -y --enablerepo=elrepo-kernel install kernel-ml kernel-ml-devel')
+    run('yum -y --enablerepo=elrepo-kernel install kernel-ml')
     os.remove('/etc/udev/rules.d/80-net-name-slot.rules')
     with open('/etc/default/grub') as f:
         grub = f.read()
@@ -103,14 +100,10 @@ if __name__ == '__main__':
     with open('/etc/default/grub', 'w') as f:
         f.write(grub)
     run('grub2-mkconfig -o /boot/grub2/grub.cfg')
-    c7kver = get_kver('/boot/vmlinuz-*el7.x86_64')
     mlkver = get_kver('/boot/vmlinuz-*el7.elrepo.x86_64')
     run('grubby --grub2 --set-default /boot/vmlinuz-{mlkver}'.format(mlkver=mlkver))
     with open('/etc/yum.conf', 'a') as f:
         f.write(u'exclude=kernel kernel-devel')
-
-    run('dracut --verbose --add-drivers "ixgbevf nvme ena" --force --kver {c7kver}'.format(c7kver=c7kver))
-    run('dracut --verbose --add-drivers "ixgbevf nvme ena" --force --kver {mlkver}'.format(mlkver=mlkver))
 
     with open('/etc/cloud/cloud.cfg') as f:
         cfg = f.read()
