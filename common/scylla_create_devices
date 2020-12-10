@@ -15,183 +15,14 @@
 # limitations under the License.
 
 import argparse
+import os
 import sys
-import time
-import subprocess
-import urllib.request
-import urllib.error
 from pathlib import Path
-from subprocess import run, PIPE
+from subprocess import run
 
 
 sys.path.append('/opt/scylladb/scripts')
-from scylla_util import is_ec2, is_gce
-
-
-raid_script = "/opt/scylladb/scripts/scylla_raid_setup"
-raid_device = "/dev/md%d"
-scylla_root = ""
-
-def scylla_directory(role):
-    if role == "all":
-        return scylla_root
-    else:
-        return os.path.join(scylla_root, role)
-
-
-def curl_instance_data(url):
-    max_retries = 5
-    retries = 0
-    while True:
-        try:
-            req = urllib.request.Request(url)
-            return urllib.request.urlopen(req).read().decode("utf-8")
-        except urllib.error.HTTPError:
-            print("Failed to grab %s..." % url)
-            time.sleep(5)
-            retries += 1
-            if retries >= max_retries:
-                raise
-
-
-def find_disk(disks, line):
-    for disk in disks:
-        if line.find(disk) == -1:
-            return False
-    return True
-
-
-def config_array(disks, role, mdidx):
-    # Is it already constructed
-    disks.sort()
-    md_state_path = Path("/proc/mdstat")
-    with open(md_state_path) as mdstate:
-        for l in mdstate:
-            if find_disk(disks, l):
-                dev = re.search(r"^md\w+", l).group()
-                print("Found existing RAID %s, will mount it" % dev)
-                subprocess.check_call(["mount", "-o", "noatime",
-                                       "/dev/%s" % dev,
-                                       scylla_directory(role)])
-                return
-    print("RAID Array containing %s not found. Creating..." % str(disks))
-    disk_devs = ['/dev/%s' % x for x in disks]
-    subprocess.run([raid_script, "--raiddev",
-                    raid_device % mdidx, "--disks", ",".join(disk_devs),
-                    "--root", scylla_root,
-                    "--volume-role", role,
-                    "--update-fstab"], check=True)
-
-
-def xenify(devname):
-    dev = curl_instance_data('http://169.254.169.254/latest/meta-data/block-device-mapping/' + devname)
-    return dev.replace("sd", "xvd")
-
-
-def device_exists(dev):
-    return os.path.exists("/dev/%s" % dev)
-
-
-def device_is_busy(dev):
-    try:
-        fd = os.open(dev, os.O_RDWR | os.O_EXCL)
-        os.close(fd)
-        return False
-    except OSError:
-        return True
-
-
-# While testing this, I found the following issue at AWS:
-#
-# $ ls /dev/nvme*
-# /dev/nvme0  /dev/nvme0n1  /dev/nvme1  /dev/nvme1n1
-#
-# $ curl http://169.254.169.254/latest/meta-data/block-device-mapping/
-# ami
-# ebs2
-# ephemeral0
-# root
-#
-# As one can see, only one of the ephemeral devices were listed.
-#
-# I saw this happening only on i3 machines, if EBS were listed before
-# ephemeral during creation time. However, in that scenario, I saw it
-# happening every time I tested.
-#
-# More info at:
-# https://forums.aws.amazon.com/thread.jspa?threadID=250553
-#
-# So for nvme devices, we'll just scan the device list and see what we
-# find. Since the goal is to differentiate between ephemeral and
-# non-ephemeral anyway, and NVMe are always ephemeral, this is
-# acceptable
-def get_disk_bundles():
-    # define preferred disk roles. We'll see soon if we can respect them.
-    role = {
-        "ebs": "unused",
-        "ephemeral": "all"
-    }
-
-    # Find disk assignments
-    devmap = curl_instance_data('http://169.254.169.254/latest/meta-data/block-device-mapping/')
-    typemap = {}
-    devname = re.compile("^\D+")
-    nvme_re = re.compile(r"nvme\d+n\d+$")
-    nvmes_present = list(filter(nvme_re.match, os.listdir("/dev")))
-    nvmes_free = [nvme for nvme in nvmes_present if not device_is_busy(os.path.join('/dev/', nvme))]
-
-    if nvmes_free:
-        typemap["ephemeral"] = nvmes_free
-
-    for dev in devmap.splitlines():
-        if dev == "ami" or dev == "root":
-            continue
-
-        t = devname.match(dev).group()
-        if role[t] == "unused":
-            continue
-
-        if t == "ephemeral" and nvmes_present:
-            continue
-
-        if t not in typemap:
-            typemap[t] = []
-        if not device_exists(xenify(dev)):
-            continue
-        typemap[t] += [xenify(dev)]
-
-    # One of the desired types not found: The other type has it all
-    if "ebs" not in typemap and "ephemeral" not in typemap:
-        sys.stderr.write("No disks found\n")
-        sys.exit(0)
-    elif "ebs" not in typemap:
-        role["ephemeral"] = "all"
-    elif "ephemeral" not in typemap:
-        role["ebs"] = "all"
-
-    # Could happen even if properly invoked through ds2 if one of the
-    # types is not present, and the other is set to "unused"
-    if role["ebs"] == role["ephemeral"]:
-        err_msg = "Exception when parsing config. Both EBS and ephemeral are set to the same role (%s)"
-        raise Exception(err_msg % (role["ebs"]))
-
-    # If one type configured for all, the other for a specified role, and both present:
-    # That's valid and sane: respect that and mount one on top of the other. We just need
-    # make sure that the root is mounted first.
-    order = list(typemap.keys())
-    order.sort()
-
-    mdidx = 0
-    for t in order:
-        config_array(typemap[t], role[t], mdidx)
-        mdidx += 1
-
-
-def get_nvme_devices():
-    result = run(["ls /dev/nvme0n*"], stdout=PIPE, text=True, shell=True)
-    devices = result.stdout.strip().split()
-    assert devices, "No NVMe devices found!"
-    return devices
+from scylla_util import is_ec2, is_gce, get_cloud_instance
 
 
 def create_raid(devices):
@@ -206,14 +37,12 @@ def create_raid(devices):
 
 def get_disk_devices(instance, device_type):
     if is_ec2():
-        devices = []
         if device_type == "attached":
-            devices = [str(Path('/dev', name)) for name in instance.ebs_disks() if Path('/dev', name).exists()]
-        if not devices or device_type == "instance_store":
-            devices = [str(Path('/dev', name)) for name in instance.ephemeral_disks()]
-        if not devices:
-            raise Exception(f"No block devices were found for '{device_type}' device type")
-        return devices
+            return [os.path.join('/dev/', name) for name in instance.ebs_disks()]
+        elif device_type == "instance_store":
+            return [os.path.join('/dev/', name) for name in instance.ephemeral_disks()]
+        else:
+            raise Exception(f"Unknown devicetype {device_type}")
     elif is_gce():
         return get_default_devices(instance)
     else:
@@ -221,31 +50,26 @@ def get_disk_devices(instance, device_type):
 
 
 def get_default_devices(instance):
-    disk_names = []
     if is_ec2():
-        disk_names = instance.ephemeral_disks() or instance.ebs_disks()
+        return [os.path.join('/dev/', name) for name in instance.ephemeral_disks()]
     elif is_gce():
-        disk_names = instance.getEphemeralOsDisks()
+        return instance.getEphemeralOsDisks()
     else:
         raise Exception("Running in unknown cloud environment")
-    return [str(Path('/dev', name)) for name in disk_names]
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Disk creation script for Scylla.')
     parser.add_argument('--data-device', dest='data_device', action='store',
-                        choices=["auto", "attached", "instance_store"],
+                        choices=["attached", "instance_store"],
                         help='Define type of device to use for scylla data: attached|instance_store')
     args = parser.parse_args()
 
     instance = get_cloud_instance()
 
-    if not args.data_device or args.data_device == "auto":
+    if not args.data_device:
         disk_devices = get_default_devices(instance)
     else:
         disk_devices = get_disk_devices(instance, args.data_device)
 
-    if len(disk_devices) == 0:
-        print('No data disks found')
-    else:
-        create_raid(disk_devices)
+    create_raid(disk_devices)

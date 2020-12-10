@@ -45,16 +45,7 @@ class ScyllaMachineImageConfigurator:
         'developer_mode': False,
         'post_configuration_script': '',
         'post_configuration_script_timeout': 600,  # seconds
-        'start_scylla_on_first_boot': True,
-        'data_device': 'auto'  # Supported options:
-                               #   instance_store - find all ephemeral devices (only for AWS)
-                               #   attached - find all attached devices and use them
-                               #   auto - automatically select devices using following strategy:
-                               #       GCE: select attached NVMe.
-                               #       AWS:
-                               #           if ephemeral found - use them
-                               #           else if attached EBS found use them
-                               #           else: fail create_devices
+        'start_scylla_on_first_boot': True
     }
 
     DISABLE_START_FILE_PATH = Path("/etc/scylla/ami_disabled")
@@ -155,10 +146,11 @@ class ScyllaMachineImageConfigurator:
             self.DISABLE_START_FILE_PATH.touch()
 
     def create_devices(self):
-        device_type = self.instance_user_data.get("data_device", self.CONF_DEFAULTS['data_device'])
+        device_type = self.instance_user_data.get("data_device")
+        use_device_type = "--data-device {}".format(device_type) if device_type else ""
+
         try:
-            LOGGER.info(f"Create scylla data devices as {device_type}")
-            subprocess.run(f"/opt/scylladb/scylla-machine-image/scylla_create_devices --data-device {device_type}", shell=True, check=True)
+            subprocess.run("/opt/scylladb/scylla-machine-image/scylla_create_devices {}".format(use_device_type), shell=True, check=True)
         except Exception as e:
             LOGGER.error("Failed to create devices: %s", e)
 
@@ -168,6 +160,7 @@ class ScyllaMachineImageConfigurator:
         self.set_developer_mode()
         self.run_post_configuration_script()
         self.start_scylla_on_first_boot()
+        self.create_devices()
 
 
 if __name__ == "__main__":
