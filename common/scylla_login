@@ -19,6 +19,7 @@ import os
 import sys
 sys.path.append('/opt/scylladb/scripts')
 from scylla_util import *
+from subprocess import run
 
 MSG_HEADER = '''
 
@@ -31,7 +32,8 @@ MSG_HEADER = '''
                __/ |                       
               |___/                        
 
-
+Version:
+       {scylla_version}
 Nodetool:
 	nodetool help
 CQL Shell:
@@ -44,7 +46,7 @@ By default, Scylla sends certain information about this node to a data collectio
 MSG_UNSUPPORTED_INSTANCE_TYPE = '''
     {red}{type} is not eligible for optimized automatic tuning!{nocolor}
 To continue startup ScyllaDB on this instance, run 'sudo scylla_io_setup' then 'systemctl start scylla-server'.
-For a list of optimized instance types and more EC2 instructions see http://www.scylladb.com/doc/getting-started-amazon/"
+For a list of optimized instance types and more EC2 instructions see '%s'"
 
 '''[1:-1]
 MSG_SETUP_ACTIVATING = '''
@@ -59,7 +61,7 @@ To see status of scylla-server, run
 
 '''[1:-1]
 MSG_SETUP_FAILED = '''
-    {red}AMI initial configuration failed!{nocolor}
+    {red}Initial image configuration failed!{nocolor}
 
 To see status, run 
  'systemctl status scylla-image-setup'
@@ -101,10 +103,11 @@ $ nodetool status
 '''[1:-1]
 
 if __name__ == '__main__':
-    colorprint(MSG_HEADER)
-    aws = aws_instance()
-    if not aws.is_supported_instance_class():
-        colorprint(MSG_UNSUPPORTED_INSTANCE_TYPE, type=aws.instance_class())
+    colorprint(MSG_HEADER.format(scylla_version=run("scylla --version", shell=True, check=True, capture_output=True, encoding='utf-8').stdout.strip()))
+    cloud_instance = get_cloud_instance()
+    if not cloud_instance.is_supported_instance_class():
+        colorprint(MSG_UNSUPPORTED_INSTANCE_TYPE % cloud_instance.GETTING_STARTED_URL,
+                   type=cloud_instance.instance_class())
     else:
         skip_scylla_server = False
         if not os.path.exists('/etc/scylla/machine_image_configured'):
@@ -130,8 +133,6 @@ if __name__ == '__main__':
                     colorprint(MSG_SCYLLA_UNKNOWN)
             else:
                 colorprint(MSG_SCYLLA_ACTIVE)
-                run('nodetool status', exception=False)
-        print('    ', end='')
-        res = run('/opt/scylladb/scripts/scylla_ec2_check --nic eth0', exception=False)
-        if res == 0:
-            print('')
+                run('nodetool status', shell=True)
+        cloud_instance.check()
+        print('\n', end='')

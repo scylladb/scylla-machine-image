@@ -19,17 +19,18 @@ import sys
 import pathlib
 sys.path.append('/opt/scylladb/scripts')
 from scylla_util import *
+from subprocess import run
 
 if __name__ == '__main__':
-    aws = aws_instance()
-    run('/opt/scylladb/scylla-machine-image/scylla_configure.py')
-    run('/opt/scylladb/scylla-machine-image/scylla_create_devices')
-    run('/opt/scylladb/scripts/scylla_sysconfig_setup --nic eth0 --setup-nic --ami')
-    if aws.is_supported_instance_class():
-        run('/opt/scylladb/scripts/scylla_io_setup --ami')
+    cloud_instance = get_cloud_instance()
+    run('/opt/scylladb/scylla-machine-image/scylla_configure.py', shell=True, check=True)
+    run('/opt/scylladb/scylla-machine-image/scylla_create_devices', shell=True, check=True)
+    run('/opt/scylladb/scripts/scylla_sysconfig_setup --nic eth0 --setup-nic --ami', shell=True, check=True)
+    if cloud_instance.is_supported_instance_class():
+        cloud_instance.io_setup()
     if os.path.ismount('/var/lib/scylla'):
-        run('/opt/scylladb/scripts/scylla_coredump_setup --dump-to-raiddir')
+        run('/opt/scylladb/scripts/scylla_coredump_setup --dump-to-raiddir', shell=True, check=True)
     else:
-        run('/opt/scylladb/scripts/scylla_coredump_setup')
+        run('/opt/scylladb/scripts/scylla_coredump_setup', shell=True, check=True)
+    run('/opt/scylladb/scripts/scylla_swap_setup --swap-directory /', shell=True, check=True)
     pathlib.Path('/etc/scylla/machine_image_configured').touch()
-                                                                                                                        

@@ -15,21 +15,24 @@
 # limitations under the License.
 
 PRODUCT=scylla
+BUILD_ID=$(date -u '+%FT%H-%M-%S')
 DIR=$(dirname $(readlink -f $0))
 
 print_usage() {
-    echo "build_ami.sh --localrpm --repo [URL] --target [distribution]"
-    echo "  --localrpm  deploy locally built rpms"
-    echo "  --repo  repository for both install and update, specify .repo/.list file URL"
-    echo "  --repo-for-install  repository for install, specify .repo/.list file URL"
-    echo "  --repo-for-update  repository for update, specify .repo/.list file URL"
-    echo "  --product          scylla or scylla-enterprise"
-    echo "  --download-no-server  download all rpm needed excluding scylla from `repo-for-install`"
+    echo "build_image.sh --localrpm --repo [URL] --target [distribution]"
+    echo "  --localrpm           deploy locally built rpms"
+    echo "  --repo               repository for both install and update, specify .repo file URL"
+    echo "  --repo-for-install   repository for install, specify .repo file URL"
+    echo "  --repo-for-update    repository for update, specify .repo file URL"
+    echo "  --product            scylla or scylla-enterprise"
+    echo "  --download-no-server download all rpms needed excluding scylla using .repo provided in --repo-for-install"
+    echo "  --dry-run            validate template only (image is not built)"
+    echo "  --build-id           Set unique build ID, will be part of GCE image name"
     exit 1
 }
 LOCALRPM=0
 DOWNLOAD_ONLY=0
-
+PACKER_SUB_CMD="build -force -on-error=abort"
 REPO_FOR_INSTALL=
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -53,11 +56,19 @@ while [ $# -gt 0 ]; do
             ;;
         "--product")
             PRODUCT=$2
-            INSTALL_ARGS="$INSTALL_ARGS --product $2"
+            shift 2
+            ;;
+        "--build-id")
+            BUILD_ID=$2
             shift 2
             ;;
         "--download-no-server")
             DOWNLOAD_ONLY=1
+            shift 1
+            ;;
+        "--dry-run")
+            echo "!!! Running in DRY-RUN mode !!!"
+            PACKER_SUB_CMD="validate"
             shift 1
             ;;
         *)
@@ -67,10 +78,10 @@ while [ $# -gt 0 ]; do
 done
 
 get_version_from_local_rpm () {
-    RPM=$1
-    RELEASE=$(rpm -qi $RPM | awk '/Release/ { print $3 }' )
-    VERSION=$(rpm -qi $RPM | awk '/Version/ { print $3 }' )
-    echo "$VERSION-$RELEASE"
+  RPM=$1
+  RELEASE=$(rpm -qi $RPM | awk '/Release/ { print $3 }' )
+  VERSION=$(rpm -qi $RPM | awk '/Version/ { print $3 }' )
+  echo "$VERSION-$RELEASE"
 }
 
 get_version_from_remote_rpm () {
@@ -90,20 +101,17 @@ check_rpm_exists () {
         fi
     done
 }
-AMI=ami-00e87074e52e6c9f9
-REGION=us-east-1
-SSH_USERNAME=centos
 
 if [ $LOCALRPM -eq 1 ]; then
     INSTALL_ARGS="$INSTALL_ARGS --localrpm"
 
     check_rpm_exists $DIR/files
 
-    SCYLLA_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-server*.x86_64.rpm)
-    SCYLLA_MACHINE_IMAGE_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-machine-image*.noarch.rpm)
-    SCYLLA_JMX_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-jmx*.noarch.rpm)
-    SCYLLA_TOOLS_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-tools-*.noarch.rpm)
-    SCYLLA_PYTHON3_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-python3*.x86_64.rpm)
+    SCYLLA_VERSION=$(get_version_from_rpm $DIR/files/$PRODUCT-server*.x86_64.rpm)
+    SCYLLA_MACHINE_IMAGE_VERSION=$(get_version_from_rpm $DIR/files/$PRODUCT-machine-image*.noarch.rpm)
+    SCYLLA_JMX_VERSION=$(get_version_from_rpm $DIR/files/$PRODUCT-jmx*.noarch.rpm)
+    SCYLLA_TOOLS_VERSION=$(get_version_from_rpm $DIR/files/$PRODUCT-tools-*.noarch.rpm)
+    SCYLLA_PYTHON3_VERSION=$(get_version_from_rpm $DIR/files/$PRODUCT-python3*.x86_64.rpm)
 elif [ $DOWNLOAD_ONLY -eq 1 ]; then
     if [ -z "$REPO_FOR_INSTALL" ]; then
         print_usage
@@ -130,16 +138,16 @@ else
     SCYLLA_JMX_VERSION=$(get_version_from_remote_rpm $PRODUCT-jmx)
     SCYLLA_TOOLS_VERSION=$(get_version_from_remote_rpm $PRODUCT-tools)
     SCYLLA_PYTHON3_VERSION=$(get_version_from_remote_rpm $PRODUCT-python3)
+    BRANCH_VERSION=$(cat ../../SCYLLA-VERSION-GEN | grep ^VERSION= | sed 's/VERSION=//')
 
     sudo rm -f $TMPREPO
 
 fi
 
-SCYLLA_AMI_DESCRIPTION="scylla-$SCYLLA_VERSION scylla-machine-image-$SCYLLA_MACHINE_IMAGE_VERSION scylla-jmx-$SCYLLA_JMX_VERSION scylla-tools-$SCYLLA_TOOLS_VERSION scylla-python3-$SCYLLA_PYTHON3_VERSION"
 
 if [ ! -f variables.json ]; then
-    echo "create variables.json before start building AMI"
-    echo "see wiki page: https://github.com/scylladb/scylla/wiki/Building-CentOS-AMI"
+    echo "'variables.json' not found. Please create it before start building GCE Image."
+    echo "See variables.json.example"
     exit 1
 fi
 
@@ -147,6 +155,25 @@ cd $DIR
 mkdir -p build
 
 export PACKER_LOG=1
-export PACKER_LOG_PATH=build/ami.log
+export PACKER_LOG_PATH=build/packer.log
+echo "Scylla versions:"
+echo "SCYLLA_VERSION: $SCYLLA_VERSION"
+echo "SCYLLA_MACHINE_IMAGE_VERSION: $SCYLLA_MACHINE_IMAGE_VERSION"
+echo "SCYLLA_JMX_VERSION: $SCYLLA_JMX_VERSION"
+echo "SCYLLA_TOOLS_VERSION: $SCYLLA_TOOLS_VERSION"
+echo "SCYLLA_PYTHON3_VERSION: $SCYLLA_PYTHON3_VERSION"
+echo "BUILD_ID: $BUILD_ID"
+echo "WORKING_BRANCH: $BRANCH_VERSION"
+echo "Calling Packer..."
 
-/usr/bin/packer build -var-file=variables.json -var install_args="$INSTALL_ARGS" -var region="$REGION" -var source_ami="$AMI" -var ssh_username="$SSH_USERNAME" -var scylla_version="$SCYLLA_VERSION" -var scylla_machine_image_version="$SCYLLA_MACHINE_IMAGE_VERSION" -var scylla_jmx_version="$SCYLLA_JMX_VERSION" -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" -var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}" scylla.json
+/usr/bin/packer ${PACKER_SUB_CMD} \
+  -var-file=variables.json \
+  -var install_args="$INSTALL_ARGS" \
+  -var scylla_version="$SCYLLA_VERSION" \
+  -var scylla_machine_image_version="$SCYLLA_MACHINE_IMAGE_VERSION" \
+  -var scylla_jmx_version="$SCYLLA_JMX_VERSION" \
+  -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" \
+  -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" \
+  -var scylla_build_id="$BUILD_ID" \
+  -var scylla_branch_version="$BRANCH_VERSION" \
+  scylla_gce.json

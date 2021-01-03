@@ -38,9 +38,12 @@ if __name__ == '__main__':
     if os.getuid() > 0:
         print('Requires root permission.')
         sys.exit(1)
+    homedir = os.path.abspath(os.path.join(__file__, os.pardir))
     parser = argparse.ArgumentParser(description='Construct AMI')
     parser.add_argument('--localrpm', action='store_true', default=False,
                         help='deploy locally built rpms')
+    parser.add_argument('--product',
+                        help='name of the product', default='scylla')
     parser.add_argument('--repo',
                         help='repository for both install and update, specify .repo/.list file URL')
     parser.add_argument('--repo-for-install',
@@ -58,15 +61,14 @@ if __name__ == '__main__':
 
     run('yum update -y')
 
-    run('curl -L -o /etc/yum.repos.d/scylla-ami-drivers.repo https://copr.fedorainfracloud.org/coprs/scylladb/scylla-ami-drivers/repo/epel-7/scylladb-scylla-ami-drivers-epel-7.repo')
     if args.repo_for_install:
         run('curl -L -o /etc/yum.repos.d/scylla_install.repo {REPO_FOR_INSTALL}'.format(REPO_FOR_INSTALL=args.repo_for_install))
 
     if args.localrpm:
-        rpms = glob.glob('/home/centos/scylla*.*.rpm')
+        rpms = glob.glob('{}/scylla*.*.rpm'.format(homedir))
         run('yum install -y {}'.format(' '.join(rpms)))
     else:
-        run('yum install -y scylla-machine-image scylla-debuginfo')
+        run('yum install -y {0}-machine-image {0}-debuginfo'.format(args.product))
 
     if args.repo_for_install:
         os.remove('/etc/yum.repos.d/scylla_install.repo')
@@ -81,18 +83,16 @@ if __name__ == '__main__':
         for l in lines:
             if not re.match(r'^ - mounts\n$', l):
                 f.write(l)
-    run('/opt/scylladb/scripts/scylla_setup --ntp-domain amazon --no-coredump-setup --no-sysconfig-setup --no-raid-setup --no-io-setup --no-bootparam-setup --no-ec2-check')
+    run('/opt/scylladb/scripts/scylla_setup --ntp-domain amazon --no-coredump-setup --no-sysconfig-setup --no-raid-setup --no-io-setup --no-bootparam-setup --no-ec2-check --no-swap-setup')
     run('/opt/scylladb/scripts/scylla_sysconfig_setup --ami')
     run('/opt/scylladb/scripts/scylla_bootparam_setup --ami')
-    os.remove('/home/centos/.ssh/authorized_keys')
+    os.remove('{}/.ssh/authorized_keys'.format(homedir))
     os.remove('/var/lib/scylla-housekeeping/housekeeping.uuid')
 
-    run('yum -y update kernel')
-    run('yum -y install dkms git grubby kernel-devel')
-    run('rpm -e kernel-$(uname -r)', shell=True)
+    run('yum -y install grubby')
     run('rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org')
     run('rpm -Uvh http://www.elrepo.org/elrepo-release-7.0-3.el7.elrepo.noarch.rpm')
-    run('yum -y --enablerepo=elrepo-kernel install kernel-ml kernel-ml-devel')
+    run('yum -y --enablerepo=elrepo-kernel install kernel-ml')
     os.remove('/etc/udev/rules.d/80-net-name-slot.rules')
     with open('/etc/default/grub') as f:
         grub = f.read()
@@ -100,17 +100,15 @@ if __name__ == '__main__':
     with open('/etc/default/grub', 'w') as f:
         f.write(grub)
     run('grub2-mkconfig -o /boot/grub2/grub.cfg')
-    c7kver = get_kver('/boot/vmlinuz-*el7.x86_64')
     mlkver = get_kver('/boot/vmlinuz-*el7.elrepo.x86_64')
     run('grubby --grub2 --set-default /boot/vmlinuz-{mlkver}'.format(mlkver=mlkver))
     with open('/etc/yum.conf', 'a') as f:
         f.write(u'exclude=kernel kernel-devel')
 
-    run('dracut --verbose --add-drivers "ixgbevf nvme ena" --force --kver {c7kver}'.format(c7kver=c7kver))
-    run('dracut --verbose --add-drivers "ixgbevf nvme ena" --force --kver {mlkver}'.format(mlkver=mlkver))
-
     with open('/etc/cloud/cloud.cfg') as f:
         cfg = f.read()
     cfg2 = re.sub('^ssh_deletekeys:   0', 'ssh_deletekeys:   1', cfg, flags=re.MULTILINE)
+    cfg2 = re.sub('^    name: centos', '    name: scyllaadm', cfg2, flags=re.MULTILINE)
     with open('/etc/cloud/cloud.cfg', 'w') as f:
         f.write(cfg2)
+    shutil.move('{}/99_user_alias.cfg'.format(homedir), '/etc/cloud/cloud.cfg.d')

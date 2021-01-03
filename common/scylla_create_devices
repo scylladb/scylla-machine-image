@@ -14,26 +14,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import argparse
 import re
 import os
 import sys
 import time
-import logging
 import subprocess
 import urllib.request
 import urllib.error
 from pathlib import Path
-from lib.log import setup_logging
+from subprocess import run, PIPE
 
 
-setup_logging()
-logger = logging.getLogger(__name__)
+sys.path.append('/opt/scylladb/scripts')
+from scylla_util import is_ec2, is_gce
 
 
 raid_script = "/opt/scylladb/scripts/scylla_raid_setup"
 raid_device = "/dev/md%d"
-scylla_root = "/var/lib/scylla"
-
+scylla_root = ""
 
 def scylla_directory(role):
     if role == "all":
@@ -50,7 +49,7 @@ def curl_instance_data(url):
             req = urllib.request.Request(url)
             return urllib.request.urlopen(req).read().decode("utf-8")
         except urllib.error.HTTPError:
-            logger.info("Failed to grab %s..." % url)
+            print("Failed to grab %s..." % url)
             time.sleep(5)
             retries += 1
             if retries >= max_retries:
@@ -72,12 +71,12 @@ def config_array(disks, role, mdidx):
         for l in mdstate:
             if find_disk(disks, l):
                 dev = re.search(r"^md\w+", l).group()
-                logger.info("Found existing RAID %s, will mount it" % dev)
+                print("Found existing RAID %s, will mount it" % dev)
                 subprocess.check_call(["mount", "-o", "noatime",
                                        "/dev/%s" % dev,
                                        scylla_directory(role)])
                 return
-    logger.info("RAID Array containing %s not found. Creating..." % str(disks))
+    print("RAID Array containing %s not found. Creating..." % str(disks))
     disk_devs = ['/dev/%s' % x for x in disks]
     subprocess.run([raid_script, "--raiddev",
                     raid_device % mdidx, "--disks", ",".join(disk_devs),
@@ -190,5 +189,33 @@ def get_disk_bundles():
         mdidx += 1
 
 
+def get_nvme_devices():
+    result = run(["ls /dev/nvme0n*"], stdout=PIPE, text=True, shell=True)
+    devices = result.stdout.strip().split()
+    assert devices, "No NVMe devices found!"
+    return devices
+
+
+def create_raid(devices):
+    scylla_path = Path("/var/lib/scylla")
+    if scylla_path.is_mount():
+        print(f"{scylla_path} is already mounted. Will not run 'scylla_raid_setup'!")
+        sys.exit(0)
+    run(["/opt/scylladb/scripts/scylla_raid_setup", "--raiddev", "/dev/md0", "--disks", ",".join(devices),
+        "--root", "/var/lib/scylla", "--volume-role", "all", "--update-fstab"], check=True)
+
+
 if __name__ == "__main__":
-    get_disk_bundles()
+    parser = argparse.ArgumentParser(description='Disk creation script for Scylla.')
+    parser.add_argument('--scylla-data-root', dest='scylla_data_root', action='store',
+                        help='location of Scylla root data directory', default="/var/lib/scylla")
+    args = parser.parse_args()
+
+    scylla_root = args.scylla_data_root
+    if is_ec2():
+        get_disk_bundles()
+    elif is_gce():
+        nvme_devices = get_nvme_devices()
+        create_raid(devices=nvme_devices)
+    else:
+        raise Exception("Running in unknown cloud environment")
