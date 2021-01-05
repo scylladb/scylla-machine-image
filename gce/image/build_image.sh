@@ -14,7 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-PRODUCT=scylla
+source ../../SCYLLA-VERSION-GEN
+
+PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
+
 BUILD_ID=$(date -u '+%FT%H-%M-%S')
 DIR=$(dirname $(readlink -f $0))
 
