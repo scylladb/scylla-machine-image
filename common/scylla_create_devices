@@ -49,12 +49,14 @@ def get_disk_devices(instance, device_type):
 
 
 def get_default_devices(instance):
+    disk_names = []
     if is_ec2():
-        return [os.path.join('/dev/', name) for name in instance.ephemeral_disks()]
+        disk_names = instance.ephemeral_disks()
     elif is_gce():
-        return instance.getEphemeralOsDisks()
+        disk_names = instance.getEphemeralOsDisks()
     else:
         raise Exception("Running in unknown cloud environment")
+    return [os.path.join('/dev/', name) for name in disk_names]
 
 
 if __name__ == "__main__":
