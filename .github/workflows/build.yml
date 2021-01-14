@@ -1,0 +1,35 @@
+on:
+  push:
+    branches:
+      - master
+      - next
+  
+  pull_request:
+    branches:
+      - next
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Unittest and Build RPMs
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8                         
+          architecture: x64
+
+      - name: unittest
+
+        run: |
+            pip install pyyaml==5.3
+            cd ./tests
+            python -m unittest test_scylla_configure.py
+
+      - name: Build Centos 7 RPM
+        run: docker run -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm centos:7.2.1511 bash -c './dist/redhat/build_rpm.sh -t centos7'
+
+      - name: Build Centos 8 RPM
+        run: docker run -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm centos:8 bash -c './dist/redhat/build_rpm.sh -t centos8'
+
