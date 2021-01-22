@@ -1,1 +1,29 @@
-Here will be located Google Cloud Image setup files
+Instructions to build the GCE Image
+
+
+Create gce/image/variables.json using gce/image/variables.json.example.
+Example:
+```
+{
+    "project_id": "skilled-adapter-452",
+    "zone": "us-east-1-a",
+    "instance_type": "n1-standard-1"
+}
+```
+
+If running locally make sure you are authenticated
+
+```
+https://www.packer.io/docs/builders/googlecompute.html#precedence-of-authentication-methods
+```
+
+or set `GOOGLE_APPLICATION_CREDENTIALS` env variable with path to the credentials file.
+
+Example of the command:
+```
+./build_image.sh --localrpm --repo https://s3.amazonaws.com/downloads.scylladb.com/rpm/unstable/centos/branch-4.1/2020-06-18T14:49:56Z/scylla.repo --product scylla
+```
+
+User data
+
+To store user data create key named "user-data" in the instance meta data.

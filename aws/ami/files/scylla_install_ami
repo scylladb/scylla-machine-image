@@ -38,9 +38,12 @@ if __name__ == '__main__':
     if os.getuid() > 0:
         print('Requires root permission.')
         sys.exit(1)
+    homedir = os.path.abspath(os.path.join(__file__, os.pardir))
     parser = argparse.ArgumentParser(description='Construct AMI')
     parser.add_argument('--localrpm', action='store_true', default=False,
                         help='deploy locally built rpms')
+    parser.add_argument('--product',
+                        help='name of the product', default='scylla')
     parser.add_argument('--repo',
                         help='repository for both install and update, specify .repo/.list file URL')
     parser.add_argument('--repo-for-install',
@@ -63,10 +66,10 @@ if __name__ == '__main__':
         run('curl -L -o /etc/yum.repos.d/scylla_install.repo {REPO_FOR_INSTALL}'.format(REPO_FOR_INSTALL=args.repo_for_install))
 
     if args.localrpm:
-        rpms = glob.glob('/home/centos/scylla*.*.rpm')
+        rpms = glob.glob('{}/scylla*.*.rpm'.format(homedir))
         run('yum install -y {}'.format(' '.join(rpms)))
     else:
-        run('yum install -y scylla-machine-image scylla-debuginfo')
+        run('yum install -y {0}-machine-image {0}-debuginfo'.format(args.product))
 
     if args.repo_for_install:
         os.remove('/etc/yum.repos.d/scylla_install.repo')
@@ -81,10 +84,10 @@ if __name__ == '__main__':
         for l in lines:
             if not re.match(r'^ - mounts\n$', l):
                 f.write(l)
-    run('/opt/scylladb/scripts/scylla_setup --ntp-domain amazon --no-coredump-setup --no-sysconfig-setup --no-raid-setup --no-io-setup --no-bootparam-setup --no-ec2-check')
+    run('/opt/scylladb/scripts/scylla_setup --ntp-domain amazon --no-coredump-setup --no-sysconfig-setup --no-raid-setup --no-io-setup --no-bootparam-setup --no-ec2-check --no-swap-setup')
     run('/opt/scylladb/scripts/scylla_sysconfig_setup --ami')
     run('/opt/scylladb/scripts/scylla_bootparam_setup --ami')
-    os.remove('/home/centos/.ssh/authorized_keys')
+    os.remove('{}/.ssh/authorized_keys'.format(homedir))
     os.remove('/var/lib/scylla-housekeeping/housekeeping.uuid')
 
     run('yum -y update kernel')
@@ -112,5 +115,7 @@ if __name__ == '__main__':
     with open('/etc/cloud/cloud.cfg') as f:
         cfg = f.read()
     cfg2 = re.sub('^ssh_deletekeys:   0', 'ssh_deletekeys:   1', cfg, flags=re.MULTILINE)
+    cfg2 = re.sub('^    name: centos', '    name: scyllaadm', cfg2, flags=re.MULTILINE)
     with open('/etc/cloud/cloud.cfg', 'w') as f:
         f.write(cfg2)
+    shutil.move('{}/99_user_alias.cfg'.format(homedir), '/etc/cloud/cloud.cfg.d')

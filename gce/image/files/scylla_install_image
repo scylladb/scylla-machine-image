@@ -1,0 +1,91 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+#
+# Copyright 2020 ScyllaDB
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import os
+import sys
+import glob
+import argparse
+import subprocess
+from pathlib import Path
+
+
+def run(cmd, shell=True):
+    subprocess.run(cmd, shell=shell)
+
+
+def verify_root_permissions():
+    if os.getuid() != 0:
+        print('Requires root permission.')
+        sys.exit(1)
+
+
+def parse_cli_args():
+    parser = argparse.ArgumentParser(description='Construct AMI')
+    parser.add_argument('--localrpm', action='store_true', default=False,
+                        help='deploy locally built rpms')
+    parser.add_argument('--repo',
+                        help='repository for both install and update, specify .repo file URL')
+    parser.add_argument('--repo-for-install',
+                        help='repository for install, specify .repo file URL')
+    parser.add_argument('--repo-for-update',
+                        help='repository for update, specify .repo file URL')
+    return parser.parse_args()
+
+
+if __name__ == '__main__':
+    verify_root_permissions()
+    args = parse_cli_args()
+
+    if args.repo:
+        args.repo_for_install = args.repo_for_update = args.repo
+
+    if not args.localrpm and not args.repo_for_install:
+        print('Error: need to specify --localrpm or --repo/--repo-for-install')
+        sys.exit(1)
+
+    run('yum update -y')
+    run('yum install -y epel-release')
+
+    if args.repo_for_install:
+        run(f'curl -L -o /etc/yum.repos.d/scylla_install.repo {args.repo_for_install}')
+
+    if args.localrpm:
+        rpms = glob.glob('/home/centos/scylla*.*.rpm')
+        run('yum install -y {}'.format(' '.join(rpms)))
+    else:
+        run('yum install -y scylla-python3 scylla scylla-machine-image scylla-debuginfo')
+
+    run("echo '/opt/scylladb/scylla-machine-image/scylla_login' >> /etc/skel/.bash_profile")
+
+    if args.repo_for_install:
+        os.remove('/etc/yum.repos.d/scylla_install.repo')
+    if args.repo_for_update:
+        run(f'curl -L -o /etc/yum.repos.d/scylla.repo {args.repo_for_update}')
+
+    run('systemctl daemon-reload')
+    run('systemctl enable scylla-image-setup.service')
+    run('/opt/scylladb/scripts/scylla_setup --no-coredump-setup --no-sysconfig-setup --no-raid-setup --no-io-setup --no-bootparam-setup --no-ec2-check --no-swap-setup')
+    run('/opt/scylladb/scripts/scylla_sysconfig_setup --ami')
+    housekeeping_uuid_path = Path('/var/lib/scylla-housekeeping/housekeeping.uuid')
+    if housekeeping_uuid_path.exists():
+        housekeeping_uuid_path.unlink()
+    # install latest kernel-ml
+    run('rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org')
+    run('yum install -y https://www.elrepo.org/elrepo-release-8.el8.elrepo.noarch.rpm')
+    run('yum -y --enablerepo=elrepo-kernel install kernel-ml kernel-ml-devel')
+
+
