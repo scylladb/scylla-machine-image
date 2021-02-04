@@ -1,0 +1,14 @@
+Source: %{product}-machine-image
+Maintainer: Takuya ASADA <syuu@scylladb.com>
+Homepage: http://scylladb.com
+Section: database
+Priority: optional
+Standards-Version: 3.9.5
+Rules-Requires-Root: no
+
+Package: %{product}-machine-image
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Scylla Machine Image
+ Scylla is a highly scalable, eventually consistent, distributed,
+ partitioned row DB.
