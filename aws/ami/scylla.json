@@ -76,7 +76,8 @@
     },
     {
       "inline": [
-        "sudo /home/{{user `ssh_username`}}/scylla_install_ami {{ user `install_args` }}"
+        "sudo /usr/bin/cloud-init status --wait",
+        "sudo {{user `python`}} /home/{{user `ssh_username`}}/scylla_install_ami {{ user `install_args` }}"
       ],
       "type": "shell"
     }
@@ -92,7 +93,8 @@
     "security_group_id": "",
     "source_ami": "",
     "ssh_username": "",
-    "subnet_id": ""
+    "subnet_id": "",
+    "python": ""
   }
 }
 
