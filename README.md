@@ -86,6 +86,18 @@ Build using Docker
 docker run -it -v $PWD:/scylla-machine-image -w /scylla-machine-image  --rm centos:7.2.1511 bash -c './dist/redhat/build_rpm.sh -t centos7 -c aws'
 ```
 
+### Ubuntu - DEB
+
+```
+dist/debian/build_deb.sh
+```
+
+Build using Docker
+
+```
+docker run -it -v $PWD:/scylla-machine-image -w /scylla-machine-image  --rm ubuntu:20.04 bash -c './dist/debian/build_deb.sh'
+```
+
 ## Building docs
 
 ```bash
