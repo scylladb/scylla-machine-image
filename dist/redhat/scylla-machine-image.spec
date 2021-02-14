@@ -42,8 +42,8 @@ install -m755 common/scylla_configure.py common/scylla_create_devices \
     common/scylla_image_setup common/scylla_login common/scylla_configure.py \
     common/scylla_create_devices
 install -d -m755 $RPM_BUILD_ROOT/home
-install -d -m755 $RPM_BUILD_ROOT/home/centos
-install -m755 common/.bash_profile $RPM_BUILD_ROOT/home/centos
+install -d -m755 $RPM_BUILD_ROOT/home/scyllaadm
+install -m755 common/.bash_profile $RPM_BUILD_ROOT/home/scyllaadm
 
 %pre
 /usr/sbin/groupadd scylla 2> /dev/null || :
@@ -66,7 +66,7 @@ rm -rf $RPM_BUILD_ROOT
 %license LICENSE
 %defattr(-,root,root)
 
-%config /home/centos/.bash_profile
+%config /home/scyllaadm/.bash_profile
 %{_unitdir}/scylla-image-setup.service
 /opt/scylladb/scylla-machine-image/*
 
