@@ -46,6 +46,15 @@ class ScyllaMachineImageConfigurator:
         'post_configuration_script': '',
         'post_configuration_script_timeout': 600,  # seconds
         'start_scylla_on_first_boot': True,
+        'data_device': 'auto'  # Supported options:
+                               #   instance_store - find all ephemeral devices (only for AWS)
+                               #   attached - find all attached devices and use them
+                               #   auto - automatically select devices using following strategy:
+                               #       GCE: select attached NVMe.
+                               #       AWS:
+                               #           if ephemeral found - use them
+                               #           else if attached EBS found use them
+                               #           else: fail create_devices
     }
 
     DISABLE_START_FILE_PATH = Path("/etc/scylla/ami_disabled")
@@ -144,6 +153,14 @@ class ScyllaMachineImageConfigurator:
         if not self.instance_user_data.get("start_scylla_on_first_boot", default_start_scylla_on_first_boot):
             LOGGER.info("Disabling Scylla start on first boot")
             self.DISABLE_START_FILE_PATH.touch()
+
+    def create_devices(self):
+        device_type = self.instance_user_data.get("data_device", self.CONF_DEFAULTS['data_device'])
+        try:
+            LOGGER.info(f"Create scylla data devices as {device_type}")
+            subprocess.run(f"/opt/scylladb/scylla-machine-image/scylla_create_devices --data-device {device_type}", shell=True, check=True)
+        except Exception as e:
+            LOGGER.error("Failed to create devices: %s", e)
 
     def configure(self):
         self.configure_scylla_yaml()

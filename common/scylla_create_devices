@@ -15,8 +15,6 @@
 # limitations under the License.
 
 import argparse
-import re
-import os
 import sys
 import time
 import subprocess
@@ -198,24 +196,51 @@ def get_nvme_devices():
 
 def create_raid(devices):
     scylla_path = Path("/var/lib/scylla")
+    print(f"Devices: {devices}")
     if scylla_path.is_mount():
         print(f"{scylla_path} is already mounted. Will not run 'scylla_raid_setup'!")
         sys.exit(0)
     run(["/opt/scylladb/scripts/scylla_raid_setup", "--raiddev", "/dev/md0", "--disks", ",".join(devices),
-        "--root", "/var/lib/scylla", "--volume-role", "all", "--update-fstab"], check=True)
+         "--root", "/var/lib/scylla", "--volume-role", "all", "--update-fstab"], check=True)
+
+
+def get_disk_devices(instance, device_type):
+    if is_ec2():
+        devices = []
+        if device_type == "attached":
+            devices = [str(Path('/dev', name)) for name in instance.ebs_disks() if Path('/dev', name).exists()]
+        if not devices or device_type == "instance_store":
+            devices = [str(Path('/dev', name)) for name in instance.ephemeral_disks()]
+        if not devices:
+            raise Exception(f"No block devices were found for '{device_type}' device type")
+        return devices
+    elif is_gce():
+        return get_default_devices(instance)
+    else:
+        raise Exception("Running in unknown cloud environment")
+
+
+def get_default_devices(instance):
+    disk_names = []
+    if is_ec2():
+        disk_names = instance.ephemeral_disks() or instance.ebs_disks()
+    elif is_gce():
+        disk_names = instance.getEphemeralOsDisks()
+    else:
+        raise Exception("Running in unknown cloud environment")
+    return [str(Path('/dev', name)) for name in disk_names]
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Disk creation script for Scylla.')
-    parser.add_argument('--scylla-data-root', dest='scylla_data_root', action='store',
-                        help='location of Scylla root data directory', default="/var/lib/scylla")
+    parser.add_argument('--data-device', dest='data_device', action='store',
+                        choices=["auto", "attached", "instance_store"],
+                        help='Define type of device to use for scylla data: attached|instance_store')
     args = parser.parse_args()
 
-    scylla_root = args.scylla_data_root
-    if is_ec2():
-        get_disk_bundles()
-    elif is_gce():
-        nvme_devices = get_nvme_devices()
-        create_raid(devices=nvme_devices)
+    instance = get_cloud_instance()
+
+    if not args.data_device or args.data_device == "auto":
+        disk_devices = get_default_devices(instance)
     else:
         raise Exception("Running in unknown cloud environment")
