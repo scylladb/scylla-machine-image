@@ -64,11 +64,6 @@ if [[ ! -e dist/redhat/build_rpm.sh ]]; then
     exit 1
 fi
 
-if [[ "$(arch)" != "x86_64" ]]; then
-    echo "Unsupported architecture: $(arch)"
-    exit 1
-fi
-
 pkg_install rpm-build
 pkg_install git
 pkg_install python3

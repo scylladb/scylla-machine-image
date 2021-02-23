@@ -17,7 +17,6 @@
 source ../../SCYLLA-VERSION-GEN
 
 PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
-
 DIR=$(dirname $(readlink -f $0))
 
 print_usage() {
@@ -84,7 +83,7 @@ get_version_from_remote_rpm () {
 
 check_rpm_exists () {
     BASE_DIR=$1
-    rpm_files="$BASE_DIR/$PRODUCT-server*.x86_64.rpm $BASE_DIR/$PRODUCT-machine-image*.noarch.rpm $BASE_DIR/$PRODUCT-jmx*.noarch.rpm $BASE_DIR/$PRODUCT-tools-*.noarch.rpm $BASE_DIR/$PRODUCT-python3*.x86_64.rpm"
+    rpm_files="$BASE_DIR/$PRODUCT-server*.$(arch).rpm $BASE_DIR/$PRODUCT-machine-image*.noarch.rpm $BASE_DIR/$PRODUCT-jmx*.noarch.rpm $BASE_DIR/$PRODUCT-tools-*.noarch.rpm $BASE_DIR/$PRODUCT-python3*.$(arch).rpm"
     for rpm in $rpm_files
     do
         if [[ ! -f "$rpm" ]]; then
@@ -93,7 +92,8 @@ check_rpm_exists () {
         fi
     done
 }
-AMI=ami-00e87074e52e6c9f9
+declare -A AMI
+AMI=(["x86_64"]=ami-00e87074e52e6c9f9 ["aarch64"]=ami-0b802bd2b502aa382)
 REGION=us-east-1
 SSH_USERNAME=centos
 
@@ -102,11 +102,11 @@ if [ $LOCALRPM -eq 1 ]; then
 
     check_rpm_exists $DIR/files
 
-    SCYLLA_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-server*.x86_64.rpm)
+    SCYLLA_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-server*.$(arch).rpm)
     SCYLLA_MACHINE_IMAGE_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-machine-image*.noarch.rpm)
     SCYLLA_JMX_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-jmx*.noarch.rpm)
     SCYLLA_TOOLS_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-tools-*.noarch.rpm)
-    SCYLLA_PYTHON3_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-python3*.x86_64.rpm)
+    SCYLLA_PYTHON3_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-python3*.$(arch).rpm)
 elif [ $DOWNLOAD_ONLY -eq 1 ]; then
     if [ -z "$REPO_FOR_INSTALL" ]; then
         print_usage
@@ -152,4 +152,4 @@ mkdir -p build
 export PACKER_LOG=1
 export PACKER_LOG_PATH=build/ami.log
 
-/usr/bin/packer build -var-file=variables.json -var install_args="$INSTALL_ARGS" -var region="$REGION" -var source_ami="$AMI" -var ssh_username="$SSH_USERNAME" -var scylla_version="$SCYLLA_VERSION" -var scylla_machine_image_version="$SCYLLA_MACHINE_IMAGE_VERSION" -var scylla_jmx_version="$SCYLLA_JMX_VERSION" -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" -var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}" scylla.json
+/usr/bin/packer build -var-file=variables.json -var install_args="$INSTALL_ARGS" -var region="$REGION" -var source_ami="${AMI[$(arch)]}" -var ssh_username="$SSH_USERNAME" -var scylla_version="$SCYLLA_VERSION" -var scylla_machine_image_version="$SCYLLA_MACHINE_IMAGE_VERSION" -var scylla_jmx_version="$SCYLLA_JMX_VERSION" -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" -var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}" scylla.json

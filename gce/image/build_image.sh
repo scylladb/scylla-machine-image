@@ -17,7 +17,6 @@
 source ../../SCYLLA-VERSION-GEN
 
 PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
-
 BUILD_ID=$(date -u '+%FT%H-%M-%S')
 DIR=$(dirname $(readlink -f $0))
 
@@ -59,6 +58,7 @@ while [ $# -gt 0 ]; do
             ;;
         "--product")
             PRODUCT=$2
+            INSTALL_ARGS="$INSTALL_ARGS --product $2"
             shift 2
             ;;
         "--build-id")
