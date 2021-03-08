@@ -17,12 +17,12 @@
 source ../../SCYLLA-VERSION-GEN
 
 PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
-BUILD_ID=$(date -u '+%FT%H-%M-%S')
 DIR=$(dirname $(readlink -f $0))
+BUILD_ID=$(date -u '+%FT%H-%M-%S')
 
 print_usage() {
-    echo "build_image.sh --localrpm --repo [URL] --target [distribution]"
-    echo "  --localrpm           deploy locally built rpms"
+    echo "build_image.sh --localdeb --repo [URL] --target [distribution]"
+    echo "  --localdeb           deploy locally built rpms"
     echo "  --repo               repository for both install and update, specify .repo file URL"
     echo "  --repo-for-install   repository for install, specify .repo file URL"
     echo "  --repo-for-update    repository for update, specify .repo file URL"
@@ -32,14 +32,14 @@ print_usage() {
     echo "  --build-id           Set unique build ID, will be part of GCE image name"
     exit 1
 }
-LOCALRPM=0
+LOCALDEB=0
 DOWNLOAD_ONLY=0
-PACKER_SUB_CMD="build -force -on-error=abort"
+PACKER_SUB_CMD="build"
 REPO_FOR_INSTALL=
 while [ $# -gt 0 ]; do
     case "$1" in
-        "--localrpm")
-            LOCALRPM=1
+        "--localdeb")
+            LOCALDEB=1
             shift 1
             ;;
         "--repo")
@@ -80,54 +80,64 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-get_version_from_local_rpm () {
-  RPM=$1
-  RELEASE=$(rpm -qi $RPM | awk '/Release/ { print $3 }' )
-  VERSION=$(rpm -qi $RPM | awk '/Version/ { print $3 }' )
-  echo "$VERSION-$RELEASE"
-}
-
-get_version_from_remote_rpm () {
-    RPM=$1
-    VERSION=$(yum provides $RPM | grep "Provide.*=" | awk '{print $5}'| tail -1)
+get_version_from_local_deb () {
+    DEB=$1
+    VERSION=$(dpkg -f "$DEB" version)
     echo "$VERSION"
 }
 
-check_rpm_exists () {
+get_version_from_remote_deb () {
+    DEB=$1
+    VERSION=$(sudo apt-cache madison "$DEB"|head -n1|awk '{print $3}')
+    echo "$VERSION"
+}
+
+deb_arch() {
+    declare -A darch
+    darch=(["x86_64"]=amd64 ["aarch64"]=arm64)
+    echo "${darch[$(arch)]}"
+}
+
+check_deb_exists () {
     BASE_DIR=$1
-    rpm_files="$BASE_DIR/$PRODUCT-server*.x86_64.rpm $BASE_DIR/$PRODUCT-machine-image*.noarch.rpm $BASE_DIR/$PRODUCT-jmx*.noarch.rpm $BASE_DIR/$PRODUCT-tools-*.noarch.rpm $BASE_DIR/$PRODUCT-python3*.x86_64.rpm"
-    for rpm in $rpm_files
+    deb_files="$BASE_DIR/$PRODUCT-server*_$(deb_arch).deb $BASE_DIR/$PRODUCT-machine-image*_all.deb $BASE_DIR/$PRODUCT-jmx*_all.deb $BASE_DIR/$PRODUCT-tools-*_all.deb $BASE_DIR/$PRODUCT-python3*_$(deb_arch).deb"
+    for deb in $deb_files
     do
-        if [[ ! -f "$rpm" ]]; then
-            echo "ERROR: Matching RPM file not found [$rpm]"
+        if [[ ! -f "$deb" ]]; then
+            echo "ERROR: Matching DEB file not found [$deb]"
         exit 1
         fi
     done
 }
+SOURCE_IMAGE_FAMILY="ubuntu-2004-lts"
+SSH_USERNAME="ubuntu"
 
-SOURCE_IMAGE_FAMILY="centos-8"
-SSH_USERNAME="centos"
-
-if [ $LOCALRPM -eq 1 ]; then
+if [ $LOCALDEB -eq 1 ]; then
     INSTALL_ARGS="$INSTALL_ARGS --localrpm"
 
-    check_rpm_exists $DIR/files
+    check_deb_exists "$DIR"/files
 
-    SCYLLA_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-server*.x86_64.rpm)
-    SCYLLA_MACHINE_IMAGE_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-machine-image*.noarch.rpm)
-    SCYLLA_JMX_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-jmx*.noarch.rpm)
-    SCYLLA_TOOLS_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-tools-*.noarch.rpm)
-    SCYLLA_PYTHON3_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-python3*.x86_64.rpm)
+    SCYLLA_VERSION=$(get_version_from_local_deb "$DIR"/files/"$PRODUCT"-server*_$(deb_arch).deb)
+    SCYLLA_MACHINE_IMAGE_VERSION=$(get_version_from_local_deb "$DIR"/files/"$PRODUCT"-machine-image*_all.deb)
+    SCYLLA_JMX_VERSION=$(get_version_from_local_deb "$DIR"/files/"$PRODUCT"-jmx*_all.deb)
+    SCYLLA_TOOLS_VERSION=$(get_version_from_local_deb "$DIR"/files/"$PRODUCT"-tools-*_all.deb)
+    SCYLLA_PYTHON3_VERSION=$(get_version_from_local_deb "$DIR"/files/"$PRODUCT"-python3*_$(deb_arch).deb)
+
+    cd "$DIR"/files
+    dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz
+    cd -
 elif [ $DOWNLOAD_ONLY -eq 1 ]; then
     if [ -z "$REPO_FOR_INSTALL" ]; then
         print_usage
         exit 1
     fi
 
-    TMPREPO=$(mktemp -u -p /etc/yum.repos.d/ --suffix .repo)
+    TMPREPO=$(mktemp -u -p /etc/apt/sources.list.d/ --suffix .list)
     sudo curl -o $TMPREPO $REPO_FOR_INSTALL
-    cd files
-    yumdownloader $PRODUCT $PRODUCT-machine-image $PRODUCT-jmx $PRODUCT-tools-core $PRODUCT-tools $PRODUCT-python3
+    sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 5e08fbd8b5d6ec9c
+    sudo apt-get update --allow-insecure-repositories -y
+    cd "$DIR"/files
+    apt-get download --allow-unauthenticated "$PRODUCT" "$PRODUCT"-machine-image "$PRODUCT"-jmx "$PRODUCT"-tools-core "$PRODUCT"-tools "$PRODUCT"-python3
     sudo rm -f $TMPREPO
     exit 0
 else
@@ -136,15 +146,16 @@ else
         exit 1
     fi
 
-    TMPREPO=$(mktemp -u -p /etc/yum.repos.d/ --suffix .repo)
+    TMPREPO=$(mktemp -u -p /etc/apt/sources.list.d/ --suffix .list)
     sudo curl -o $TMPREPO $REPO_FOR_INSTALL
+    sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 5e08fbd8b5d6ec9c
+    sudo apt-get update --allow-insecure-repositories -y
 
-    SCYLLA_VERSION=$(get_version_from_remote_rpm $PRODUCT-server)
-    SCYLLA_MACHINE_IMAGE_VERSION=$(get_version_from_remote_rpm $PRODUCT-machine-image)
-    SCYLLA_JMX_VERSION=$(get_version_from_remote_rpm $PRODUCT-jmx)
-    SCYLLA_TOOLS_VERSION=$(get_version_from_remote_rpm $PRODUCT-tools)
-    SCYLLA_PYTHON3_VERSION=$(get_version_from_remote_rpm $PRODUCT-python3)
-    BRANCH_VERSION=$(cat ../../SCYLLA-VERSION-GEN | grep ^VERSION= | sed 's/VERSION=//')
+    SCYLLA_VERSION=$(get_version_from_remote_deb $PRODUCT-server)
+    SCYLLA_MACHINE_IMAGE_VERSION=$(get_version_from_remote_deb $PRODUCT-machine-image)
+    SCYLLA_JMX_VERSION=$(get_version_from_remote_deb $PRODUCT-jmx)
+    SCYLLA_TOOLS_VERSION=$(get_version_from_remote_deb $PRODUCT-tools)
+    SCYLLA_PYTHON3_VERSION=$(get_version_from_remote_deb $PRODUCT-python3)
 
     sudo rm -f $TMPREPO
 
