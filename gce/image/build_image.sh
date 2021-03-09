@@ -111,11 +111,11 @@ if [ $LOCALRPM -eq 1 ]; then
 
     check_rpm_exists $DIR/files
 
-    SCYLLA_VERSION=$(get_version_from_rpm $DIR/files/$PRODUCT-server*.x86_64.rpm)
-    SCYLLA_MACHINE_IMAGE_VERSION=$(get_version_from_rpm $DIR/files/$PRODUCT-machine-image*.noarch.rpm)
-    SCYLLA_JMX_VERSION=$(get_version_from_rpm $DIR/files/$PRODUCT-jmx*.noarch.rpm)
-    SCYLLA_TOOLS_VERSION=$(get_version_from_rpm $DIR/files/$PRODUCT-tools-*.noarch.rpm)
-    SCYLLA_PYTHON3_VERSION=$(get_version_from_rpm $DIR/files/$PRODUCT-python3*.x86_64.rpm)
+    SCYLLA_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-server*.x86_64.rpm)
+    SCYLLA_MACHINE_IMAGE_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-machine-image*.noarch.rpm)
+    SCYLLA_JMX_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-jmx*.noarch.rpm)
+    SCYLLA_TOOLS_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-tools-*.noarch.rpm)
+    SCYLLA_PYTHON3_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-python3*.x86_64.rpm)
 elif [ $DOWNLOAD_ONLY -eq 1 ]; then
     if [ -z "$REPO_FOR_INSTALL" ]; then
         print_usage
