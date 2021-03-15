@@ -16,7 +16,7 @@
 
 docker build  . -t scylladb/packer-builder
 
-DOCKER_ID=$(docker run -e AWS_SECRET_ACCESS_KEY -e AWS_ACCESS_KEY_ID -d  -v $HOME/.aws:/root/.aws -v `pwd`:/ami scylladb/packer-builder /bin/bash -c "cd /ami ; bash ./build_ami.sh $*")
+DOCKER_ID=$(docker run -e AWS_SECRET_ACCESS_KEY -e AWS_ACCESS_KEY_ID -d  -v $HOME/.aws:/root/.aws -v `pwd`/../..:/scylla-machine-image scylladb/packer-builder /bin/bash -c "cd /scylla-machine-image/aws/ami; ./build_ami.sh $*")
 
 kill_it() {
     if [[ -n "$DOCKER_ID" ]]; then
