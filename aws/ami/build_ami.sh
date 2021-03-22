@@ -26,11 +26,13 @@ print_usage() {
     echo "  --repo-for-install  repository for install, specify .repo/.list file URL"
     echo "  --repo-for-update  repository for update, specify .repo/.list file URL"
     echo "  --product          scylla or scylla-enterprise"
+    echo "  --dry-run            validate template only (image is not built)"
     echo "  --download-no-server  download all rpm needed excluding scylla from `repo-for-install`"
     exit 1
 }
 LOCALRPM=0
 DOWNLOAD_ONLY=0
+PACKER_SUB_CMD="build"
 
 REPO_FOR_INSTALL=
 while [ $# -gt 0 ]; do
@@ -60,6 +62,11 @@ while [ $# -gt 0 ]; do
             ;;
         "--download-no-server")
             DOWNLOAD_ONLY=1
+            shift 1
+            ;;
+        "--dry-run")
+            echo "!!! Running in DRY-RUN mode !!!"
+            PACKER_SUB_CMD="validate"
             shift 1
             ;;
         *)
@@ -152,4 +159,4 @@ mkdir -p build
 export PACKER_LOG=1
 export PACKER_LOG_PATH=build/ami.log
 
-/usr/bin/packer build -var-file=variables.json -var install_args="$INSTALL_ARGS" -var region="$REGION" -var source_ami="${AMI[$(arch)]}" -var ssh_username="$SSH_USERNAME" -var scylla_version="$SCYLLA_VERSION" -var scylla_machine_image_version="$SCYLLA_MACHINE_IMAGE_VERSION" -var scylla_jmx_version="$SCYLLA_JMX_VERSION" -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" -var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}" scylla.json
+/usr/bin/packer ${PACKER_SUB_CMD} -var-file=variables.json -var install_args="$INSTALL_ARGS" -var region="$REGION" -var source_ami="${AMI[$(arch)]}" -var ssh_username="$SSH_USERNAME" -var scylla_version="$SCYLLA_VERSION" -var scylla_machine_image_version="$SCYLLA_MACHINE_IMAGE_VERSION" -var scylla_jmx_version="$SCYLLA_JMX_VERSION" -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" -var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}" -var python="/usr/bin/python" scylla.json
