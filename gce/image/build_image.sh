@@ -31,12 +31,14 @@ print_usage() {
     echo "  --download-no-server download all rpms needed excluding scylla using .repo provided in --repo-for-install"
     echo "  --dry-run            validate template only (image is not built)"
     echo "  --build-id           Set unique build ID, will be part of GCE image name"
+    echo "  --log-file           Path for log. Default build/packer.log on current dir"
     exit 1
 }
 LOCALRPM=0
 DOWNLOAD_ONLY=0
 PACKER_SUB_CMD="build -force -on-error=abort"
 REPO_FOR_INSTALL=
+PACKER_LOG_PATH=build/packer.log
 while [ $# -gt 0 ]; do
     case "$1" in
         "--localrpm")
@@ -64,6 +66,10 @@ while [ $# -gt 0 ]; do
             ;;
         "--build-id")
             BUILD_ID=$2
+            shift 2
+            ;;
+        "--log-file")
+            PACKER_LOG_PATH=$2
             shift 2
             ;;
         "--download-no-server")
@@ -163,7 +169,7 @@ cd $DIR
 mkdir -p build
 
 export PACKER_LOG=1
-export PACKER_LOG_PATH=build/packer.log
+export PACKER_LOG_PATH
 echo "Scylla versions:"
 echo "SCYLLA_VERSION: $SCYLLA_VERSION"
 echo "SCYLLA_MACHINE_IMAGE_VERSION: $SCYLLA_MACHINE_IMAGE_VERSION"
