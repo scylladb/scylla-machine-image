@@ -21,7 +21,7 @@ from subprocess import run
 
 
 sys.path.append('/opt/scylladb/scripts')
-from scylla_util import is_ec2, is_gce, get_cloud_instance
+from scylla_util import is_ec2, is_gce, is_azure, get_cloud_instance
 
 
 def create_raid(devices):
@@ -46,6 +46,8 @@ def get_disk_devices(instance, device_type):
         return devices
     elif is_gce():
         return get_default_devices(instance)
+    elif is_azure():
+        return get_default_devices(instance)
     else:
         raise Exception("Running in unknown cloud environment")
 
@@ -55,6 +57,8 @@ def get_default_devices(instance):
     if is_ec2():
         disk_names = instance.ephemeral_disks() or instance.ebs_disks()
     elif is_gce():
+        disk_names = instance.getEphemeralOsDisks()
+    elif is_azure():
         disk_names = instance.getEphemeralOsDisks()
     else:
         raise Exception("Running in unknown cloud environment")
