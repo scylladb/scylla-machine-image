@@ -13,7 +13,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+EXIT_STATUS=0
+DRY_RUN=false
 source ../../SCYLLA-VERSION-GEN
 
 PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
@@ -72,6 +73,7 @@ while [ $# -gt 0 ]; do
         "--dry-run")
             echo "!!! Running in DRY-RUN mode !!!"
             PACKER_SUB_CMD="validate"
+            DRY_RUN=true
             shift 1
             ;;
         *)
@@ -185,3 +187,19 @@ echo "Calling Packer..."
   -var scylla_build_id="$BUILD_ID" \
   -var scylla_branch_version="$BRANCH_VERSION" \
   scylla_gce.json
+
+# For some errors packer gives a success status even if fails.
+# Search log for errors
+if $DRY_RUN ; then
+  echo "DryRun: No need to grep errors on log"
+else
+  grep "A disk image was created" $PACKER_LOG_PATH
+  if [ $? -ne 0 ] ; then
+    echo "Error: No disk image line found on log."
+    EXIT_STATUS=1
+  else
+    echo "Success: disk image line found on log"
+  fi
+fi
+
+exit $EXIT_STATUS
