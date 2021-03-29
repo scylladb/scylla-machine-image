@@ -2,8 +2,7 @@
   "builders": [
     {
       "type": "googlecompute",
-      "source_image_family": "centos-8",
-      "source_image": "centos-8-v20200618",
+      "source_image_family": "{{user `source_image_family`}}",
       "ssh_username": "{{user `ssh_username`}}",
       "ssh_timeout": "6m",
       "project_id": "{{user `project_id`}}",
@@ -53,6 +52,7 @@
     "region": "",
     "image_storage_location": "",
     "instance_type": "",
-    "ssh_username": "centos"
+    "ssh_username": "",
+    "source_image_family": ""
   }
 }
