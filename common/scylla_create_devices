@@ -243,4 +243,9 @@ if __name__ == "__main__":
     if not args.data_device or args.data_device == "auto":
         disk_devices = get_default_devices(instance)
     else:
-        raise Exception("Running in unknown cloud environment")
+        disk_devices = get_disk_devices(instance, args.data_device)
+
+    if len(disk_devices) == 0:
+        print('No data disks found')
+    else:
+        create_raid(disk_devices)
