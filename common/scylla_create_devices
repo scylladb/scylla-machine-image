@@ -72,4 +72,7 @@ if __name__ == "__main__":
     else:
         disk_devices = get_disk_devices(instance, args.data_device)
 
-    create_raid(disk_devices)
+    if len(disk_devices) == 0:
+        print('No data disks found')
+    else:
+        create_raid(disk_devices)
