@@ -83,7 +83,7 @@ check_rpm_exists () {
         fi
     done
 }
-AMI=ami-0e4bba886a574c2d8
+AMI=ami-00e87074e52e6c9f9
 REGION=us-east-1
 SSH_USERNAME=centos
 
