@@ -145,8 +145,13 @@ if __name__ == '__main__':
     run('cloud-init clean')
     run('cloud-init init')
     for skel in glob.glob('/etc/skel/.*'):
-        if not skel.endswith('.bash_profile'):
-            shutil.copy(skel, '/home/scyllaadm')
+        shutil.copy(skel, '/home/scyllaadm')
+    if distro == 'centos':
+        profile = '/home/scyllaadm/.bash_profile'
+    else:
+        profile = '/home/scyllaadm/.profile'
+    with open(profile, 'a') as f:
+        f.write('\n\n/opt/scylladb/scylla-machine-image/scylla_login\n')
     run('useradd -o -u 1000 -g scyllaadm -s /bin/bash -d /home/scyllaadm centos')
     if distro == 'ubuntu':
         run('useradd -o -u 1000 -g scyllaadm -s /bin/bash -d /home/scyllaadm ubuntu')
