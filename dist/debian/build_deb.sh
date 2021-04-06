@@ -100,6 +100,11 @@ PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
 BUILDDIR=build/debian
 PACKAGE_NAME="$PRODUCT-machine-image"
 
+if echo $SCYLLA_VERSION | grep rc >/dev/null ; then
+ SCYLLA_VERSION=$(echo $SCYLLA_VERSION |sed 's/\(.*\)\.)*/\1~/')
+ VERSION="$SCYLLA_VERSION-$SCYLLA_RELEASE"
+fi
+
 rm -rf "$BUILDDIR"
 mkdir -p "$BUILDDIR"/scylla-machine-image
 
