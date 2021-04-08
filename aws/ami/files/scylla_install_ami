@@ -141,9 +141,10 @@ if __name__ == '__main__':
         cfg = re.sub('^     name: ubuntu', '     name: scyllaadm', cfg, flags=re.MULTILINE)
     with open('/etc/cloud/cloud.cfg', 'w') as f:
         f.write(cfg)
-    run('userdel -f {}'.format(distro))
+    run('userdel -r -f {}'.format(distro))
     run('cloud-init clean')
     run('cloud-init init')
+    run('ln -sf /home/scyllaadm {}'.format(homedir))
     for skel in glob.glob('/etc/skel/.*'):
         if not skel.endswith('.bash_profile'):
             shutil.copy(skel, '/home/scyllaadm')
