@@ -47,11 +47,13 @@ while [ $# -gt 0 ]; do
             ;;
         "--repo")
             REPO_FOR_INSTALL=$2
+            echo "--repo: $REPO_FOR_INSTALL"
             INSTALL_ARGS="$INSTALL_ARGS --repo $2"
             shift 2
             ;;
         "--repo-for-install")
             REPO_FOR_INSTALL=$2
+            echo "--repo-for-install: $REPO_FOR_INSTALL"
             INSTALL_ARGS="$INSTALL_ARGS --repo-for-install $2"
             shift 2
             ;;
@@ -83,6 +85,7 @@ while [ $# -gt 0 ]; do
             shift 1
             ;;
         *)
+            echo "ERROR: Illegal option: $1"
             print_usage
             ;;
     esac
@@ -128,6 +131,7 @@ if [ $LOCALRPM -eq 1 ]; then
     SCYLLA_PYTHON3_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-python3*.x86_64.rpm)
 elif [ $DOWNLOAD_ONLY -eq 1 ]; then
     if [ -z "$REPO_FOR_INSTALL" ]; then
+        echo "ERROR: No --repo or --repo-for-install were given on DOWNLOAD_ONLY run."
         print_usage
         exit 1
     fi
@@ -140,6 +144,7 @@ elif [ $DOWNLOAD_ONLY -eq 1 ]; then
     exit 0
 else
     if [ -z "$REPO_FOR_INSTALL" ]; then
+        echo "ERROR: No --repo or --repo-for-install were given."
         print_usage
         exit 1
     fi
