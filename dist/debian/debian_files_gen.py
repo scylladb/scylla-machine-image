@@ -64,7 +64,7 @@ if product != 'scylla':
         #    -> scylla-enterprise-conf.install
 
         if m := re.match(r'^scylla(-[^.]+)\.service$', p.name):
-            p.rename(p.parent / f'{product}{m.group(1)}.{p.name}')
+            p.rename(p.parent / f'{p.name}')
         elif m := re.match(r'^scylla(-[^.]+\.scylla-[^.]+\.[^.]+)$', p.name):
             p.rename(p.parent / f'{product}{m.group(1)}')
         else:
