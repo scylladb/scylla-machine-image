@@ -13,7 +13,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+EXIT_STATUS=0
+DRY_RUN=false
 source ../../SCYLLA-VERSION-GEN
 
 PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
@@ -30,12 +31,14 @@ print_usage() {
     echo "  --download-no-server download all rpms needed excluding scylla using .repo provided in --repo-for-install"
     echo "  --dry-run            validate template only (image is not built)"
     echo "  --build-id           Set unique build ID, will be part of GCE image name"
+    echo "  --log-file           Path for log. Default build/packer.log on current dir"
     exit 1
 }
 LOCALRPM=0
 DOWNLOAD_ONLY=0
 PACKER_SUB_CMD="build -force -on-error=abort"
 REPO_FOR_INSTALL=
+PACKER_LOG_PATH=build/packer.log
 while [ $# -gt 0 ]; do
     case "$1" in
         "--localrpm")
@@ -44,11 +47,13 @@ while [ $# -gt 0 ]; do
             ;;
         "--repo")
             REPO_FOR_INSTALL=$2
+            echo "--repo: $REPO_FOR_INSTALL"
             INSTALL_ARGS="$INSTALL_ARGS --repo $2"
             shift 2
             ;;
         "--repo-for-install")
             REPO_FOR_INSTALL=$2
+            echo "--repo-for-install: $REPO_FOR_INSTALL"
             INSTALL_ARGS="$INSTALL_ARGS --repo-for-install $2"
             shift 2
             ;;
@@ -65,6 +70,10 @@ while [ $# -gt 0 ]; do
             BUILD_ID=$2
             shift 2
             ;;
+        "--log-file")
+            PACKER_LOG_PATH=$2
+            shift 2
+            ;;
         "--download-no-server")
             DOWNLOAD_ONLY=1
             shift 1
@@ -72,9 +81,11 @@ while [ $# -gt 0 ]; do
         "--dry-run")
             echo "!!! Running in DRY-RUN mode !!!"
             PACKER_SUB_CMD="validate"
+            DRY_RUN=true
             shift 1
             ;;
         *)
+            echo "ERROR: Illegal option: $1"
             print_usage
             ;;
     esac
@@ -120,6 +131,7 @@ if [ $LOCALRPM -eq 1 ]; then
     SCYLLA_PYTHON3_VERSION=$(get_version_from_local_rpm $DIR/files/$PRODUCT-python3*.x86_64.rpm)
 elif [ $DOWNLOAD_ONLY -eq 1 ]; then
     if [ -z "$REPO_FOR_INSTALL" ]; then
+        echo "ERROR: No --repo or --repo-for-install were given on DOWNLOAD_ONLY run."
         print_usage
         exit 1
     fi
@@ -132,6 +144,7 @@ elif [ $DOWNLOAD_ONLY -eq 1 ]; then
     exit 0
 else
     if [ -z "$REPO_FOR_INSTALL" ]; then
+        echo "ERROR: No --repo or --repo-for-install were given."
         print_usage
         exit 1
     fi
@@ -161,7 +174,7 @@ cd $DIR
 mkdir -p build
 
 export PACKER_LOG=1
-export PACKER_LOG_PATH=build/packer.log
+export PACKER_LOG_PATH
 echo "Scylla versions:"
 echo "SCYLLA_VERSION: $SCYLLA_VERSION"
 echo "SCYLLA_MACHINE_IMAGE_VERSION: $SCYLLA_MACHINE_IMAGE_VERSION"
@@ -185,3 +198,19 @@ echo "Calling Packer..."
   -var scylla_build_id="$BUILD_ID" \
   -var scylla_branch_version="$BRANCH_VERSION" \
   scylla_gce.json
+
+# For some errors packer gives a success status even if fails.
+# Search log for errors
+if $DRY_RUN ; then
+  echo "DryRun: No need to grep errors on log"
+else
+  grep "A disk image was created" $PACKER_LOG_PATH
+  if [ $? -ne 0 ] ; then
+    echo "Error: No disk image line found on log."
+    EXIT_STATUS=1
+  else
+    echo "Success: disk image line found on log"
+  fi
+fi
+
+exit $EXIT_STATUS
