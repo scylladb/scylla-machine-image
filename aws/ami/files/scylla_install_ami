@@ -146,11 +146,18 @@ if __name__ == '__main__':
     run('cloud-init init')
     run('ln -sf /home/scyllaadm {}'.format(homedir))
     for skel in glob.glob('/etc/skel/.*'):
-        if not skel.endswith('.bash_profile'):
-            shutil.copy(skel, '/home/scyllaadm')
+        shutil.copy(skel, '/home/scyllaadm')
+    if distro == 'centos':
+        profile = '/home/scyllaadm/.bash_profile'
+    else:
+        profile = '/home/scyllaadm/.profile'
+    with open(profile, 'a') as f:
+        f.write('\n\n/opt/scylladb/scylla-machine-image/scylla_login\n')
     run('useradd -o -u 1000 -g scyllaadm -s /bin/bash -d /home/scyllaadm centos')
+    run('groupadd -o -g 1000 centos')
     if distro == 'ubuntu':
         run('useradd -o -u 1000 -g scyllaadm -s /bin/bash -d /home/scyllaadm ubuntu')
+        run('groupadd -o -g 1000 ubuntu')
 
     if distro == 'centos':
         # We need to install LTS kernel for the AMI.
