@@ -19,6 +19,7 @@ import os
 import sys
 sys.path.append('/opt/scylladb/scripts')
 from scylla_util import *
+from subprocess import run
 
 MSG_HEADER = '''
 
@@ -102,7 +103,7 @@ $ nodetool status
 '''[1:-1]
 
 if __name__ == '__main__':
-    colorprint(MSG_HEADER.format(scylla_version=out("scylla --version")))
+    colorprint(MSG_HEADER.format(scylla_version=run("scylla --version", shell=True, check=True, capture_output=True, encoding='utf-8').stdout.strip()))
     cloud_instance = get_cloud_instance()
     if not cloud_instance.is_supported_instance_class():
         colorprint(MSG_UNSUPPORTED_INSTANCE_TYPE % cloud_instance.GETTING_STARTED_URL,
@@ -132,6 +133,6 @@ if __name__ == '__main__':
                     colorprint(MSG_SCYLLA_UNKNOWN)
             else:
                 colorprint(MSG_SCYLLA_ACTIVE)
-                run('nodetool status', exception=False)
+                run('nodetool status', shell=True)
         cloud_instance.check()
         print('\n', end='')

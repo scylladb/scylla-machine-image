@@ -1,6 +1,6 @@
 FROM centos:7
 
-RUN yum install -y wget curl unzip yum-utils sudo
+RUN yum install -y wget curl unzip yum-utils sudo git
 
 ENV PACKER_VERSION=1.5.1
 ENV EXPECTED="3305ede8886bc3fd83ec0640fb87418cc2a702b2cb1567b48c8cb9315e80047d  packer_linux_amd64.zip"
