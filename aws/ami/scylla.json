@@ -54,6 +54,7 @@
       "source_ami": "{{user `source_ami`}}",
       "ssh_timeout": "5m",
       "ssh_username": "{{user `ssh_username`}}",
+      "ssh_clear_authorized_keys": true,
       "subnet_id": "{{user `subnet_id`}}",
       "type": "amazon-ebs",
       "user_data_file": "user_data.txt",
