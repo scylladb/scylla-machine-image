@@ -169,7 +169,6 @@ echo "SCYLLA_JMX_VERSION: $SCYLLA_JMX_VERSION"
 echo "SCYLLA_TOOLS_VERSION: $SCYLLA_TOOLS_VERSION"
 echo "SCYLLA_PYTHON3_VERSION: $SCYLLA_PYTHON3_VERSION"
 echo "BUILD_ID: $BUILD_ID"
-echo "WORKING_BRANCH: $BRANCH_VERSION"
 echo "Calling Packer..."
 
 /usr/bin/packer ${PACKER_SUB_CMD} \
@@ -183,5 +182,4 @@ echo "Calling Packer..."
   -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" \
   -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" \
   -var scylla_build_id="$BUILD_ID" \
-  -var scylla_branch_version="$BRANCH_VERSION" \
   scylla_gce.json
