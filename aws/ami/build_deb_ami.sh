@@ -18,23 +18,27 @@ source ../../SCYLLA-VERSION-GEN
 
 PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
 DIR=$(dirname $(readlink -f $0))
+EXIT_STATUS=0
+DRY_RUN=false
 
 print_usage() {
     echo "build_deb_ami.sh --localdeb --repo [URL] --target [distribution]"
-    echo "  --localdeb  deploy locally built debs"
-    echo "  --repo  repository for both install and update, specify .repo/.list file URL"
+    echo "  --localdeb            deploy locally built debs"
+    echo "  --repo                repository for both install and update, specify .repo/.list file URL"
     echo "  --repo-for-install    repository for install, specify .repo/.list file URL"
     echo "  --repo-for-update     repository for update, specify .repo/.list file URL"
     echo "  --product             scylla or scylla-enterprise"
     echo "  --dry-run             validate template only (image is not built)"
     echo "  --download-no-server  download all deb needed excluding scylla from repo-for-install"
+    echo "  --log-file            Path for log. Default build/ami.log on current dir"
     exit 1
 }
 LOCALDEB=0
 DOWNLOAD_ONLY=0
-PACKER_SUB_CMD="build"
-
+PACKER_SUB_CMD="build -force -on-error=abort"
 REPO_FOR_INSTALL=
+PACKER_LOG_PATH=build/ami.log
+
 while [ $# -gt 0 ]; do
     case "$1" in
         "--localdeb")
@@ -43,11 +47,13 @@ while [ $# -gt 0 ]; do
             ;;
         "--repo")
             REPO_FOR_INSTALL=$2
+            echo "--repo: $REPO_FOR_INSTALL"
             INSTALL_ARGS="$INSTALL_ARGS --repo $2"
             shift 2
             ;;
         "--repo-for-install")
             REPO_FOR_INSTALL=$2
+            echo "--repo-for-install: $REPO_FOR_INSTALL"
             INSTALL_ARGS="$INSTALL_ARGS --repo-for-install $2"
             shift 2
             ;;
@@ -60,6 +66,10 @@ while [ $# -gt 0 ]; do
             INSTALL_ARGS="$INSTALL_ARGS --product $2"
             shift 2
             ;;
+        "--log-file")
+            PACKER_LOG_PATH=$2
+            shift 2
+            ;;
         "--download-no-server")
             DOWNLOAD_ONLY=1
             shift 1
@@ -67,9 +77,11 @@ while [ $# -gt 0 ]; do
         "--dry-run")
             echo "!!! Running in DRY-RUN mode !!!"
             PACKER_SUB_CMD="validate"
+            DRY_RUN=true
             shift 1
             ;;
         *)
+            echo "ERROR: Illegal option: $1"
             print_usage
             ;;
     esac
@@ -125,6 +137,7 @@ if [ $LOCALDEB -eq 1 ]; then
     cd -
 elif [ $DOWNLOAD_ONLY -eq 1 ]; then
     if [ -z "$REPO_FOR_INSTALL" ]; then
+        echo "ERROR: No --repo or --repo-for-install were given on DOWNLOAD_ONLY run."
         print_usage
         exit 1
     fi
@@ -139,6 +152,7 @@ elif [ $DOWNLOAD_ONLY -eq 1 ]; then
     exit 0
 else
     if [ -z "$REPO_FOR_INSTALL" ]; then
+        echo "ERROR: No --repo or --repo-for-install were given."
         print_usage
         exit 1
     fi
@@ -170,6 +184,22 @@ cd $DIR
 mkdir -p build
 
 export PACKER_LOG=1
-export PACKER_LOG_PATH=build/ami.log
+export PACKER_LOG_PATH
 
 /usr/bin/packer ${PACKER_SUB_CMD} -var-file=variables.json -var install_args="$INSTALL_ARGS" -var region="$REGION" -var source_ami="${AMI[$(arch)]}" -var ssh_username="$SSH_USERNAME" -var scylla_version="$SCYLLA_VERSION" -var scylla_machine_image_version="$SCYLLA_MACHINE_IMAGE_VERSION" -var scylla_jmx_version="$SCYLLA_JMX_VERSION" -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" -var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}" -var python="/usr/bin/python3" scylla.json
+
+# For some errors packer gives a success status even if fails.
+# Search log for errors
+if $DRY_RUN ; then
+  echo "DryRun: No need to grep errors on log"
+else
+  grep "us-east-1:" $PACKER_LOG_PATH
+  if [ $? -ne 0 ] ; then
+    echo "Error: No AMI creation line found on log."
+    EXIT_STATUS=1
+  else
+    echo "Success: AMI creation line found on log"
+  fi
+fi
+
+exit $EXIT_STATUS
