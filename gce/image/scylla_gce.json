@@ -11,7 +11,7 @@
       "machine_type": "{{user `instance_type`}}",
       "metadata": {"block-project-ssh-keys": "TRUE"},
       "image_family": "scylla",
-      "image_name": "scylla-{{user `scylla_branch_version`| clean_resource_name}}-build-{{user `scylla_build_id`| clean_resource_name}}",
+      "image_name": "scylla-{{user `scylla_version`| clean_resource_name}}-build-{{user `scylla_build_id`| clean_resource_name}}",
       "instance_name": "scylla-{{user `scylla_version`| clean_resource_name}}",
       "image_description": "Official ScyllaDB image v-{{user `scylla_version`| clean_resource_name}}",
       "use_internal_ip": false,
