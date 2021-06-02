@@ -25,6 +25,7 @@ import tarfile
 import argparse
 import subprocess
 import platform
+import yaml
 try:
     from cStringIO import StringIO
 except ImportError:
@@ -182,11 +183,14 @@ if __name__ == '__main__':
         profile = '/home/scyllaadm/.profile'
     with open(profile, 'a') as f:
         f.write('\n\n/opt/scylladb/scylla-machine-image/scylla_login\n')
-    run('useradd -o -u 1000 -g scyllaadm -s /bin/bash -d /home/scyllaadm centos')
+    with open('/etc/cloud/cloud.cfg') as f:
+        cfg = yaml.safe_load(f)
+        groups = ','.join(cfg['system_info']['default_user']['groups'])
+    run('useradd -o -u 1000 -g scyllaadm -G {} -s /bin/bash -d /home/scyllaadm centos'.format(groups))
     run('groupadd -o -g 1000 centos')
     os.symlink('/home/scyllaadm', '/home/centos')
     if distro == 'ubuntu':
-        run('useradd -o -u 1000 -g scyllaadm -s /bin/bash -d /home/scyllaadm ubuntu')
+        run('useradd -o -u 1000 -g scyllaadm -G {} -s /bin/bash -d /home/scyllaadm ubuntu'.format(groups))
         run('groupadd -o -g 1000 ubuntu')
         os.symlink('/home/scyllaadm', '/home/ubuntu')
 
