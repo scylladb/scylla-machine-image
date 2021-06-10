@@ -144,7 +144,6 @@ if __name__ == '__main__':
     run('userdel -r -f {}'.format(distro))
     run('cloud-init clean')
     run('cloud-init init')
-    run('ln -sf /home/scyllaadm {}'.format(homedir))
     for skel in glob.glob('/etc/skel/.*'):
         shutil.copy(skel, '/home/scyllaadm')
         os.chown(skel, 1000, 1000)
