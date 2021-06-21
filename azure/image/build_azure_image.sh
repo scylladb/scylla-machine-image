@@ -13,10 +13,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+EXIT_STATUS=0
+DRY_RUN=false
 source ../../SCYLLA-VERSION-GEN
 
 PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
+BUILD_ID=$(date -u '+%FT%H-%M-%S')
 DIR=$(dirname $(readlink -f $0))
 
 print_usage() {
@@ -27,12 +29,17 @@ print_usage() {
     echo "  --repo-for-update  repository for update, specify .list file URL"
     echo "  --product          scylla or scylla-enterprise"
     echo "  --download-no-server  download all deb needed excluding scylla from repo-for-install"
+    echo "  --dry-run            validate template only (image is not built)"
+    echo "  --build-id           Set unique build ID, will be part of Azure image name"
+    echo "  --log-file           Path for log. Default build/azure_image.log on current dir"
     exit 1
 }
 LOCALDEB=0
 DOWNLOAD_ONLY=0
-
+PACKER_SUB_CMD="build -force -on-error=abort"
 REPO_FOR_INSTALL=
+PACKER_LOG_PATH=build/packer.log
+
 while [ $# -gt 0 ]; do
     case "$1" in
         "--localdeb")
@@ -58,8 +65,22 @@ while [ $# -gt 0 ]; do
             INSTALL_ARGS="$INSTALL_ARGS --product $2"
             shift 2
             ;;
+        "--build-id")
+            BUILD_ID=$2
+            shift 2
+            ;;
+        "--log-file")
+            PACKER_LOG_PATH=$2
+            shift 2
+            ;;
         "--download-no-server")
             DOWNLOAD_ONLY=1
+            shift 1
+            ;;
+        "--dry-run")
+            echo "!!! Running in DRY-RUN mode !!!"
+            PACKER_SUB_CMD="validate"
+            DRY_RUN=true
             shift 1
             ;;
         *)
@@ -162,9 +183,17 @@ REGION="EAST US"
 SSH_USERNAME=azureuser
 
 export PACKER_LOG=1
-export PACKER_LOG_PATH=build/azure_image.log
+export PACKER_LOG_PATH=build/azure-image.log
+echo "Scylla versions:"
+echo "SCYLLA_VERSION: $SCYLLA_VERSION"
+echo "SCYLLA_MACHINE_IMAGE_VERSION: $SCYLLA_MACHINE_IMAGE_VERSION"
+echo "SCYLLA_JMX_VERSION: $SCYLLA_JMX_VERSION"
+echo "SCYLLA_TOOLS_VERSION: $SCYLLA_TOOLS_VERSION"
+echo "SCYLLA_PYTHON3_VERSION: $SCYLLA_PYTHON3_VERSION"
+echo "BUILD_ID: $BUILD_ID"
+echo "Calling Packer..."
 
-/usr/bin/packer build -force \
+/usr/bin/packer ${PACKER_SUB_CMD} \
   -var-file=variables.json \
   -var install_args="$INSTALL_ARGS" \
   -var region="$REGION" \
@@ -179,4 +208,21 @@ export PACKER_LOG_PATH=build/azure_image.log
   -var client_secret="$AZURE_CLIENT_SECRET" \
   -var tenant_id="$AZURE_TENANT_ID" \
   -var subscription_id="$AZURE_SUBSCRIPTION_ID" \
+  -var scylla_build_id="$BUILD_ID" \
   -var python="/usr/bin/python3" scylla_azure.json
+
+  # For some errors packer gives a success status even if fails.
+  # Search log for errors
+  if $DRY_RUN ; then
+    echo "DryRun: No need to grep errors on log"
+  else
+    grep "Builds finished. The artifacts of successful builds are:" $PACKER_LOG_PATH
+    if [ $? -ne 0 ] ; then
+      echo "Error: No Builds finished line found on log."
+      EXIT_STATUS=1
+    else
+      echo "Success: Builds finished line found on log"
+    fi
+  fi
+
+  exit $EXIT_STATUS
