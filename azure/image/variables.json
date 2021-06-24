@@ -1,0 +1,9 @@
+{
+  "client_id": "",
+  "client_secret": "",
+  "tenant_id": "",
+  "subscription_id": "",
+  "security_group_id": "",
+  "region": "EAST US",
+  "vm_size": "Standard_D4_v4"
+}
