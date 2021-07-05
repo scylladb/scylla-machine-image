@@ -131,11 +131,7 @@ Resources:
                 - ''
                 - - !Sub |
                     #!/bin/bash -ex
-
-                    sudo yum -y install epel-release
-                    sudo yum -y install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.amzn1.noarch.rpm
-                    ln -s /usr/local/lib/python2.7/site-packages/cfnbootstrap /usr/lib/python2.7/site-packages/cfnbootstrap
-                    /opt/aws/bin/cfn-signal --exit-code 0 --resource Node{{ node_index }} --region ${AWS::Region} --stack ${AWS::StackName}
+                    /usr/local/bin/cfn-signal --exit-code 0 --resource Node{{ node_index }} --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
 {%- else %}
       UserData: !Base64
@@ -150,12 +146,7 @@ Resources:
                 - ''
                 - - !Sub |
                     #!/bin/bash -ex
-
-                    sudo yum -y install epel-release
-                    sudo yum -y install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.amzn1.noarch.rpm
-                    ln -s /usr/local/lib/python2.7/site-packages/cfnbootstrap /usr/lib/python2.7/site-packages/cfnbootstrap
-
-                    trap '/opt/aws/bin/cfn-signal --exit-code 1 --resource Node{{ node_index }} --region ${AWS::Region} --stack ${AWS::StackName}' ERR
+                    trap '/usr/local/bin/cfn-signal --exit-code 1 --resource Node{{ node_index }} --region ${AWS::Region} --stack ${AWS::StackName}' ERR
 
                     export PUBLIC_IP=${Node2ElasticIP}
                     export PRIVATE_IP=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)

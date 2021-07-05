@@ -37,6 +37,11 @@ def run(cmd, shell=False):
         cmd = shlex.split(cmd)
     return subprocess.check_call(cmd, shell=shell, env=my_env)
 
+def out(cmd, shell=False):
+    if not shell:
+        cmd = shlex.split(cmd)
+    return subprocess.check_output(cmd, shell=shell, env=my_env).decode('utf-8')
+
 def get_kver(pattern):
     for k in glob.glob(pattern):
         return re.sub(r'^/boot/vmlinuz-(.+)$', r'\1', k)
@@ -104,6 +109,27 @@ if __name__ == '__main__':
         os.remove('/etc/apt/sources.list.d/scylla_install.list')
         if args.repo_for_update:
             run('curl -L -o /etc/apt/sources.list.d/scylla.list {REPO_FOR_UPDATE}'.format(REPO_FOR_UPDATE=args.repo_for_update))
+
+    # use easy_install instead of pip, because easy_install requires
+    # fewer dependencies, no need to install gcc, it makes our AMI smaller.
+    if distro == 'centos':
+        run('yum install -y epel-release')
+        run('yum install -y pystache python-daemon python-setuptools')
+        # Default install prefix on CentOS7 is /usr not /usr/local, but we need
+        # to align path for executable, so specify script-dir to /usr/local/bin
+        run('python -m easy_install --script-dir /usr/local/bin https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz')
+        pyver = ''
+    else:
+        # XXX: we want install dependencies from distro repo, but
+        # python-daemon-2.2 on Ubuntu 20.04 is too new for aws-cfn-bootstrap,
+        # so install python-daemon-2.1 from pypi
+        run('apt-get install -y python3-pystache python3-lockfile python3-setuptools')
+        run('python3 -m easy_install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz')
+        pyver = '3'
+    cfnpath = out('python{} -c "import cfnbootstrap as _; print(_.__path__[0])"'.format(pyver))
+    initpath = os.path.abspath('{}/../init/{}/cfn-hup'.format(cfnpath, 'redhat' if distro == 'centos' else 'ubuntu'))
+    shutil.copyfile(initpath, '/etc/init.d/cfn-hup')
+    os.chmod('/etc/init.d/cfn-hup', 0o755)
 
     run('systemctl daemon-reload')
     run('systemctl enable scylla-image-setup.service')
