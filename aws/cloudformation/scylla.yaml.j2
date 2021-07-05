@@ -131,10 +131,6 @@ Resources:
                 - ''
                 - - !Sub |
                     #!/bin/bash -ex
-                    sudo apt-get update
-                    sudo apt-get -y install python3-pip
-                    sudo pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
-
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node{{ node_index }} --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
 {%- else %}
@@ -150,11 +146,6 @@ Resources:
                 - ''
                 - - !Sub |
                     #!/bin/bash -ex
-
-                    sudo apt-get update
-                    sudo apt-get -y install python3-pip
-                    sudo pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
-
                     trap '/usr/local/bin/cfn-signal --exit-code 1 --resource Node{{ node_index }} --region ${AWS::Region} --stack ${AWS::StackName}' ERR
 
                     export PUBLIC_IP=${Node2ElasticIP}
