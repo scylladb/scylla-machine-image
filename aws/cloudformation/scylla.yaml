@@ -159,10 +159,6 @@ Resources:
                 - ''
                 - - !Sub |
                     #!/bin/bash -ex
-                    sudo apt-get update
-                    sudo apt-get -y install python3-pip
-                    sudo pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
-
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node0 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
@@ -233,10 +229,6 @@ Resources:
                 - ''
                 - - !Sub |
                     #!/bin/bash -ex
-                    sudo apt-get update
-                    sudo apt-get -y install python3-pip
-                    sudo pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
-
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node1 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
@@ -307,10 +299,6 @@ Resources:
                 - ''
                 - - !Sub |
                     #!/bin/bash -ex
-                    sudo apt-get update
-                    sudo apt-get -y install python3-pip
-                    sudo pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
-
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node2 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
@@ -381,10 +369,6 @@ Resources:
                 - ''
                 - - !Sub |
                     #!/bin/bash -ex
-                    sudo apt-get update
-                    sudo apt-get -y install python3-pip
-                    sudo pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
-
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node3 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
@@ -455,10 +439,6 @@ Resources:
                 - ''
                 - - !Sub |
                     #!/bin/bash -ex
-                    sudo apt-get update
-                    sudo apt-get -y install python3-pip
-                    sudo pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
-
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node4 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
@@ -529,10 +509,6 @@ Resources:
                 - ''
                 - - !Sub |
                     #!/bin/bash -ex
-                    sudo apt-get update
-                    sudo apt-get -y install python3-pip
-                    sudo pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
-
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node5 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
@@ -603,10 +579,6 @@ Resources:
                 - ''
                 - - !Sub |
                     #!/bin/bash -ex
-                    sudo apt-get update
-                    sudo apt-get -y install python3-pip
-                    sudo pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
-
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node6 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
@@ -677,10 +649,6 @@ Resources:
                 - ''
                 - - !Sub |
                     #!/bin/bash -ex
-                    sudo apt-get update
-                    sudo apt-get -y install python3-pip
-                    sudo pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
-
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node7 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
@@ -751,10 +719,6 @@ Resources:
                 - ''
                 - - !Sub |
                     #!/bin/bash -ex
-                    sudo apt-get update
-                    sudo apt-get -y install python3-pip
-                    sudo pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
-
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node8 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
@@ -825,10 +789,6 @@ Resources:
                 - ''
                 - - !Sub |
                     #!/bin/bash -ex
-                    sudo apt-get update
-                    sudo apt-get -y install python3-pip
-                    sudo pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
-
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node9 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
