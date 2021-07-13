@@ -45,13 +45,18 @@ By default, Scylla sends certain information about this node to a data collectio
 '''[1:-1]
 MSG_UNSUPPORTED_INSTANCE_TYPE = '''
     {red}{type} is not eligible for optimized automatic tuning!{nocolor}
-To continue the setup of Scylla on this instance, run 'sudo scylla_io_setup' then 'sudo systemctl start scylla-server'.
+
+To continue the setup of Scylla on this instance, run 'sudo scylla_io_setup' 
+then 'sudo systemctl start scylla-server'.
 For a list of optimized instance types and more instructions, see %s
 
 '''[1:-1]
 MSG_UNSUPPORTED_INSTANCE_TYPE_NO_DISKS = '''
     {red}{type} is not eligible for optimized automatic tuning!{nocolor}
-To continue the setup of Scylla on this instance, you need to attach additional disks, next run 'sudo scylla_create_devices', 'sudo scylla_io_setup' then 'sudo systemctl start scylla-server'.
+
+To continue the setup of Scylla on this instance, you need to attach additional disks, 
+next run 'sudo scylla_create_devices', 'sudo scylla_io_setup' 
+then 'sudo systemctl start scylla-server'.
 For a list of optimized instance types and more instructions, see %s
 '''[1:-1]
 MSG_SETUP_ACTIVATING = '''
@@ -81,6 +86,7 @@ Please wait for Scylla startup to finish. To see its status, run
 '''[1:-1]
 MSG_SCYLLA_FAILED = '''
     {red}Scylla has not started!{nocolor}
+
 To see the status of Scylla, run 
  'systemctl status scylla-server'
 
