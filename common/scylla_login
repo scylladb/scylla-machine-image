@@ -39,8 +39,8 @@ Nodetool:
 CQL Shell:
         cqlsh
 More documentation available at: 
-        http://www.scylladb.com/doc/
-By default, Scylla sends certain information about this node to a data collection server. For information, see http://www.scylladb.com/privacy/
+        https://docs.scylladb.com/
+By default, Scylla sends certain information about this node to a data collection server. For information, see https://www.scylladb.com/privacy/
 
 '''[1:-1]
 MSG_UNSUPPORTED_INSTANCE_TYPE = '''
