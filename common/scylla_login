@@ -33,13 +33,13 @@ MSG_HEADER = '''
               |___/                        
 
 Version:
-       {scylla_version}
+        {scylla_version}
 Nodetool:
-	nodetool help
+        nodetool help
 CQL Shell:
-	cqlsh
+        cqlsh
 More documentation available at: 
-	http://www.scylladb.com/doc/
+        http://www.scylladb.com/doc/
 By default, Scylla sends certain information about this node to a data collection server. For information, see http://www.scylladb.com/privacy/
 
 '''[1:-1]
