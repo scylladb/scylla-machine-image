@@ -56,6 +56,11 @@ Parameters:
     Type: 'AWS::EC2::KeyPair::KeyName'
     ConstraintDescription: must be the name of an existing EC2 KeyPair.
 
+  VpcCidrIp:
+    Description: Set CIDP IP range for VPC
+    Type: String
+    ConstraintDescription: must be valid subnet
+
 # Those conditions would be used to enable nodes based on InstanceCount parameter
 Conditions:
     Launch1: !Equals [1, 1]
@@ -866,7 +871,7 @@ Resources:
         - Key: ClusterName
           Value: !Ref ClusterName
       SecurityGroupIngress:
-        - CidrIp: 172.31.0.0/16
+        - CidrIp: !Ref VpcCidrIp
           FromPort: 22
           ToPort: 22
           IpProtocol: '-1'
@@ -887,7 +892,7 @@ Resources:
     Type: 'AWS::EC2::Subnet'
     Properties:
       AvailabilityZone: !Ref AvailabilityZone
-      CidrBlock: 172.31.0.0/16
+      CidrBlock: !Ref VpcCidrIp
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
@@ -905,7 +910,7 @@ Resources:
   VPC:
     Type: 'AWS::EC2::VPC'
     Properties:
-      CidrBlock: 172.31.0.0/16
+      CidrBlock: !Ref VpcCidrIp
       Tags:
         - Key: Name
           Value: !Sub '${ClusterName}-VPC'
