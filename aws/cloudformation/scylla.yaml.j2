@@ -31,6 +31,14 @@ Parameters:
     MaxValue: {{ total_num_node }}
     ConstraintDescription: Must be a number between 1 and {{ total_num_node }}.
 
+  EnablePublicAccess:
+    Description: Sef true to enable first cluster node to be allocate with public IP.
+    Type: String
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Default: 'false'
+
   ScyllaAmi:
     Type: 'AWS::EC2::Image::Id'
     ConstraintDescription: must be a valid scylla AMI in this region.
@@ -101,7 +109,7 @@ Resources:
     CreationPolicy:
       ResourceSignal:
         Timeout: PT10M
-    DependsOn: SGCluster
+    DependsOn: CfnEndpoint
     Properties:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
@@ -153,7 +161,6 @@ Resources:
                     #!/bin/bash -ex
                     trap '/usr/local/bin/cfn-signal --exit-code 1 --resource Node{{ node_index }} --region ${AWS::Region} --stack ${AWS::StackName}' ERR
 
-                    export PUBLIC_IP=${Node2ElasticIP}
                     export PRIVATE_IP=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
                     sed -i "s|# broadcast_address: 1.2.3.4|broadcast_address: $PRIVATE_IP|g" /etc/scylla/scylla.yaml
                   - |+
@@ -177,33 +184,29 @@ Resources:
               --totalnodes 1 --reflector example.com
 {%- endif %}
       NetworkInterfaces:
-        - NetworkInterfaceId: !Ref Node{{ node_index }}ETH0
+        - AssociatePublicIpAddress: !Ref EnablePublicAccess
+          PrivateIpAddress: 172.31.{{node_index}}.11
+          SubnetId: !Ref Subnet
           DeviceIndex: '0'
-  Node{{ node_index }}ETH0:
-    Condition: Launch{{ node_index + 1 }}
-    Type: 'AWS::EC2::NetworkInterface'
-    Properties:
-      GroupSet:
-        - !Ref SGAdmin
-        - !Ref SGCluster
-        - !Ref SGUser
-      PrivateIpAddress: {{ ip_address_list[node_index] }}
-      SubnetId: !Ref Subnet
+          Description: 'Primary network interface'
+          GroupSet:
+            - !Ref SGCluster
+            - !Ref SGAdmin
+{% if AssociatePublicIpAddress %}
   Node{{ node_index }}ElasticIP:
-    Condition: Launch{{ node_index + 1 }}
     Type: 'AWS::EC2::EIP'
     Properties:
       Domain: vpc
   Node{{ node_index }}ElasticIPAssociation:
-    Condition: Launch{{ node_index + 1 }}
     Type: 'AWS::EC2::EIPAssociation'
     DependsOn: Node{{ node_index }}
     Properties:
       AllocationId: !GetAtt
         - Node{{ node_index }}ElasticIP
         - AllocationId
-      NetworkInterfaceId: !Ref Node{{ node_index }}ETH0
+      InstanceId: !Ref Node{{ node_index }}
       PrivateIpAddress: {{ ip_address_list[node_index] }}
+{%- endif %}
 {%- endfor %}
   Route:
     Type: 'AWS::EC2::Route'
@@ -281,7 +284,7 @@ Resources:
     Properties:
       AvailabilityZone: !Ref AvailabilityZone
       CidrBlock: 172.31.0.0/16
-      MapPublicIpOnLaunch: true
+      MapPublicIpOnLaunch: !Ref EnablePublicAccess
       Tags:
         - Key: Name
           Value: !Sub '${ClusterName}-Subnet'
@@ -299,11 +302,27 @@ Resources:
     Type: 'AWS::EC2::VPC'
     Properties:
       CidrBlock: 172.31.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
       Tags:
         - Key: Name
           Value: !Sub '${ClusterName}-VPC'
         - Key: ClusterName
           Value: !Ref ClusterName
+
+  CfnEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DependsOn: SGCluster
+    Properties:
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.cloudformation"
+      VpcEndpointType: "Interface"
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref Subnet
+      SecurityGroupIds:
+        - !Ref SGCluster
+        - !Ref SGAdmin
 
 Outputs:
 {%- for node_index in range(total_num_node) %}
@@ -320,11 +339,13 @@ Outputs:
     Value: !GetAtt
       - Node{{ node_index }}
       - PrivateIp
+{% if AssociatePublicIpAddress %}
   Node{{ node_index }}PublicIp:
     Condition: Launch{{ node_index + 1 }}
     Value: !GetAtt
       - Node{{ node_index }}
       - PublicIp
+{% endif %}
 {%- endfor %}
   SGAdmin:
     Value: !Ref SGAdmin

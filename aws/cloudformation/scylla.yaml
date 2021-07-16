@@ -26,6 +26,14 @@ Parameters:
     MaxValue: 10
     ConstraintDescription: Must be a number between 1 and 10.
 
+  EnablePublicAccess:
+    Description: Sef true to enable first cluster node to be allocate with public IP.
+    Type: String
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Default: 'false'
+
   ScyllaAmi:
     Type: 'AWS::EC2::Image::Id'
     ConstraintDescription: must be a valid scylla AMI in this region.
@@ -130,7 +138,7 @@ Resources:
     CreationPolicy:
       ResourceSignal:
         Timeout: PT10M
-    DependsOn: SGCluster
+    DependsOn: CfnEndpoint
     Properties:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
@@ -167,40 +175,22 @@ Resources:
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node0 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
-        - NetworkInterfaceId: !Ref Node0ETH0
+        - AssociatePublicIpAddress: !Ref EnablePublicAccess
+          PrivateIpAddress: 172.31.0.11
+          SubnetId: !Ref Subnet
           DeviceIndex: '0'
-  Node0ETH0:
-    Condition: Launch1
-    Type: 'AWS::EC2::NetworkInterface'
-    Properties:
-      GroupSet:
-        - !Ref SGAdmin
-        - !Ref SGCluster
-        - !Ref SGUser
-      PrivateIpAddress: 172.31.0.11
-      SubnetId: !Ref Subnet
-  Node0ElasticIP:
-    Condition: Launch1
-    Type: 'AWS::EC2::EIP'
-    Properties:
-      Domain: vpc
-  Node0ElasticIPAssociation:
-    Condition: Launch1
-    Type: 'AWS::EC2::EIPAssociation'
-    DependsOn: Node0
-    Properties:
-      AllocationId: !GetAtt
-        - Node0ElasticIP
-        - AllocationId
-      NetworkInterfaceId: !Ref Node0ETH0
-      PrivateIpAddress: 172.31.0.11
+          Description: 'Primary network interface'
+          GroupSet:
+            - !Ref SGCluster
+            - !Ref SGAdmin
+
   Node1:
     Condition: Launch2
     Type: 'AWS::EC2::Instance'
     CreationPolicy:
       ResourceSignal:
         Timeout: PT10M
-    DependsOn: SGCluster
+    DependsOn: CfnEndpoint
     Properties:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
@@ -237,40 +227,22 @@ Resources:
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node1 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
-        - NetworkInterfaceId: !Ref Node1ETH0
+        - AssociatePublicIpAddress: !Ref EnablePublicAccess
+          PrivateIpAddress: 172.31.1.11
+          SubnetId: !Ref Subnet
           DeviceIndex: '0'
-  Node1ETH0:
-    Condition: Launch2
-    Type: 'AWS::EC2::NetworkInterface'
-    Properties:
-      GroupSet:
-        - !Ref SGAdmin
-        - !Ref SGCluster
-        - !Ref SGUser
-      PrivateIpAddress: 172.31.1.11
-      SubnetId: !Ref Subnet
-  Node1ElasticIP:
-    Condition: Launch2
-    Type: 'AWS::EC2::EIP'
-    Properties:
-      Domain: vpc
-  Node1ElasticIPAssociation:
-    Condition: Launch2
-    Type: 'AWS::EC2::EIPAssociation'
-    DependsOn: Node1
-    Properties:
-      AllocationId: !GetAtt
-        - Node1ElasticIP
-        - AllocationId
-      NetworkInterfaceId: !Ref Node1ETH0
-      PrivateIpAddress: 172.31.1.11
+          Description: 'Primary network interface'
+          GroupSet:
+            - !Ref SGCluster
+            - !Ref SGAdmin
+
   Node2:
     Condition: Launch3
     Type: 'AWS::EC2::Instance'
     CreationPolicy:
       ResourceSignal:
         Timeout: PT10M
-    DependsOn: SGCluster
+    DependsOn: CfnEndpoint
     Properties:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
@@ -307,40 +279,22 @@ Resources:
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node2 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
-        - NetworkInterfaceId: !Ref Node2ETH0
+        - AssociatePublicIpAddress: !Ref EnablePublicAccess
+          PrivateIpAddress: 172.31.2.11
+          SubnetId: !Ref Subnet
           DeviceIndex: '0'
-  Node2ETH0:
-    Condition: Launch3
-    Type: 'AWS::EC2::NetworkInterface'
-    Properties:
-      GroupSet:
-        - !Ref SGAdmin
-        - !Ref SGCluster
-        - !Ref SGUser
-      PrivateIpAddress: 172.31.2.11
-      SubnetId: !Ref Subnet
-  Node2ElasticIP:
-    Condition: Launch3
-    Type: 'AWS::EC2::EIP'
-    Properties:
-      Domain: vpc
-  Node2ElasticIPAssociation:
-    Condition: Launch3
-    Type: 'AWS::EC2::EIPAssociation'
-    DependsOn: Node2
-    Properties:
-      AllocationId: !GetAtt
-        - Node2ElasticIP
-        - AllocationId
-      NetworkInterfaceId: !Ref Node2ETH0
-      PrivateIpAddress: 172.31.2.11
+          Description: 'Primary network interface'
+          GroupSet:
+            - !Ref SGCluster
+            - !Ref SGAdmin
+
   Node3:
     Condition: Launch4
     Type: 'AWS::EC2::Instance'
     CreationPolicy:
       ResourceSignal:
         Timeout: PT10M
-    DependsOn: SGCluster
+    DependsOn: CfnEndpoint
     Properties:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
@@ -377,40 +331,22 @@ Resources:
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node3 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
-        - NetworkInterfaceId: !Ref Node3ETH0
+        - AssociatePublicIpAddress: !Ref EnablePublicAccess
+          PrivateIpAddress: 172.31.3.11
+          SubnetId: !Ref Subnet
           DeviceIndex: '0'
-  Node3ETH0:
-    Condition: Launch4
-    Type: 'AWS::EC2::NetworkInterface'
-    Properties:
-      GroupSet:
-        - !Ref SGAdmin
-        - !Ref SGCluster
-        - !Ref SGUser
-      PrivateIpAddress: 172.31.3.11
-      SubnetId: !Ref Subnet
-  Node3ElasticIP:
-    Condition: Launch4
-    Type: 'AWS::EC2::EIP'
-    Properties:
-      Domain: vpc
-  Node3ElasticIPAssociation:
-    Condition: Launch4
-    Type: 'AWS::EC2::EIPAssociation'
-    DependsOn: Node3
-    Properties:
-      AllocationId: !GetAtt
-        - Node3ElasticIP
-        - AllocationId
-      NetworkInterfaceId: !Ref Node3ETH0
-      PrivateIpAddress: 172.31.3.11
+          Description: 'Primary network interface'
+          GroupSet:
+            - !Ref SGCluster
+            - !Ref SGAdmin
+
   Node4:
     Condition: Launch5
     Type: 'AWS::EC2::Instance'
     CreationPolicy:
       ResourceSignal:
         Timeout: PT10M
-    DependsOn: SGCluster
+    DependsOn: CfnEndpoint
     Properties:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
@@ -447,40 +383,22 @@ Resources:
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node4 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
-        - NetworkInterfaceId: !Ref Node4ETH0
+        - AssociatePublicIpAddress: !Ref EnablePublicAccess
+          PrivateIpAddress: 172.31.4.11
+          SubnetId: !Ref Subnet
           DeviceIndex: '0'
-  Node4ETH0:
-    Condition: Launch5
-    Type: 'AWS::EC2::NetworkInterface'
-    Properties:
-      GroupSet:
-        - !Ref SGAdmin
-        - !Ref SGCluster
-        - !Ref SGUser
-      PrivateIpAddress: 172.31.4.11
-      SubnetId: !Ref Subnet
-  Node4ElasticIP:
-    Condition: Launch5
-    Type: 'AWS::EC2::EIP'
-    Properties:
-      Domain: vpc
-  Node4ElasticIPAssociation:
-    Condition: Launch5
-    Type: 'AWS::EC2::EIPAssociation'
-    DependsOn: Node4
-    Properties:
-      AllocationId: !GetAtt
-        - Node4ElasticIP
-        - AllocationId
-      NetworkInterfaceId: !Ref Node4ETH0
-      PrivateIpAddress: 172.31.4.11
+          Description: 'Primary network interface'
+          GroupSet:
+            - !Ref SGCluster
+            - !Ref SGAdmin
+
   Node5:
     Condition: Launch6
     Type: 'AWS::EC2::Instance'
     CreationPolicy:
       ResourceSignal:
         Timeout: PT10M
-    DependsOn: SGCluster
+    DependsOn: CfnEndpoint
     Properties:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
@@ -517,40 +435,22 @@ Resources:
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node5 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
-        - NetworkInterfaceId: !Ref Node5ETH0
+        - AssociatePublicIpAddress: !Ref EnablePublicAccess
+          PrivateIpAddress: 172.31.5.11
+          SubnetId: !Ref Subnet
           DeviceIndex: '0'
-  Node5ETH0:
-    Condition: Launch6
-    Type: 'AWS::EC2::NetworkInterface'
-    Properties:
-      GroupSet:
-        - !Ref SGAdmin
-        - !Ref SGCluster
-        - !Ref SGUser
-      PrivateIpAddress: 172.31.5.11
-      SubnetId: !Ref Subnet
-  Node5ElasticIP:
-    Condition: Launch6
-    Type: 'AWS::EC2::EIP'
-    Properties:
-      Domain: vpc
-  Node5ElasticIPAssociation:
-    Condition: Launch6
-    Type: 'AWS::EC2::EIPAssociation'
-    DependsOn: Node5
-    Properties:
-      AllocationId: !GetAtt
-        - Node5ElasticIP
-        - AllocationId
-      NetworkInterfaceId: !Ref Node5ETH0
-      PrivateIpAddress: 172.31.5.11
+          Description: 'Primary network interface'
+          GroupSet:
+            - !Ref SGCluster
+            - !Ref SGAdmin
+
   Node6:
     Condition: Launch7
     Type: 'AWS::EC2::Instance'
     CreationPolicy:
       ResourceSignal:
         Timeout: PT10M
-    DependsOn: SGCluster
+    DependsOn: CfnEndpoint
     Properties:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
@@ -587,40 +487,22 @@ Resources:
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node6 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
-        - NetworkInterfaceId: !Ref Node6ETH0
+        - AssociatePublicIpAddress: !Ref EnablePublicAccess
+          PrivateIpAddress: 172.31.6.11
+          SubnetId: !Ref Subnet
           DeviceIndex: '0'
-  Node6ETH0:
-    Condition: Launch7
-    Type: 'AWS::EC2::NetworkInterface'
-    Properties:
-      GroupSet:
-        - !Ref SGAdmin
-        - !Ref SGCluster
-        - !Ref SGUser
-      PrivateIpAddress: 172.31.6.11
-      SubnetId: !Ref Subnet
-  Node6ElasticIP:
-    Condition: Launch7
-    Type: 'AWS::EC2::EIP'
-    Properties:
-      Domain: vpc
-  Node6ElasticIPAssociation:
-    Condition: Launch7
-    Type: 'AWS::EC2::EIPAssociation'
-    DependsOn: Node6
-    Properties:
-      AllocationId: !GetAtt
-        - Node6ElasticIP
-        - AllocationId
-      NetworkInterfaceId: !Ref Node6ETH0
-      PrivateIpAddress: 172.31.6.11
+          Description: 'Primary network interface'
+          GroupSet:
+            - !Ref SGCluster
+            - !Ref SGAdmin
+
   Node7:
     Condition: Launch8
     Type: 'AWS::EC2::Instance'
     CreationPolicy:
       ResourceSignal:
         Timeout: PT10M
-    DependsOn: SGCluster
+    DependsOn: CfnEndpoint
     Properties:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
@@ -657,40 +539,22 @@ Resources:
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node7 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
-        - NetworkInterfaceId: !Ref Node7ETH0
+        - AssociatePublicIpAddress: !Ref EnablePublicAccess
+          PrivateIpAddress: 172.31.7.11
+          SubnetId: !Ref Subnet
           DeviceIndex: '0'
-  Node7ETH0:
-    Condition: Launch8
-    Type: 'AWS::EC2::NetworkInterface'
-    Properties:
-      GroupSet:
-        - !Ref SGAdmin
-        - !Ref SGCluster
-        - !Ref SGUser
-      PrivateIpAddress: 172.31.7.11
-      SubnetId: !Ref Subnet
-  Node7ElasticIP:
-    Condition: Launch8
-    Type: 'AWS::EC2::EIP'
-    Properties:
-      Domain: vpc
-  Node7ElasticIPAssociation:
-    Condition: Launch8
-    Type: 'AWS::EC2::EIPAssociation'
-    DependsOn: Node7
-    Properties:
-      AllocationId: !GetAtt
-        - Node7ElasticIP
-        - AllocationId
-      NetworkInterfaceId: !Ref Node7ETH0
-      PrivateIpAddress: 172.31.7.11
+          Description: 'Primary network interface'
+          GroupSet:
+            - !Ref SGCluster
+            - !Ref SGAdmin
+
   Node8:
     Condition: Launch9
     Type: 'AWS::EC2::Instance'
     CreationPolicy:
       ResourceSignal:
         Timeout: PT10M
-    DependsOn: SGCluster
+    DependsOn: CfnEndpoint
     Properties:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
@@ -727,40 +591,22 @@ Resources:
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node8 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
-        - NetworkInterfaceId: !Ref Node8ETH0
+        - AssociatePublicIpAddress: !Ref EnablePublicAccess
+          PrivateIpAddress: 172.31.8.11
+          SubnetId: !Ref Subnet
           DeviceIndex: '0'
-  Node8ETH0:
-    Condition: Launch9
-    Type: 'AWS::EC2::NetworkInterface'
-    Properties:
-      GroupSet:
-        - !Ref SGAdmin
-        - !Ref SGCluster
-        - !Ref SGUser
-      PrivateIpAddress: 172.31.8.11
-      SubnetId: !Ref Subnet
-  Node8ElasticIP:
-    Condition: Launch9
-    Type: 'AWS::EC2::EIP'
-    Properties:
-      Domain: vpc
-  Node8ElasticIPAssociation:
-    Condition: Launch9
-    Type: 'AWS::EC2::EIPAssociation'
-    DependsOn: Node8
-    Properties:
-      AllocationId: !GetAtt
-        - Node8ElasticIP
-        - AllocationId
-      NetworkInterfaceId: !Ref Node8ETH0
-      PrivateIpAddress: 172.31.8.11
+          Description: 'Primary network interface'
+          GroupSet:
+            - !Ref SGCluster
+            - !Ref SGAdmin
+
   Node9:
     Condition: Launch10
     Type: 'AWS::EC2::Instance'
     CreationPolicy:
       ResourceSignal:
         Timeout: PT10M
-    DependsOn: SGCluster
+    DependsOn: CfnEndpoint
     Properties:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
@@ -797,33 +643,15 @@ Resources:
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node9 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
-        - NetworkInterfaceId: !Ref Node9ETH0
+        - AssociatePublicIpAddress: !Ref EnablePublicAccess
+          PrivateIpAddress: 172.31.9.11
+          SubnetId: !Ref Subnet
           DeviceIndex: '0'
-  Node9ETH0:
-    Condition: Launch10
-    Type: 'AWS::EC2::NetworkInterface'
-    Properties:
-      GroupSet:
-        - !Ref SGAdmin
-        - !Ref SGCluster
-        - !Ref SGUser
-      PrivateIpAddress: 172.31.9.11
-      SubnetId: !Ref Subnet
-  Node9ElasticIP:
-    Condition: Launch10
-    Type: 'AWS::EC2::EIP'
-    Properties:
-      Domain: vpc
-  Node9ElasticIPAssociation:
-    Condition: Launch10
-    Type: 'AWS::EC2::EIPAssociation'
-    DependsOn: Node9
-    Properties:
-      AllocationId: !GetAtt
-        - Node9ElasticIP
-        - AllocationId
-      NetworkInterfaceId: !Ref Node9ETH0
-      PrivateIpAddress: 172.31.9.11
+          Description: 'Primary network interface'
+          GroupSet:
+            - !Ref SGCluster
+            - !Ref SGAdmin
+
   Route:
     Type: 'AWS::EC2::Route'
     DependsOn: GatewayAttachment
@@ -900,7 +728,7 @@ Resources:
     Properties:
       AvailabilityZone: !Ref AvailabilityZone
       CidrBlock: 172.31.0.0/16
-      MapPublicIpOnLaunch: true
+      MapPublicIpOnLaunch: !Ref EnablePublicAccess
       Tags:
         - Key: Name
           Value: !Sub '${ClusterName}-Subnet'
@@ -918,11 +746,27 @@ Resources:
     Type: 'AWS::EC2::VPC'
     Properties:
       CidrBlock: 172.31.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
       Tags:
         - Key: Name
           Value: !Sub '${ClusterName}-VPC'
         - Key: ClusterName
           Value: !Ref ClusterName
+
+  CfnEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DependsOn: SGCluster
+    Properties:
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.cloudformation"
+      VpcEndpointType: "Interface"
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref Subnet
+      SecurityGroupIds:
+        - !Ref SGCluster
+        - !Ref SGAdmin
 
 Outputs:
   Node0:
@@ -938,11 +782,7 @@ Outputs:
     Value: !GetAtt
       - Node0
       - PrivateIp
-  Node0PublicIp:
-    Condition: Launch1
-    Value: !GetAtt
-      - Node0
-      - PublicIp
+
   Node1:
     Condition: Launch2
     Value: !Ref Node1
@@ -956,11 +796,7 @@ Outputs:
     Value: !GetAtt
       - Node1
       - PrivateIp
-  Node1PublicIp:
-    Condition: Launch2
-    Value: !GetAtt
-      - Node1
-      - PublicIp
+
   Node2:
     Condition: Launch3
     Value: !Ref Node2
@@ -974,11 +810,7 @@ Outputs:
     Value: !GetAtt
       - Node2
       - PrivateIp
-  Node2PublicIp:
-    Condition: Launch3
-    Value: !GetAtt
-      - Node2
-      - PublicIp
+
   Node3:
     Condition: Launch4
     Value: !Ref Node3
@@ -992,11 +824,7 @@ Outputs:
     Value: !GetAtt
       - Node3
       - PrivateIp
-  Node3PublicIp:
-    Condition: Launch4
-    Value: !GetAtt
-      - Node3
-      - PublicIp
+
   Node4:
     Condition: Launch5
     Value: !Ref Node4
@@ -1010,11 +838,7 @@ Outputs:
     Value: !GetAtt
       - Node4
       - PrivateIp
-  Node4PublicIp:
-    Condition: Launch5
-    Value: !GetAtt
-      - Node4
-      - PublicIp
+
   Node5:
     Condition: Launch6
     Value: !Ref Node5
@@ -1028,11 +852,7 @@ Outputs:
     Value: !GetAtt
       - Node5
       - PrivateIp
-  Node5PublicIp:
-    Condition: Launch6
-    Value: !GetAtt
-      - Node5
-      - PublicIp
+
   Node6:
     Condition: Launch7
     Value: !Ref Node6
@@ -1046,11 +866,7 @@ Outputs:
     Value: !GetAtt
       - Node6
       - PrivateIp
-  Node6PublicIp:
-    Condition: Launch7
-    Value: !GetAtt
-      - Node6
-      - PublicIp
+
   Node7:
     Condition: Launch8
     Value: !Ref Node7
@@ -1064,11 +880,7 @@ Outputs:
     Value: !GetAtt
       - Node7
       - PrivateIp
-  Node7PublicIp:
-    Condition: Launch8
-    Value: !GetAtt
-      - Node7
-      - PublicIp
+
   Node8:
     Condition: Launch9
     Value: !Ref Node8
@@ -1082,11 +894,7 @@ Outputs:
     Value: !GetAtt
       - Node8
       - PrivateIp
-  Node8PublicIp:
-    Condition: Launch9
-    Value: !GetAtt
-      - Node8
-      - PublicIp
+
   Node9:
     Condition: Launch10
     Value: !Ref Node9
@@ -1100,11 +908,7 @@ Outputs:
     Value: !GetAtt
       - Node9
       - PrivateIp
-  Node9PublicIp:
-    Condition: Launch10
-    Value: !GetAtt
-      - Node9
-      - PublicIp
+
   SGAdmin:
     Value: !Ref SGAdmin
   SGCluster:
