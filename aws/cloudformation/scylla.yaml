@@ -869,7 +869,7 @@ Resources:
         - CidrIp: 172.31.0.0/16
           FromPort: 22
           ToPort: 22
-          IpProtocol: '-1'
+          IpProtocol: 'tcp'
       VpcId: !Ref VPC
 
   SGUser:
