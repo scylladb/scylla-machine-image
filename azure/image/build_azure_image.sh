@@ -13,34 +13,32 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+EXIT_STATUS=0
+DRY_RUN=false
 source ../../SCYLLA-VERSION-GEN
 
 PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
-DIR=$(dirname $(readlink -f $0))
 BUILD_ID=$(date -u '+%FT%H-%M-%S')
-DEBUG=false
+DIR=$(dirname $(readlink -f $0))
 
 print_usage() {
-    echo "build_deb_ami.sh --localdeb --repo [URL] --target [distribution]"
+    echo "build_azure_image.sh --localdeb --repo [URL]"
     echo "  --localdeb  deploy locally built debs"
-    echo "  --repo  repository for both install and update, specify .repo/.list file URL"
-    echo "  --repo-for-install    repository for install, specify .repo/.list file URL"
-    echo "  --repo-for-update     repository for update, specify .repo/.list file URL"
-    echo "  --product             scylla or scylla-enterprise"
-    echo "  --dry-run             validate template only (image is not built)"
-    echo "  --build-id           Set unique build ID, will be part of GCE image name"
-    echo "  --debug               Build debug image with special prefix for image name"
-    echo "  --log-file           Path for log. Default build/ami.log on current dir"
+    echo "  --repo  repository for both install and update, specify .list file URL"
+    echo "  --repo-for-install  repository for install, specify .list file URL"
+    echo "  --repo-for-update  repository for update, specify .list file URL"
+    echo "  --product          scylla or scylla-enterprise"
     echo "  --download-no-server  download all deb needed excluding scylla from repo-for-install"
+    echo "  --dry-run            validate template only (image is not built)"
+    echo "  --build-id           Set unique build ID, will be part of Azure image name"
+    echo "  --log-file           Path for log. Default build/azure_image.log on current dir"
     exit 1
 }
 LOCALDEB=0
 DOWNLOAD_ONLY=0
-PACKER_SUB_CMD="build"
-
+PACKER_SUB_CMD="build -force -on-error=abort"
 REPO_FOR_INSTALL=
-PACKER_LOG_PATH=build/ami.log
+PACKER_LOG_PATH=build/packer.log
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -79,14 +77,10 @@ while [ $# -gt 0 ]; do
             DOWNLOAD_ONLY=1
             shift 1
             ;;
-        "--debug")
-            echo "!!! Building image for debug !!!"
-            DEBUG=true
-            shift 1
-            ;;
         "--dry-run")
             echo "!!! Running in DRY-RUN mode !!!"
             PACKER_SUB_CMD="validate"
+            DRY_RUN=true
             shift 1
             ;;
         *)
@@ -103,7 +97,7 @@ get_version_from_local_deb () {
 
 get_version_from_remote_deb () {
     DEB=$1
-    VERSION=$(sudo apt-cache madison "$DEB"|head -n1|awk '{print $3}')
+    VERSION=$( apt-cache madison "$DEB"|head -n1|awk '{print $3}')
     echo "$VERSION"
 }
 
@@ -120,30 +114,20 @@ check_deb_exists () {
     do
         if [[ ! -f "$deb" ]]; then
             echo "ERROR: Matching DEB file not found [$deb]"
-        exit 1
+            exit 1
         fi
     done
 }
-declare -A AMI
-AMI=(["x86_64"]=ami-04505e74c0741db8d ["aarch64"]=ami-0ae74ae9c43584639)
-REGION=us-east-1
-SSH_USERNAME=ubuntu
 
-arch="$(uname -m)"
-case "$arch" in
-  "x86_64")
-    INSTANCE_TYPE="c4.xlarge"
-    ;;
-  "aarch64")
-    INSTANCE_TYPE="a1.xlarge"
-    ;;
-  *)
-    echo "Unsupported architecture: $arch"
-    exit 1
-esac
+import_gpg_key () {
+  TMPREPO=$(mktemp -u -p /etc/apt/sources.list.d/ --suffix .list)
+  sudo curl -o $TMPREPO $REPO_FOR_INSTALL
+  sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 5e08fbd8b5d6ec9c
+  sudo apt-get update --allow-insecure-repositories -y
+}
 
 if [ $LOCALDEB -eq 1 ]; then
-    INSTALL_ARGS="$INSTALL_ARGS --localrpm"
+    INSTALL_ARGS="$INSTALL_ARGS --localdeb"
 
     check_deb_exists "$DIR"/files
 
@@ -162,10 +146,8 @@ elif [ $DOWNLOAD_ONLY -eq 1 ]; then
         exit 1
     fi
 
-    TMPREPO=$(mktemp -u -p /etc/apt/sources.list.d/ --suffix .list)
-    sudo curl -o $TMPREPO $REPO_FOR_INSTALL
-    sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 5e08fbd8b5d6ec9c
-    sudo apt-get update --allow-insecure-repositories -y
+    import_gpg_key
+
     cd "$DIR"/files
     apt-get download --allow-unauthenticated "$PRODUCT" "$PRODUCT"-machine-image "$PRODUCT"-jmx "$PRODUCT"-tools-core "$PRODUCT"-tools "$PRODUCT"-python3
     sudo rm -f $TMPREPO
@@ -175,11 +157,7 @@ else
         print_usage
         exit 1
     fi
-
-    TMPREPO=$(mktemp -u -p /etc/apt/sources.list.d/ --suffix .list)
-    sudo curl -o $TMPREPO $REPO_FOR_INSTALL
-    sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 5e08fbd8b5d6ec9c
-    sudo apt-get update --allow-insecure-repositories -y
+    import_gpg_key
 
     SCYLLA_VERSION=$(get_version_from_remote_deb $PRODUCT-server)
     SCYLLA_MACHINE_IMAGE_VERSION=$(get_version_from_remote_deb $PRODUCT-machine-image)
@@ -191,51 +169,59 @@ else
 
 fi
 
-SCYLLA_AMI_DESCRIPTION="scylla-$SCYLLA_VERSION scylla-machine-image-$SCYLLA_MACHINE_IMAGE_VERSION scylla-jmx-$SCYLLA_JMX_VERSION scylla-tools-$SCYLLA_TOOLS_VERSION scylla-python3-$SCYLLA_PYTHON3_VERSION"
-
-if $DEBUG ; then
-  PACKER_ARGS+=(-var image_prefix="debug-image-")
-fi
+SCYLLA_IMAGE_DESCRIPTION="scylla-$SCYLLA_VERSION scylla-machine-image-$SCYLLA_MACHINE_IMAGE_VERSION scylla-jmx-$SCYLLA_JMX_VERSION scylla-tools-$SCYLLA_TOOLS_VERSION scylla-python3-$SCYLLA_PYTHON3_VERSION"
 
 if [ ! -f variables.json ]; then
-    echo "create variables.json before start building AMI"
-    echo "see wiki page: https://github.com/scylladb/scylla/wiki/Building-CentOS-AMI"
+    echo "create variables.json before start building AZURE"
     exit 1
 fi
 
 cd $DIR
 mkdir -p build
 
+REGION="EAST US"
+SSH_USERNAME=azureuser
+
 export PACKER_LOG=1
-export PACKER_LOG_PATH
+export PACKER_LOG_PATH=build/azure-image.log
+echo "Scylla versions:"
+echo "SCYLLA_VERSION: $SCYLLA_VERSION"
+echo "SCYLLA_MACHINE_IMAGE_VERSION: $SCYLLA_MACHINE_IMAGE_VERSION"
+echo "SCYLLA_JMX_VERSION: $SCYLLA_JMX_VERSION"
+echo "SCYLLA_TOOLS_VERSION: $SCYLLA_TOOLS_VERSION"
+echo "SCYLLA_PYTHON3_VERSION: $SCYLLA_PYTHON3_VERSION"
+echo "BUILD_ID: $BUILD_ID"
+echo "Calling Packer..."
 
 /usr/bin/packer ${PACKER_SUB_CMD} \
   -var-file=variables.json \
   -var install_args="$INSTALL_ARGS" \
   -var region="$REGION" \
-  -var instance_type="$INSTANCE_TYPE" \
-  -var source_ami="${AMI[$(arch)]}" \
   -var ssh_username="$SSH_USERNAME" \
   -var scylla_version="$SCYLLA_VERSION" \
   -var scylla_machine_image_version="$SCYLLA_MACHINE_IMAGE_VERSION" \
   -var scylla_jmx_version="$SCYLLA_JMX_VERSION" \
   -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" \
   -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" \
-  -var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}" \
-  scylla.json
+  -var scylla_image_description="${SCYLLA_IMAGE_DESCRIPTION:0:255}" \
+  -var client_id="$AZURE_CLIENT_ID" \
+  -var client_secret="$AZURE_CLIENT_SECRET" \
+  -var tenant_id="$AZURE_TENANT_ID" \
+  -var subscription_id="$AZURE_SUBSCRIPTION_ID" \
+  -var scylla_build_id="$BUILD_ID" scylla_azure.json
 
-# For some errors packer gives a success status even if fails.
-# Search log for errors
-if $DRY_RUN ; then
-  echo "DryRun: No need to grep errors on log"
-else
-  grep "us-east-1:" $PACKER_LOG_PATH
-  if [ $? -ne 0 ] ; then
-    echo "Error: No AMI creation line found on log."
-    EXIT_STATUS=1
+  # For some errors packer gives a success status even if fails.
+  # Search log for errors
+  if $DRY_RUN ; then
+    echo "DryRun: No need to grep errors on log"
   else
-    echo "Success: AMI creation line found on log"
+    grep "Builds finished. The artifacts of successful builds are:" $PACKER_LOG_PATH
+    if [ $? -ne 0 ] ; then
+      echo "Error: No Builds finished line found on log."
+      EXIT_STATUS=1
+    else
+      echo "Success: Builds finished line found on log"
+    fi
   fi
-fi
 
-exit $EXIT_STATUS
+  exit $EXIT_STATUS
