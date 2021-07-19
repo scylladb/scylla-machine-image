@@ -121,7 +121,7 @@ AMI=(["x86_64"]=ami-0074ee617a234808d ["aarch64"]=ami-0763a1094de643002)
 REGION=us-east-1
 SSH_USERNAME=ubuntu
 
-if [ uname -m | grep x86_64]; then
+if uname -m | grep x86_64 ; then
   INSTANCE_TYPE="c4.xlarge"
 else
   INSTANCE_TYPE="a1.xlarge"
