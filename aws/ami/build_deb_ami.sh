@@ -109,11 +109,18 @@ AMI=(["x86_64"]=ami-0074ee617a234808d ["aarch64"]=ami-0763a1094de643002)
 REGION=us-east-1
 SSH_USERNAME=ubuntu
 
-if uname -m | grep x86_64 ; then
-  INSTANCE_TYPE="c4.xlarge"
-else
-  INSTANCE_TYPE="a1.xlarge"
-fi
+arch="$(uname -m)"
+case "$arch" in
+  "x86_64")
+    INSTANCE_TYPE="c4.xlarge"
+    ;;
+  "aarch64")
+    INSTANCE_TYPE="a1.xlarge"
+    ;;
+  *)
+    echo "Unsupported architecture: $arch"
+    exit 1
+esac
 
 if [ $LOCALDEB -eq 1 ]; then
     INSTALL_ARGS="$INSTALL_ARGS --localrpm"
