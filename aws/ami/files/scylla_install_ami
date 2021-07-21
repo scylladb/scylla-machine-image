@@ -110,6 +110,9 @@ if __name__ == '__main__':
         if args.repo_for_update:
             run('curl -L -o /etc/apt/sources.list.d/scylla.list {REPO_FOR_UPDATE}'.format(REPO_FOR_UPDATE=args.repo_for_update))
 
+        # disable unattended-upgrades
+        run('apt-get purge -y unattended-upgrades update-notifier-common')
+
     # use easy_install instead of pip, because easy_install requires
     # fewer dependencies, no need to install gcc, it makes our AMI smaller.
     if distro == 'centos':
