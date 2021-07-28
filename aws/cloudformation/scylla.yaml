@@ -867,9 +867,7 @@ Resources:
           Value: !Ref ClusterName
       SecurityGroupIngress:
         - CidrIp: 172.31.0.0/16
-          FromPort: 22
-          ToPort: 22
-          IpProtocol: 'tcp'
+          IpProtocol: '-1'
       SecurityGroupEgress:
         - CidrIp: 0.0.0.0/0
           IpProtocol: '-1'
