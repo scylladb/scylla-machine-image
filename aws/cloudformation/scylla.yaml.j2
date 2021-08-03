@@ -263,6 +263,9 @@ Resources:
           Value: !Sub '${ClusterName}-SGUser'
         - Key: ClusterName
           Value: !Ref ClusterName
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: '-1'
       VpcId: !Ref VPC
 
   Subnet:
