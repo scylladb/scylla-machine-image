@@ -13,6 +13,11 @@ Parameters:
   ClusterName:
     Type: String
 
+  PublicCidrAccess:
+    Type: String
+    Description: Please set CIDR to x.x.x.x/32 to allow one specific IP address access (For SSH only), 0.0.0.0/0 to allow all IP addresses access or another CIDR range.
+    Default: 0.0.0.0/0
+
   InstanceCount:
     Description: Number of EC2 instances (must be between 1 and 10).
     Type: Number
@@ -846,7 +851,7 @@ Resources:
         - Key: ClusterName
           Value: !Ref ClusterName
       SecurityGroupIngress:
-        - CidrIp: 0.0.0.0/0
+        - CidrIp: !Ref PublicCidrAccess
           FromPort: 22
           ToPort: 22
           IpProtocol: tcp
