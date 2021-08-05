@@ -69,6 +69,23 @@ Parameters:
     Type: 'AWS::EC2::KeyPair::KeyName'
     ConstraintDescription: must be the name of an existing EC2 KeyPair.
 
+  CIDR:
+    Description: |
+        CIDR range for Scylla VPC (ex. 172.31.0.0/16), Currently supports 8, 16, or 24 netmask,
+        The node IPs will be x.x.x.10, x.x.x.11, x.x.x.12 etc.
+    Type: 'String'
+    Default: '172.31.0.0/16'
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: must be a valid CIDR (ex. 172.31.0.0/16)
+
+  ScyllaSeedIPs:
+    Description: |
+      Seed nodes IPs (will be set as `seeds` on /etc/scylla/scylla.yaml)
+      NOTE: The first four IP addresses and the last IP address in each subnet reserved by AWS,
+      for more information, see https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html#VPC_Sizing
+    Type: CommaDelimitedList
+    Default: '172.31.0.10, 172.31.0.11, 172.31.0.12'
+
 # Those conditions would be used to enable nodes based on InstanceCount parameter
 Conditions:
     Launch1: !Equals [1, 1]
@@ -159,9 +176,9 @@ Resources:
           - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
             - !Join
               - ','
-              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
-                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
-                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+              - - !If [Launch1, !Select [0, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch2, !Select [1, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch3, !Select [2, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
             - '"}]}]'
             - !Sub ', "cluster_name": "${ClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
@@ -176,7 +193,12 @@ Resources:
             - '"}'
       NetworkInterfaces:
         - AssociatePublicIpAddress: !Ref EnablePublicAccess
-          PrivateIpAddress: 172.31.0.11
+          PrivateIpAddress: !Join
+            - '.'
+            - - !Select [0, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [1, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [2, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - 10
           SubnetId: !Ref Subnet
           DeviceIndex: '0'
           Description: 'Primary network interface'
@@ -211,9 +233,9 @@ Resources:
           - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
             - !Join
               - ','
-              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
-                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
-                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+              - - !If [Launch1, !Select [0, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch2, !Select [1, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch3, !Select [2, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
             - '"}]}]'
             - !Sub ', "cluster_name": "${ClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
@@ -228,7 +250,12 @@ Resources:
             - '"}'
       NetworkInterfaces:
         - AssociatePublicIpAddress: !Ref EnablePublicAccess
-          PrivateIpAddress: 172.31.1.11
+          PrivateIpAddress: !Join
+            - '.'
+            - - !Select [0, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [1, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [2, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - 11
           SubnetId: !Ref Subnet
           DeviceIndex: '0'
           Description: 'Primary network interface'
@@ -263,9 +290,9 @@ Resources:
           - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
             - !Join
               - ','
-              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
-                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
-                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+              - - !If [Launch1, !Select [0, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch2, !Select [1, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch3, !Select [2, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
             - '"}]}]'
             - !Sub ', "cluster_name": "${ClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
@@ -280,7 +307,12 @@ Resources:
             - '"}'
       NetworkInterfaces:
         - AssociatePublicIpAddress: !Ref EnablePublicAccess
-          PrivateIpAddress: 172.31.2.11
+          PrivateIpAddress: !Join
+            - '.'
+            - - !Select [0, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [1, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [2, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - 12
           SubnetId: !Ref Subnet
           DeviceIndex: '0'
           Description: 'Primary network interface'
@@ -315,9 +347,9 @@ Resources:
           - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
             - !Join
               - ','
-              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
-                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
-                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+              - - !If [Launch1, !Select [0, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch2, !Select [1, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch3, !Select [2, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
             - '"}]}]'
             - !Sub ', "cluster_name": "${ClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
@@ -332,7 +364,12 @@ Resources:
             - '"}'
       NetworkInterfaces:
         - AssociatePublicIpAddress: !Ref EnablePublicAccess
-          PrivateIpAddress: 172.31.3.11
+          PrivateIpAddress: !Join
+            - '.'
+            - - !Select [0, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [1, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [2, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - 13
           SubnetId: !Ref Subnet
           DeviceIndex: '0'
           Description: 'Primary network interface'
@@ -367,9 +404,9 @@ Resources:
           - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
             - !Join
               - ','
-              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
-                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
-                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+              - - !If [Launch1, !Select [0, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch2, !Select [1, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch3, !Select [2, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
             - '"}]}]'
             - !Sub ', "cluster_name": "${ClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
@@ -384,7 +421,12 @@ Resources:
             - '"}'
       NetworkInterfaces:
         - AssociatePublicIpAddress: !Ref EnablePublicAccess
-          PrivateIpAddress: 172.31.4.11
+          PrivateIpAddress: !Join
+            - '.'
+            - - !Select [0, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [1, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [2, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - 14
           SubnetId: !Ref Subnet
           DeviceIndex: '0'
           Description: 'Primary network interface'
@@ -419,9 +461,9 @@ Resources:
           - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
             - !Join
               - ','
-              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
-                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
-                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+              - - !If [Launch1, !Select [0, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch2, !Select [1, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch3, !Select [2, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
             - '"}]}]'
             - !Sub ', "cluster_name": "${ClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
@@ -436,7 +478,12 @@ Resources:
             - '"}'
       NetworkInterfaces:
         - AssociatePublicIpAddress: !Ref EnablePublicAccess
-          PrivateIpAddress: 172.31.5.11
+          PrivateIpAddress: !Join
+            - '.'
+            - - !Select [0, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [1, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [2, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - 15
           SubnetId: !Ref Subnet
           DeviceIndex: '0'
           Description: 'Primary network interface'
@@ -471,9 +518,9 @@ Resources:
           - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
             - !Join
               - ','
-              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
-                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
-                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+              - - !If [Launch1, !Select [0, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch2, !Select [1, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch3, !Select [2, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
             - '"}]}]'
             - !Sub ', "cluster_name": "${ClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
@@ -488,7 +535,12 @@ Resources:
             - '"}'
       NetworkInterfaces:
         - AssociatePublicIpAddress: !Ref EnablePublicAccess
-          PrivateIpAddress: 172.31.6.11
+          PrivateIpAddress: !Join
+            - '.'
+            - - !Select [0, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [1, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [2, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - 16
           SubnetId: !Ref Subnet
           DeviceIndex: '0'
           Description: 'Primary network interface'
@@ -523,9 +575,9 @@ Resources:
           - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
             - !Join
               - ','
-              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
-                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
-                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+              - - !If [Launch1, !Select [0, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch2, !Select [1, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch3, !Select [2, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
             - '"}]}]'
             - !Sub ', "cluster_name": "${ClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
@@ -540,7 +592,12 @@ Resources:
             - '"}'
       NetworkInterfaces:
         - AssociatePublicIpAddress: !Ref EnablePublicAccess
-          PrivateIpAddress: 172.31.7.11
+          PrivateIpAddress: !Join
+            - '.'
+            - - !Select [0, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [1, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [2, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - 17
           SubnetId: !Ref Subnet
           DeviceIndex: '0'
           Description: 'Primary network interface'
@@ -575,9 +632,9 @@ Resources:
           - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
             - !Join
               - ','
-              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
-                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
-                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+              - - !If [Launch1, !Select [0, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch2, !Select [1, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch3, !Select [2, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
             - '"}]}]'
             - !Sub ', "cluster_name": "${ClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
@@ -592,7 +649,12 @@ Resources:
             - '"}'
       NetworkInterfaces:
         - AssociatePublicIpAddress: !Ref EnablePublicAccess
-          PrivateIpAddress: 172.31.8.11
+          PrivateIpAddress: !Join
+            - '.'
+            - - !Select [0, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [1, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [2, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - 18
           SubnetId: !Ref Subnet
           DeviceIndex: '0'
           Description: 'Primary network interface'
@@ -627,9 +689,9 @@ Resources:
           - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
             - !Join
               - ','
-              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
-                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
-                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+              - - !If [Launch1, !Select [0, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch2, !Select [1, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch3, !Select [2, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
             - '"}]}]'
             - !Sub ', "cluster_name": "${ClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
@@ -644,7 +706,12 @@ Resources:
             - '"}'
       NetworkInterfaces:
         - AssociatePublicIpAddress: !Ref EnablePublicAccess
-          PrivateIpAddress: 172.31.9.11
+          PrivateIpAddress: !Join
+            - '.'
+            - - !Select [0, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [1, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [2, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - 19
           SubnetId: !Ref Subnet
           DeviceIndex: '0'
           Description: 'Primary network interface'
@@ -702,7 +769,7 @@ Resources:
         - Key: ClusterName
           Value: !Ref ClusterName
       SecurityGroupIngress:
-        - CidrIp: 172.31.0.0/16
+        - CidrIp: !Ref CIDR
           IpProtocol: '-1'
       SecurityGroupEgress:
         - CidrIp: 0.0.0.0/0
@@ -727,7 +794,7 @@ Resources:
     Type: 'AWS::EC2::Subnet'
     Properties:
       AvailabilityZone: !Ref AvailabilityZone
-      CidrBlock: 172.31.0.0/16
+      CidrBlock: !Ref CIDR
       MapPublicIpOnLaunch: !Ref EnablePublicAccess
       Tags:
         - Key: Name
@@ -745,7 +812,7 @@ Resources:
   VPC:
     Type: 'AWS::EC2::VPC'
     Properties:
-      CidrBlock: 172.31.0.0/16
+      CidrBlock: !Ref CIDR
       EnableDnsSupport: true
       EnableDnsHostnames: true
       Tags:
