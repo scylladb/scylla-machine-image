@@ -101,6 +101,9 @@ if __name__ == '__main__':
         if args.repo_for_update:
             run('curl -L -o /etc/apt/sources.list.d/scylla.list {REPO_FOR_UPDATE}'.format(REPO_FOR_UPDATE=args.repo_for_update))
 
+        # disable unattended-upgrades
+        run('apt-get purge -y unattended-upgrades update-notifier-common')
+
     run("echo '/opt/scylladb/scylla-machine-image/scylla_login' >> /etc/skel/.bash_profile")
     run('systemctl daemon-reload')
     run('systemctl enable scylla-image-setup.service')
