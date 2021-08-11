@@ -205,7 +205,6 @@ Resources:
           GroupSet:
             - !Ref SGCluster
             - !Ref SGAdmin
-
   Node1:
     Condition: Launch2
     Type: 'AWS::EC2::Instance'
@@ -262,7 +261,6 @@ Resources:
           GroupSet:
             - !Ref SGCluster
             - !Ref SGAdmin
-
   Node2:
     Condition: Launch3
     Type: 'AWS::EC2::Instance'
@@ -319,7 +317,6 @@ Resources:
           GroupSet:
             - !Ref SGCluster
             - !Ref SGAdmin
-
   Node3:
     Condition: Launch4
     Type: 'AWS::EC2::Instance'
@@ -376,7 +373,6 @@ Resources:
           GroupSet:
             - !Ref SGCluster
             - !Ref SGAdmin
-
   Node4:
     Condition: Launch5
     Type: 'AWS::EC2::Instance'
@@ -433,7 +429,6 @@ Resources:
           GroupSet:
             - !Ref SGCluster
             - !Ref SGAdmin
-
   Node5:
     Condition: Launch6
     Type: 'AWS::EC2::Instance'
@@ -490,7 +485,6 @@ Resources:
           GroupSet:
             - !Ref SGCluster
             - !Ref SGAdmin
-
   Node6:
     Condition: Launch7
     Type: 'AWS::EC2::Instance'
@@ -547,7 +541,6 @@ Resources:
           GroupSet:
             - !Ref SGCluster
             - !Ref SGAdmin
-
   Node7:
     Condition: Launch8
     Type: 'AWS::EC2::Instance'
@@ -604,7 +597,6 @@ Resources:
           GroupSet:
             - !Ref SGCluster
             - !Ref SGAdmin
-
   Node8:
     Condition: Launch9
     Type: 'AWS::EC2::Instance'
@@ -661,7 +653,6 @@ Resources:
           GroupSet:
             - !Ref SGCluster
             - !Ref SGAdmin
-
   Node9:
     Condition: Launch10
     Type: 'AWS::EC2::Instance'
@@ -718,7 +709,6 @@ Resources:
           GroupSet:
             - !Ref SGCluster
             - !Ref SGAdmin
-
   Route:
     Type: 'AWS::EC2::Route'
     DependsOn: GatewayAttachment
@@ -849,7 +839,6 @@ Outputs:
     Value: !GetAtt
       - Node0
       - PrivateIp
-
   Node1:
     Condition: Launch2
     Value: !Ref Node1
@@ -863,7 +852,6 @@ Outputs:
     Value: !GetAtt
       - Node1
       - PrivateIp
-
   Node2:
     Condition: Launch3
     Value: !Ref Node2
@@ -877,7 +865,6 @@ Outputs:
     Value: !GetAtt
       - Node2
       - PrivateIp
-
   Node3:
     Condition: Launch4
     Value: !Ref Node3
@@ -891,7 +878,6 @@ Outputs:
     Value: !GetAtt
       - Node3
       - PrivateIp
-
   Node4:
     Condition: Launch5
     Value: !Ref Node4
@@ -905,7 +891,6 @@ Outputs:
     Value: !GetAtt
       - Node4
       - PrivateIp
-
   Node5:
     Condition: Launch6
     Value: !Ref Node5
@@ -919,7 +904,6 @@ Outputs:
     Value: !GetAtt
       - Node5
       - PrivateIp
-
   Node6:
     Condition: Launch7
     Value: !Ref Node6
@@ -933,7 +917,6 @@ Outputs:
     Value: !GetAtt
       - Node6
       - PrivateIp
-
   Node7:
     Condition: Launch8
     Value: !Ref Node7
@@ -947,7 +930,6 @@ Outputs:
     Value: !GetAtt
       - Node7
       - PrivateIp
-
   Node8:
     Condition: Launch9
     Value: !Ref Node8
@@ -961,7 +943,6 @@ Outputs:
     Value: !GetAtt
       - Node8
       - PrivateIp
-
   Node9:
     Condition: Launch10
     Value: !Ref Node9
@@ -975,7 +956,6 @@ Outputs:
     Value: !GetAtt
       - Node9
       - PrivateIp
-
   SGAdmin:
     Value: !Ref SGAdmin
   SGCluster:
