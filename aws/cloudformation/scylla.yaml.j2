@@ -210,26 +210,6 @@ Resources:
           GroupSet:
             - !Ref SGCluster
             - !Ref SGAdmin
-{% if AssociatePublicIpAddress %}
-  Node{{ node_index }}ElasticIP:
-    Type: 'AWS::EC2::EIP'
-    Properties:
-      Domain: vpc
-  Node{{ node_index }}ElasticIPAssociation:
-    Type: 'AWS::EC2::EIPAssociation'
-    DependsOn: Node{{ node_index }}
-    Properties:
-      AllocationId: !GetAtt
-        - Node{{ node_index }}ElasticIP
-        - AllocationId
-      InstanceId: !Ref Node{{ node_index }}
-      PrivateIpAddress: !Join
-        - '.'
-        - - !Select [0, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
-          - !Select [1, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
-          - !Select [2, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
-          - {{ node_index + 10 }}
-{%- endif %}
 {%- endfor %}
   Route:
     Type: 'AWS::EC2::Route'
@@ -362,13 +342,6 @@ Outputs:
     Value: !GetAtt
       - Node{{ node_index }}
       - PrivateIp
-{% if AssociatePublicIpAddress %}
-  Node{{ node_index }}PublicIp:
-    Condition: Launch{{ node_index + 1 }}
-    Value: !GetAtt
-      - Node{{ node_index }}
-      - PublicIp
-{% endif %}
 {%- endfor %}
   SGAdmin:
     Value: !Ref SGAdmin
