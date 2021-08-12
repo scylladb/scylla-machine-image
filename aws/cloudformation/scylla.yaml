@@ -9,24 +9,76 @@ Description: >-
 
   Caution: password authentication isn't enabled by default
 
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Scylla Parameters
+        Parameters:
+          - ScyllaClusterName
+          - ScyllaAmi
+          - ScyllaSeedIPs
+      - Label:
+          default: AWS Parameters
+        Parameters:
+          - InstanceType
+          - InstanceCount
+          - AvailabilityZone
+          - CIDR
+          - EnablePublicAccess
+          - PublicAccessCIDR
+          - KeyName
+    ParameterLabels:
+      ScyllaClusterName:
+        default: Scylla cluster name
+      ScyllaAmi:
+        default: Scylla AMI ID
+      ScyllaSeedIPs:
+        default: Scylla seed nodes IPs
+      InstanceType:
+        default: EC2 instance type
+      InstanceCount:
+        default: Number of Scylla nodes (EC2 Instances)
+      AvailabilityZone:
+        default: Availability Zone
+      CIDR:
+        default: CIDR block for Scylla VPC
+      EnablePublicAccess:
+        default: Allow public access (SSH)
+      PublicAccessCIDR:
+        default: Allowed subnet for public access (SSH)
+
 Parameters:
-  ClusterName:
+  ScyllaClusterName:
     Type: String
 
+  PublicAccessCIDR:
+    Type: String
+    Description: |
+        The IP address range that can be used to SSH to the EC2 instances
+        (x.x.x.x/32 for specific IP, 0.0.0.0/0 to allow all IP addresses)
+    Default: 0.0.0.0/0
+
   InstanceCount:
-    Description: Number of EC2 instances (must be between 1 and 10).
-    Type: Number
+    Description: Must be between 1 and 10
+    Type: String
     Default: 1
-    MinValue: 1
-    MaxValue: 10
+    AllowedValues: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     ConstraintDescription: Must be a number between 1 and 10.
+
+  EnablePublicAccess:
+    Description: Sef true to enable public access to the Scylla cluster nodes
+    Type: String
+    AllowedValues:
+      - 'false'
+      - 'true'
+    Default: 'false'
 
   ScyllaAmi:
     Type: 'AWS::EC2::Image::Id'
-    ConstraintDescription: must be a valid scylla AMI in this region.
+    ConstraintDescription: Enter a valid Scylla AMI ID for your selected region
 
   InstanceType:
-    Description: EC2 instance type
     Type: String
     Default: i3.large
     AllowedValues:
@@ -55,6 +107,23 @@ Parameters:
     Description: Name of an existing EC2 KeyPair to enable SSH access to the instances
     Type: 'AWS::EC2::KeyPair::KeyName'
     ConstraintDescription: must be the name of an existing EC2 KeyPair.
+
+  CIDR:
+    Description: |
+        Currently supports 8, 16, or 24 netmask.
+        The node IPs will be x.x.x.10, x.x.x.11, x.x.x.12 etc.
+    Type: 'String'
+    Default: '172.31.0.0/16'
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: must be a valid CIDR (ex. 172.31.0.0/16)
+
+  ScyllaSeedIPs:
+    Description: |
+      Will be set as `seeds` on /etc/scylla/scylla.yaml.
+      NOTE: The first four IP addresses and the last IP address in each subnet reserved by AWS,
+      for more information, see https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html#VPC_Sizing
+    Type: CommaDelimitedList
+    Default: '172.31.0.10, 172.31.0.11, 172.31.0.12'
 
 # Those conditions would be used to enable nodes based on InstanceCount parameter
 Conditions:
@@ -116,16 +185,16 @@ Resources:
     Properties:
       Tags:
         - Key: Name
-          Value: !Sub '${ClusterName}-Gateway'
-        - Key: ClusterName
-          Value: !Ref ClusterName
+          Value: !Sub '${ScyllaClusterName}-Gateway'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
   Node0:
     Condition: Launch1
     Type: 'AWS::EC2::Instance'
     CreationPolicy:
       ResourceSignal:
         Timeout: PT10M
-    DependsOn: SGCluster
+    DependsOn: CfnEndpoint
     Properties:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
@@ -137,20 +206,20 @@ Resources:
       KeyName: !Ref KeyName
       Tags:
         - Key: Name
-          Value: !Sub '${ClusterName}-Node-1'
-        - Key: ClusterName
-          Value: !Ref ClusterName
+          Value: !Sub '${ScyllaClusterName}-Node-1'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
       UserData: !Base64
         'Fn::Join':
           - ''
           - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
             - !Join
               - ','
-              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
-                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
-                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+              - - !If [Launch1, !Select [0, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch2, !Select [1, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch3, !Select [2, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
             - '"}]}]'
-            - !Sub ', "cluster_name": "${ClusterName}", '
+            - !Sub ', "cluster_name": "${ScyllaClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
             - '"start_scylla_on_first_boot": true, '
             - '"post_configuration_script" : "'
@@ -162,40 +231,26 @@ Resources:
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node0 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
-        - NetworkInterfaceId: !Ref Node0ETH0
+        - AssociatePublicIpAddress: !Ref EnablePublicAccess
+          PrivateIpAddress: !Join
+            - '.'
+            - - !Select [0, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [1, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [2, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - 10
+          SubnetId: !Ref Subnet
           DeviceIndex: '0'
-  Node0ETH0:
-    Condition: Launch1
-    Type: 'AWS::EC2::NetworkInterface'
-    Properties:
-      GroupSet:
-        - !Ref SGAdmin
-        - !Ref SGCluster
-        - !Ref SGUser
-      PrivateIpAddress: 172.31.0.11
-      SubnetId: !Ref Subnet
-  Node0ElasticIP:
-    Condition: Launch1
-    Type: 'AWS::EC2::EIP'
-    Properties:
-      Domain: vpc
-  Node0ElasticIPAssociation:
-    Condition: Launch1
-    Type: 'AWS::EC2::EIPAssociation'
-    DependsOn: Node0
-    Properties:
-      AllocationId: !GetAtt
-        - Node0ElasticIP
-        - AllocationId
-      NetworkInterfaceId: !Ref Node0ETH0
-      PrivateIpAddress: 172.31.0.11
+          Description: 'Primary network interface'
+          GroupSet:
+            - !Ref SGCluster
+            - !Ref SGAdmin
   Node1:
     Condition: Launch2
     Type: 'AWS::EC2::Instance'
     CreationPolicy:
       ResourceSignal:
         Timeout: PT10M
-    DependsOn: SGCluster
+    DependsOn: CfnEndpoint
     Properties:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
@@ -207,20 +262,20 @@ Resources:
       KeyName: !Ref KeyName
       Tags:
         - Key: Name
-          Value: !Sub '${ClusterName}-Node-2'
-        - Key: ClusterName
-          Value: !Ref ClusterName
+          Value: !Sub '${ScyllaClusterName}-Node-2'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
       UserData: !Base64
         'Fn::Join':
           - ''
           - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
             - !Join
               - ','
-              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
-                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
-                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+              - - !If [Launch1, !Select [0, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch2, !Select [1, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch3, !Select [2, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
             - '"}]}]'
-            - !Sub ', "cluster_name": "${ClusterName}", '
+            - !Sub ', "cluster_name": "${ScyllaClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
             - '"start_scylla_on_first_boot": true, '
             - '"post_configuration_script" : "'
@@ -232,40 +287,26 @@ Resources:
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node1 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
-        - NetworkInterfaceId: !Ref Node1ETH0
+        - AssociatePublicIpAddress: !Ref EnablePublicAccess
+          PrivateIpAddress: !Join
+            - '.'
+            - - !Select [0, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [1, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [2, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - 11
+          SubnetId: !Ref Subnet
           DeviceIndex: '0'
-  Node1ETH0:
-    Condition: Launch2
-    Type: 'AWS::EC2::NetworkInterface'
-    Properties:
-      GroupSet:
-        - !Ref SGAdmin
-        - !Ref SGCluster
-        - !Ref SGUser
-      PrivateIpAddress: 172.31.1.11
-      SubnetId: !Ref Subnet
-  Node1ElasticIP:
-    Condition: Launch2
-    Type: 'AWS::EC2::EIP'
-    Properties:
-      Domain: vpc
-  Node1ElasticIPAssociation:
-    Condition: Launch2
-    Type: 'AWS::EC2::EIPAssociation'
-    DependsOn: Node1
-    Properties:
-      AllocationId: !GetAtt
-        - Node1ElasticIP
-        - AllocationId
-      NetworkInterfaceId: !Ref Node1ETH0
-      PrivateIpAddress: 172.31.1.11
+          Description: 'Primary network interface'
+          GroupSet:
+            - !Ref SGCluster
+            - !Ref SGAdmin
   Node2:
     Condition: Launch3
     Type: 'AWS::EC2::Instance'
     CreationPolicy:
       ResourceSignal:
         Timeout: PT10M
-    DependsOn: SGCluster
+    DependsOn: CfnEndpoint
     Properties:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
@@ -277,20 +318,20 @@ Resources:
       KeyName: !Ref KeyName
       Tags:
         - Key: Name
-          Value: !Sub '${ClusterName}-Node-3'
-        - Key: ClusterName
-          Value: !Ref ClusterName
+          Value: !Sub '${ScyllaClusterName}-Node-3'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
       UserData: !Base64
         'Fn::Join':
           - ''
           - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
             - !Join
               - ','
-              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
-                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
-                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+              - - !If [Launch1, !Select [0, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch2, !Select [1, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch3, !Select [2, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
             - '"}]}]'
-            - !Sub ', "cluster_name": "${ClusterName}", '
+            - !Sub ', "cluster_name": "${ScyllaClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
             - '"start_scylla_on_first_boot": true, '
             - '"post_configuration_script" : "'
@@ -302,40 +343,26 @@ Resources:
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node2 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
-        - NetworkInterfaceId: !Ref Node2ETH0
+        - AssociatePublicIpAddress: !Ref EnablePublicAccess
+          PrivateIpAddress: !Join
+            - '.'
+            - - !Select [0, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [1, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [2, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - 12
+          SubnetId: !Ref Subnet
           DeviceIndex: '0'
-  Node2ETH0:
-    Condition: Launch3
-    Type: 'AWS::EC2::NetworkInterface'
-    Properties:
-      GroupSet:
-        - !Ref SGAdmin
-        - !Ref SGCluster
-        - !Ref SGUser
-      PrivateIpAddress: 172.31.2.11
-      SubnetId: !Ref Subnet
-  Node2ElasticIP:
-    Condition: Launch3
-    Type: 'AWS::EC2::EIP'
-    Properties:
-      Domain: vpc
-  Node2ElasticIPAssociation:
-    Condition: Launch3
-    Type: 'AWS::EC2::EIPAssociation'
-    DependsOn: Node2
-    Properties:
-      AllocationId: !GetAtt
-        - Node2ElasticIP
-        - AllocationId
-      NetworkInterfaceId: !Ref Node2ETH0
-      PrivateIpAddress: 172.31.2.11
+          Description: 'Primary network interface'
+          GroupSet:
+            - !Ref SGCluster
+            - !Ref SGAdmin
   Node3:
     Condition: Launch4
     Type: 'AWS::EC2::Instance'
     CreationPolicy:
       ResourceSignal:
         Timeout: PT10M
-    DependsOn: SGCluster
+    DependsOn: CfnEndpoint
     Properties:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
@@ -347,20 +374,20 @@ Resources:
       KeyName: !Ref KeyName
       Tags:
         - Key: Name
-          Value: !Sub '${ClusterName}-Node-4'
-        - Key: ClusterName
-          Value: !Ref ClusterName
+          Value: !Sub '${ScyllaClusterName}-Node-4'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
       UserData: !Base64
         'Fn::Join':
           - ''
           - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
             - !Join
               - ','
-              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
-                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
-                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+              - - !If [Launch1, !Select [0, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch2, !Select [1, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch3, !Select [2, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
             - '"}]}]'
-            - !Sub ', "cluster_name": "${ClusterName}", '
+            - !Sub ', "cluster_name": "${ScyllaClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
             - '"start_scylla_on_first_boot": true, '
             - '"post_configuration_script" : "'
@@ -372,40 +399,26 @@ Resources:
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node3 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
-        - NetworkInterfaceId: !Ref Node3ETH0
+        - AssociatePublicIpAddress: !Ref EnablePublicAccess
+          PrivateIpAddress: !Join
+            - '.'
+            - - !Select [0, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [1, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [2, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - 13
+          SubnetId: !Ref Subnet
           DeviceIndex: '0'
-  Node3ETH0:
-    Condition: Launch4
-    Type: 'AWS::EC2::NetworkInterface'
-    Properties:
-      GroupSet:
-        - !Ref SGAdmin
-        - !Ref SGCluster
-        - !Ref SGUser
-      PrivateIpAddress: 172.31.3.11
-      SubnetId: !Ref Subnet
-  Node3ElasticIP:
-    Condition: Launch4
-    Type: 'AWS::EC2::EIP'
-    Properties:
-      Domain: vpc
-  Node3ElasticIPAssociation:
-    Condition: Launch4
-    Type: 'AWS::EC2::EIPAssociation'
-    DependsOn: Node3
-    Properties:
-      AllocationId: !GetAtt
-        - Node3ElasticIP
-        - AllocationId
-      NetworkInterfaceId: !Ref Node3ETH0
-      PrivateIpAddress: 172.31.3.11
+          Description: 'Primary network interface'
+          GroupSet:
+            - !Ref SGCluster
+            - !Ref SGAdmin
   Node4:
     Condition: Launch5
     Type: 'AWS::EC2::Instance'
     CreationPolicy:
       ResourceSignal:
         Timeout: PT10M
-    DependsOn: SGCluster
+    DependsOn: CfnEndpoint
     Properties:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
@@ -417,20 +430,20 @@ Resources:
       KeyName: !Ref KeyName
       Tags:
         - Key: Name
-          Value: !Sub '${ClusterName}-Node-5'
-        - Key: ClusterName
-          Value: !Ref ClusterName
+          Value: !Sub '${ScyllaClusterName}-Node-5'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
       UserData: !Base64
         'Fn::Join':
           - ''
           - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
             - !Join
               - ','
-              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
-                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
-                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+              - - !If [Launch1, !Select [0, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch2, !Select [1, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch3, !Select [2, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
             - '"}]}]'
-            - !Sub ', "cluster_name": "${ClusterName}", '
+            - !Sub ', "cluster_name": "${ScyllaClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
             - '"start_scylla_on_first_boot": true, '
             - '"post_configuration_script" : "'
@@ -442,40 +455,26 @@ Resources:
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node4 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
-        - NetworkInterfaceId: !Ref Node4ETH0
+        - AssociatePublicIpAddress: !Ref EnablePublicAccess
+          PrivateIpAddress: !Join
+            - '.'
+            - - !Select [0, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [1, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [2, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - 14
+          SubnetId: !Ref Subnet
           DeviceIndex: '0'
-  Node4ETH0:
-    Condition: Launch5
-    Type: 'AWS::EC2::NetworkInterface'
-    Properties:
-      GroupSet:
-        - !Ref SGAdmin
-        - !Ref SGCluster
-        - !Ref SGUser
-      PrivateIpAddress: 172.31.4.11
-      SubnetId: !Ref Subnet
-  Node4ElasticIP:
-    Condition: Launch5
-    Type: 'AWS::EC2::EIP'
-    Properties:
-      Domain: vpc
-  Node4ElasticIPAssociation:
-    Condition: Launch5
-    Type: 'AWS::EC2::EIPAssociation'
-    DependsOn: Node4
-    Properties:
-      AllocationId: !GetAtt
-        - Node4ElasticIP
-        - AllocationId
-      NetworkInterfaceId: !Ref Node4ETH0
-      PrivateIpAddress: 172.31.4.11
+          Description: 'Primary network interface'
+          GroupSet:
+            - !Ref SGCluster
+            - !Ref SGAdmin
   Node5:
     Condition: Launch6
     Type: 'AWS::EC2::Instance'
     CreationPolicy:
       ResourceSignal:
         Timeout: PT10M
-    DependsOn: SGCluster
+    DependsOn: CfnEndpoint
     Properties:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
@@ -487,20 +486,20 @@ Resources:
       KeyName: !Ref KeyName
       Tags:
         - Key: Name
-          Value: !Sub '${ClusterName}-Node-6'
-        - Key: ClusterName
-          Value: !Ref ClusterName
+          Value: !Sub '${ScyllaClusterName}-Node-6'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
       UserData: !Base64
         'Fn::Join':
           - ''
           - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
             - !Join
               - ','
-              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
-                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
-                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+              - - !If [Launch1, !Select [0, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch2, !Select [1, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch3, !Select [2, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
             - '"}]}]'
-            - !Sub ', "cluster_name": "${ClusterName}", '
+            - !Sub ', "cluster_name": "${ScyllaClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
             - '"start_scylla_on_first_boot": true, '
             - '"post_configuration_script" : "'
@@ -512,40 +511,26 @@ Resources:
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node5 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
-        - NetworkInterfaceId: !Ref Node5ETH0
+        - AssociatePublicIpAddress: !Ref EnablePublicAccess
+          PrivateIpAddress: !Join
+            - '.'
+            - - !Select [0, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [1, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [2, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - 15
+          SubnetId: !Ref Subnet
           DeviceIndex: '0'
-  Node5ETH0:
-    Condition: Launch6
-    Type: 'AWS::EC2::NetworkInterface'
-    Properties:
-      GroupSet:
-        - !Ref SGAdmin
-        - !Ref SGCluster
-        - !Ref SGUser
-      PrivateIpAddress: 172.31.5.11
-      SubnetId: !Ref Subnet
-  Node5ElasticIP:
-    Condition: Launch6
-    Type: 'AWS::EC2::EIP'
-    Properties:
-      Domain: vpc
-  Node5ElasticIPAssociation:
-    Condition: Launch6
-    Type: 'AWS::EC2::EIPAssociation'
-    DependsOn: Node5
-    Properties:
-      AllocationId: !GetAtt
-        - Node5ElasticIP
-        - AllocationId
-      NetworkInterfaceId: !Ref Node5ETH0
-      PrivateIpAddress: 172.31.5.11
+          Description: 'Primary network interface'
+          GroupSet:
+            - !Ref SGCluster
+            - !Ref SGAdmin
   Node6:
     Condition: Launch7
     Type: 'AWS::EC2::Instance'
     CreationPolicy:
       ResourceSignal:
         Timeout: PT10M
-    DependsOn: SGCluster
+    DependsOn: CfnEndpoint
     Properties:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
@@ -557,20 +542,20 @@ Resources:
       KeyName: !Ref KeyName
       Tags:
         - Key: Name
-          Value: !Sub '${ClusterName}-Node-7'
-        - Key: ClusterName
-          Value: !Ref ClusterName
+          Value: !Sub '${ScyllaClusterName}-Node-7'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
       UserData: !Base64
         'Fn::Join':
           - ''
           - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
             - !Join
               - ','
-              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
-                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
-                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+              - - !If [Launch1, !Select [0, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch2, !Select [1, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch3, !Select [2, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
             - '"}]}]'
-            - !Sub ', "cluster_name": "${ClusterName}", '
+            - !Sub ', "cluster_name": "${ScyllaClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
             - '"start_scylla_on_first_boot": true, '
             - '"post_configuration_script" : "'
@@ -582,40 +567,26 @@ Resources:
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node6 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
-        - NetworkInterfaceId: !Ref Node6ETH0
+        - AssociatePublicIpAddress: !Ref EnablePublicAccess
+          PrivateIpAddress: !Join
+            - '.'
+            - - !Select [0, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [1, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [2, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - 16
+          SubnetId: !Ref Subnet
           DeviceIndex: '0'
-  Node6ETH0:
-    Condition: Launch7
-    Type: 'AWS::EC2::NetworkInterface'
-    Properties:
-      GroupSet:
-        - !Ref SGAdmin
-        - !Ref SGCluster
-        - !Ref SGUser
-      PrivateIpAddress: 172.31.6.11
-      SubnetId: !Ref Subnet
-  Node6ElasticIP:
-    Condition: Launch7
-    Type: 'AWS::EC2::EIP'
-    Properties:
-      Domain: vpc
-  Node6ElasticIPAssociation:
-    Condition: Launch7
-    Type: 'AWS::EC2::EIPAssociation'
-    DependsOn: Node6
-    Properties:
-      AllocationId: !GetAtt
-        - Node6ElasticIP
-        - AllocationId
-      NetworkInterfaceId: !Ref Node6ETH0
-      PrivateIpAddress: 172.31.6.11
+          Description: 'Primary network interface'
+          GroupSet:
+            - !Ref SGCluster
+            - !Ref SGAdmin
   Node7:
     Condition: Launch8
     Type: 'AWS::EC2::Instance'
     CreationPolicy:
       ResourceSignal:
         Timeout: PT10M
-    DependsOn: SGCluster
+    DependsOn: CfnEndpoint
     Properties:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
@@ -627,20 +598,20 @@ Resources:
       KeyName: !Ref KeyName
       Tags:
         - Key: Name
-          Value: !Sub '${ClusterName}-Node-8'
-        - Key: ClusterName
-          Value: !Ref ClusterName
+          Value: !Sub '${ScyllaClusterName}-Node-8'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
       UserData: !Base64
         'Fn::Join':
           - ''
           - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
             - !Join
               - ','
-              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
-                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
-                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+              - - !If [Launch1, !Select [0, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch2, !Select [1, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch3, !Select [2, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
             - '"}]}]'
-            - !Sub ', "cluster_name": "${ClusterName}", '
+            - !Sub ', "cluster_name": "${ScyllaClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
             - '"start_scylla_on_first_boot": true, '
             - '"post_configuration_script" : "'
@@ -652,40 +623,26 @@ Resources:
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node7 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
-        - NetworkInterfaceId: !Ref Node7ETH0
+        - AssociatePublicIpAddress: !Ref EnablePublicAccess
+          PrivateIpAddress: !Join
+            - '.'
+            - - !Select [0, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [1, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [2, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - 17
+          SubnetId: !Ref Subnet
           DeviceIndex: '0'
-  Node7ETH0:
-    Condition: Launch8
-    Type: 'AWS::EC2::NetworkInterface'
-    Properties:
-      GroupSet:
-        - !Ref SGAdmin
-        - !Ref SGCluster
-        - !Ref SGUser
-      PrivateIpAddress: 172.31.7.11
-      SubnetId: !Ref Subnet
-  Node7ElasticIP:
-    Condition: Launch8
-    Type: 'AWS::EC2::EIP'
-    Properties:
-      Domain: vpc
-  Node7ElasticIPAssociation:
-    Condition: Launch8
-    Type: 'AWS::EC2::EIPAssociation'
-    DependsOn: Node7
-    Properties:
-      AllocationId: !GetAtt
-        - Node7ElasticIP
-        - AllocationId
-      NetworkInterfaceId: !Ref Node7ETH0
-      PrivateIpAddress: 172.31.7.11
+          Description: 'Primary network interface'
+          GroupSet:
+            - !Ref SGCluster
+            - !Ref SGAdmin
   Node8:
     Condition: Launch9
     Type: 'AWS::EC2::Instance'
     CreationPolicy:
       ResourceSignal:
         Timeout: PT10M
-    DependsOn: SGCluster
+    DependsOn: CfnEndpoint
     Properties:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
@@ -697,20 +654,20 @@ Resources:
       KeyName: !Ref KeyName
       Tags:
         - Key: Name
-          Value: !Sub '${ClusterName}-Node-9'
-        - Key: ClusterName
-          Value: !Ref ClusterName
+          Value: !Sub '${ScyllaClusterName}-Node-9'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
       UserData: !Base64
         'Fn::Join':
           - ''
           - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
             - !Join
               - ','
-              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
-                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
-                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+              - - !If [Launch1, !Select [0, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch2, !Select [1, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch3, !Select [2, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
             - '"}]}]'
-            - !Sub ', "cluster_name": "${ClusterName}", '
+            - !Sub ', "cluster_name": "${ScyllaClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
             - '"start_scylla_on_first_boot": true, '
             - '"post_configuration_script" : "'
@@ -722,40 +679,26 @@ Resources:
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node8 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
-        - NetworkInterfaceId: !Ref Node8ETH0
+        - AssociatePublicIpAddress: !Ref EnablePublicAccess
+          PrivateIpAddress: !Join
+            - '.'
+            - - !Select [0, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [1, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [2, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - 18
+          SubnetId: !Ref Subnet
           DeviceIndex: '0'
-  Node8ETH0:
-    Condition: Launch9
-    Type: 'AWS::EC2::NetworkInterface'
-    Properties:
-      GroupSet:
-        - !Ref SGAdmin
-        - !Ref SGCluster
-        - !Ref SGUser
-      PrivateIpAddress: 172.31.8.11
-      SubnetId: !Ref Subnet
-  Node8ElasticIP:
-    Condition: Launch9
-    Type: 'AWS::EC2::EIP'
-    Properties:
-      Domain: vpc
-  Node8ElasticIPAssociation:
-    Condition: Launch9
-    Type: 'AWS::EC2::EIPAssociation'
-    DependsOn: Node8
-    Properties:
-      AllocationId: !GetAtt
-        - Node8ElasticIP
-        - AllocationId
-      NetworkInterfaceId: !Ref Node8ETH0
-      PrivateIpAddress: 172.31.8.11
+          Description: 'Primary network interface'
+          GroupSet:
+            - !Ref SGCluster
+            - !Ref SGAdmin
   Node9:
     Condition: Launch10
     Type: 'AWS::EC2::Instance'
     CreationPolicy:
       ResourceSignal:
         Timeout: PT10M
-    DependsOn: SGCluster
+    DependsOn: CfnEndpoint
     Properties:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
@@ -767,20 +710,20 @@ Resources:
       KeyName: !Ref KeyName
       Tags:
         - Key: Name
-          Value: !Sub '${ClusterName}-Node-10'
-        - Key: ClusterName
-          Value: !Ref ClusterName
+          Value: !Sub '${ScyllaClusterName}-Node-10'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
       UserData: !Base64
         'Fn::Join':
           - ''
           - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
             - !Join
               - ','
-              - - !If [Launch1, '172.31.0.11', !Ref "AWS::NoValue"]
-                - !If [Launch2, '172.31.1.11', !Ref "AWS::NoValue"]
-                - !If [Launch3, '172.31.2.11', !Ref "AWS::NoValue"]
+              - - !If [Launch1, !Select [0, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch2, !Select [1, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch3, !Select [2, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
             - '"}]}]'
-            - !Sub ', "cluster_name": "${ClusterName}", '
+            - !Sub ', "cluster_name": "${ScyllaClusterName}", '
             - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch"}, '
             - '"start_scylla_on_first_boot": true, '
             - '"post_configuration_script" : "'
@@ -792,33 +735,19 @@ Resources:
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node9 --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
       NetworkInterfaces:
-        - NetworkInterfaceId: !Ref Node9ETH0
+        - AssociatePublicIpAddress: !Ref EnablePublicAccess
+          PrivateIpAddress: !Join
+            - '.'
+            - - !Select [0, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [1, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [2, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - 19
+          SubnetId: !Ref Subnet
           DeviceIndex: '0'
-  Node9ETH0:
-    Condition: Launch10
-    Type: 'AWS::EC2::NetworkInterface'
-    Properties:
-      GroupSet:
-        - !Ref SGAdmin
-        - !Ref SGCluster
-        - !Ref SGUser
-      PrivateIpAddress: 172.31.9.11
-      SubnetId: !Ref Subnet
-  Node9ElasticIP:
-    Condition: Launch10
-    Type: 'AWS::EC2::EIP'
-    Properties:
-      Domain: vpc
-  Node9ElasticIPAssociation:
-    Condition: Launch10
-    Type: 'AWS::EC2::EIPAssociation'
-    DependsOn: Node9
-    Properties:
-      AllocationId: !GetAtt
-        - Node9ElasticIP
-        - AllocationId
-      NetworkInterfaceId: !Ref Node9ETH0
-      PrivateIpAddress: 172.31.9.11
+          Description: 'Primary network interface'
+          GroupSet:
+            - !Ref SGCluster
+            - !Ref SGAdmin
   Route:
     Type: 'AWS::EC2::Route'
     DependsOn: GatewayAttachment
@@ -831,9 +760,9 @@ Resources:
     Properties:
       Tags:
         - Key: Name
-          Value: !Sub '${ClusterName}-RT'
-        - Key: ClusterName
-          Value: !Ref ClusterName
+          Value: !Sub '${ScyllaClusterName}-RT'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
 
       VpcId: !Ref VPC
   SGAdmin:
@@ -842,11 +771,11 @@ Resources:
       GroupDescription: Security group for the admin
       Tags:
         - Key: Name
-          Value: !Sub '${ClusterName}-SGAdmin'
-        - Key: ClusterName
-          Value: !Ref ClusterName
+          Value: !Sub '${ScyllaClusterName}-SGAdmin'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
       SecurityGroupIngress:
-        - CidrIp: 0.0.0.0/0
+        - CidrIp: !Ref PublicAccessCIDR
           FromPort: 22
           ToPort: 22
           IpProtocol: tcp
@@ -854,6 +783,9 @@ Resources:
           FromPort: 22
           ToPort: 22
           IpProtocol: tcp
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: '-1'
       VpcId: !Ref VPC
 
   SGCluster:
@@ -862,14 +794,15 @@ Resources:
       GroupDescription: Security group for the cluster
       Tags:
         - Key: Name
-          Value: !Sub '${ClusterName}-SGCluster'
-        - Key: ClusterName
-          Value: !Ref ClusterName
+          Value: !Sub '${ScyllaClusterName}-SGCluster'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
       SecurityGroupIngress:
-        - CidrIp: 172.31.0.0/16
-          FromPort: 22
-          ToPort: 22
-          IpProtocol: 'tcp'
+        - CidrIp: !Ref CIDR
+          IpProtocol: '-1'
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: '-1'
       VpcId: !Ref VPC
 
   SGUser:
@@ -878,22 +811,25 @@ Resources:
       GroupDescription: Security group for the user CQL access
       Tags:
         - Key: Name
-          Value: !Sub '${ClusterName}-SGUser'
-        - Key: ClusterName
-          Value: !Ref ClusterName
+          Value: !Sub '${ScyllaClusterName}-SGUser'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: '-1'
       VpcId: !Ref VPC
 
   Subnet:
     Type: 'AWS::EC2::Subnet'
     Properties:
       AvailabilityZone: !Ref AvailabilityZone
-      CidrBlock: 172.31.0.0/16
-      MapPublicIpOnLaunch: true
+      CidrBlock: !Ref CIDR
+      MapPublicIpOnLaunch: !Ref EnablePublicAccess
       Tags:
         - Key: Name
-          Value: !Sub '${ClusterName}-Subnet'
-        - Key: ClusterName
-          Value: !Ref ClusterName
+          Value: !Sub '${ScyllaClusterName}-Subnet'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
       VpcId: !Ref VPC
 
   SubnetRouteTableAssociation:
@@ -905,12 +841,28 @@ Resources:
   VPC:
     Type: 'AWS::EC2::VPC'
     Properties:
-      CidrBlock: 172.31.0.0/16
+      CidrBlock: !Ref CIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
       Tags:
         - Key: Name
-          Value: !Sub '${ClusterName}-VPC'
-        - Key: ClusterName
-          Value: !Ref ClusterName
+          Value: !Sub '${ScyllaClusterName}-VPC'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
+
+  CfnEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DependsOn: SGCluster
+    Properties:
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.cloudformation"
+      VpcEndpointType: "Interface"
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref Subnet
+      SecurityGroupIds:
+        - !Ref SGCluster
+        - !Ref SGAdmin
 
 Outputs:
   Node0:
@@ -926,11 +878,6 @@ Outputs:
     Value: !GetAtt
       - Node0
       - PrivateIp
-  Node0PublicIp:
-    Condition: Launch1
-    Value: !GetAtt
-      - Node0
-      - PublicIp
   Node1:
     Condition: Launch2
     Value: !Ref Node1
@@ -944,11 +891,6 @@ Outputs:
     Value: !GetAtt
       - Node1
       - PrivateIp
-  Node1PublicIp:
-    Condition: Launch2
-    Value: !GetAtt
-      - Node1
-      - PublicIp
   Node2:
     Condition: Launch3
     Value: !Ref Node2
@@ -962,11 +904,6 @@ Outputs:
     Value: !GetAtt
       - Node2
       - PrivateIp
-  Node2PublicIp:
-    Condition: Launch3
-    Value: !GetAtt
-      - Node2
-      - PublicIp
   Node3:
     Condition: Launch4
     Value: !Ref Node3
@@ -980,11 +917,6 @@ Outputs:
     Value: !GetAtt
       - Node3
       - PrivateIp
-  Node3PublicIp:
-    Condition: Launch4
-    Value: !GetAtt
-      - Node3
-      - PublicIp
   Node4:
     Condition: Launch5
     Value: !Ref Node4
@@ -998,11 +930,6 @@ Outputs:
     Value: !GetAtt
       - Node4
       - PrivateIp
-  Node4PublicIp:
-    Condition: Launch5
-    Value: !GetAtt
-      - Node4
-      - PublicIp
   Node5:
     Condition: Launch6
     Value: !Ref Node5
@@ -1016,11 +943,6 @@ Outputs:
     Value: !GetAtt
       - Node5
       - PrivateIp
-  Node5PublicIp:
-    Condition: Launch6
-    Value: !GetAtt
-      - Node5
-      - PublicIp
   Node6:
     Condition: Launch7
     Value: !Ref Node6
@@ -1034,11 +956,6 @@ Outputs:
     Value: !GetAtt
       - Node6
       - PrivateIp
-  Node6PublicIp:
-    Condition: Launch7
-    Value: !GetAtt
-      - Node6
-      - PublicIp
   Node7:
     Condition: Launch8
     Value: !Ref Node7
@@ -1052,11 +969,6 @@ Outputs:
     Value: !GetAtt
       - Node7
       - PrivateIp
-  Node7PublicIp:
-    Condition: Launch8
-    Value: !GetAtt
-      - Node7
-      - PublicIp
   Node8:
     Condition: Launch9
     Value: !Ref Node8
@@ -1070,11 +982,6 @@ Outputs:
     Value: !GetAtt
       - Node8
       - PrivateIp
-  Node8PublicIp:
-    Condition: Launch9
-    Value: !GetAtt
-      - Node8
-      - PublicIp
   Node9:
     Condition: Launch10
     Value: !Ref Node9
@@ -1088,11 +995,6 @@ Outputs:
     Value: !GetAtt
       - Node9
       - PrivateIp
-  Node9PublicIp:
-    Condition: Launch10
-    Value: !GetAtt
-      - Node9
-      - PublicIp
   SGAdmin:
     Value: !Ref SGAdmin
   SGCluster:
