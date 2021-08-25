@@ -166,8 +166,7 @@ if __name__ == '__main__':
 
     if distro == 'centos':
         profile = '/etc/skel/.bash_profile'
-    else:
-        profile = '/etc/skel/.profile'
+    else:        profile = '/etc/skel/.profile'
     with open(profile, 'a') as f:
         f.write('\n\n/opt/scylladb/scylla-machine-image/scylla_login\n')
 
