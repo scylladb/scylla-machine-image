@@ -181,6 +181,9 @@ if __name__ == '__main__':
             lines = f.readlines()
         s = StringIO()
         for l in lines:
+            match_groups = re.match(r'^\s+groups: \[(.+)\]\n$', l)
+            if match_groups:
+                groups = match_groups.group(1).replace(' ', '')
             if not re.match(r'^ - mounts\n$', l):
                 s.write(l)
         cfg = s.getvalue()
@@ -199,9 +202,6 @@ if __name__ == '__main__':
         for skel in glob.glob('/etc/skel/.*'):
             shutil.copy(skel, '/home/scyllaadm')
             os.chown(skel, 1000, 1000)
-        with open('/etc/cloud/cloud.cfg') as f:
-            cfg = yaml.safe_load(f)
-            groups = ','.join(cfg['system_info']['default_user']['groups'])
         run('useradd -o -u 1000 -g scyllaadm -G {} -s /bin/bash -d /home/scyllaadm centos'.format(groups))
         run('groupadd -o -g 1000 centos')
         os.symlink('/home/scyllaadm', '/home/centos')
