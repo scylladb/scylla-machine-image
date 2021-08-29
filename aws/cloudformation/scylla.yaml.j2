@@ -75,10 +75,6 @@ Parameters:
       - 'true'
     Default: 'false'
 
-  ScyllaAmi:
-    Type: 'AWS::EC2::Image::Id'
-    ConstraintDescription: Enter a valid Scylla AMI ID for your selected region
-
   InstanceType:
     Type: String
     Default: i3.large
@@ -138,6 +134,43 @@ Conditions:
 {%- endfor %}
     Launch{{ total_num_node }}: !Equals [{{ total_num_node }}, !Ref InstanceCount]
 
+Mappings:
+  RegionMap:
+    ap-northeast-2:
+      HVM64: placeholder-ap-northeast-2
+    ap-southeast-2:
+      HVM64: placeholder-ap-southeast-2
+    ap-southeast-1:
+      HVM64: placeholder-ap-southeast-1
+    ca-central-1:
+      HVM64: placeholder-ca-central-1
+    us-east-2:
+      HVM64: placeholder-us-east-2
+    us-east-1:
+      HVM64: placeholder-us-east-1
+    sa-east-1:
+      HVM64: placeholder-sa-east-1
+    eu-west-1:
+      HVM64: placeholder-eu-west-1
+    eu-west-2:
+      HVM64: placeholder-eu-west-2
+    eu-central-1:
+      HVM64: placeholder-eu-central-1
+    us-west-2:
+      HVM64: placeholder-us-west-2
+    eu-west-3:
+      HVM64: placeholder-eu-west-3
+    eu-north-1:
+      HVM64: placeholder-eu-north-1
+    ap-northeast-1:
+      HVM64: placeholder-ap-northeast-1
+    ap-northeast-3:
+      HVM64: placeholder-ap-northeast-3
+    ap-south-1:
+      HVM64: placeholder-ap-south-1
+    us-west-1:
+      HVM64: placeholder-us-west-1
+
 Resources:
   GatewayAttachment:
     Type: 'AWS::EC2::VPCGatewayAttachment'
@@ -168,7 +201,7 @@ Resources:
           Ebs:
             DeleteOnTermination: true
             VolumeSize: 50
-      ImageId: !Ref ScyllaAmi
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", HVM64]
       InstanceType: !Ref InstanceType
       KeyName: !Ref KeyName
       Tags:
