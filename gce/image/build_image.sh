@@ -36,7 +36,7 @@ print_usage() {
 }
 LOCALRPM=0
 DOWNLOAD_ONLY=0
-PACKER_SUB_CMD="build -force -on-error=abort"
+PACKER_SUB_CMD="build"
 REPO_FOR_INSTALL=
 PACKER_LOG_PATH=build/packer.log
 while [ $# -gt 0 ]; do

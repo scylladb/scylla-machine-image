@@ -35,7 +35,7 @@ print_usage() {
 }
 LOCALDEB=0
 DOWNLOAD_ONLY=0
-PACKER_SUB_CMD="build -force -on-error=abort"
+PACKER_SUB_CMD="build"
 REPO_FOR_INSTALL=
 PACKER_LOG_PATH=build/ami.log
 
@@ -212,7 +212,7 @@ export PACKER_LOG_PATH
   -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" \
   -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" \
   -var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}" \
-  -var python="/usr/bin/python3" scylla.json
+  scylla.json
 
 # For some errors packer gives a success status even if fails.
 # Search log for errors

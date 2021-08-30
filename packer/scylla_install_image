@@ -25,7 +25,6 @@ import tarfile
 import argparse
 import subprocess
 import platform
-import yaml
 try:
     from cStringIO import StringIO
 except ImportError:
@@ -67,6 +66,7 @@ if __name__ == '__main__':
                         help='repository for install, specify .repo/.list file URL')
     parser.add_argument('--repo-for-update',
                         help='repository for update, specify .repo/.list file URL')
+    parser.add_argument('--target-cloud', choices=['aws', 'gce', 'azure'], help='specify target cloud')
     args = parser.parse_args()
 
     if args.repo:
@@ -114,37 +114,45 @@ if __name__ == '__main__':
         # disable unattended-upgrades
         run('apt-get purge -y unattended-upgrades update-notifier-common')
 
-    # use easy_install instead of pip, because easy_install requires
-    # fewer dependencies, no need to install gcc, it makes our AMI smaller.
-    if distro == 'centos':
-        run('yum install -y epel-release')
-        run('yum install -y pystache python-daemon python-setuptools')
-        # Default install prefix on CentOS7 is /usr not /usr/local, but we need
-        # to align path for executable, so specify script-dir to /usr/local/bin
-        run('python -m easy_install --script-dir /usr/local/bin https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz')
-        pyver = ''
-    else:
-        # XXX: we want install dependencies from distro repo, but
-        # python-daemon-2.2 on Ubuntu 20.04 is too new for aws-cfn-bootstrap,
-        # so install python-daemon-2.1 from pypi
-        run('apt-get install -y python3-pystache python3-lockfile python3-setuptools')
-        run('python3 -m easy_install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz')
-        pyver = '3'
-    cfnpath = out('python{} -c "import cfnbootstrap as _; print(_.__path__[0])"'.format(pyver))
-    initpath = os.path.abspath('{}/../init/{}/cfn-hup'.format(cfnpath, 'redhat' if distro == 'centos' else 'ubuntu'))
-    shutil.copyfile(initpath, '/etc/init.d/cfn-hup')
-    os.chmod('/etc/init.d/cfn-hup', 0o755)
+    if args.target_cloud == 'aws':
+        # use easy_install instead of pip, because easy_install requires
+        # fewer dependencies, no need to install gcc, it makes our AMI smaller.
+        if distro == 'centos':
+            run('yum install -y epel-release')
+            run('yum install -y pystache python-daemon python-setuptools')
+            # Default install prefix on CentOS7 is /usr not /usr/local, but we need
+            # to align path for executable, so specify script-dir to /usr/local/bin
+            run('python -m easy_install --script-dir /usr/local/bin https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz')
+            pyver = ''
+        else:
+            # XXX: we want install dependencies from distro repo, but
+            # python-daemon-2.2 on Ubuntu 20.04 is too new for aws-cfn-bootstrap,
+            # so install python-daemon-2.1 from pypi
+            run('apt-get install -y python3-pystache python3-lockfile python3-setuptools')
+            run('python3 -m easy_install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz')
+            pyver = '3'
+        cfnpath = out('python{} -c "import cfnbootstrap as _; print(_.__path__[0])"'.format(pyver))
+        initpath = os.path.abspath('{}/../init/{}/cfn-hup'.format(cfnpath, 'redhat' if distro == 'centos' else 'ubuntu'))
+        shutil.copyfile(initpath, '/etc/init.d/cfn-hup')
+        os.chmod('/etc/init.d/cfn-hup', 0o755)
+
+        setup_opt = '--ntp-domain amazon'
+        sysconfig_opt = ''
+    elif args.target_cloud == 'gce':
+        setup_opt = ''
+        sysconfig_opt = '--disable-writeback-cache'
+    elif args.target_cloud == 'azure':
+        setup_opt = ''
+        sysconfig_opt = '--disable-writeback-cache'
 
     run('systemctl daemon-reload')
     run('systemctl enable scylla-image-setup.service')
-    run('/opt/scylladb/scripts/scylla_setup --ntp-domain amazon --no-coredump-setup --no-sysconfig-setup --no-raid-setup --no-io-setup --no-bootparam-setup --no-ec2-check --no-swap-setup')
-    run('/opt/scylladb/scripts/scylla_sysconfig_setup --ami --set-clocksource')
+    run('/opt/scylladb/scripts/scylla_setup --no-coredump-setup --no-sysconfig-setup --no-raid-setup --no-io-setup --no-bootparam-setup --no-ec2-check --no-swap-setup')
+    run('/opt/scylladb/scripts/scylla_sysconfig_setup --ami --set-clocksource {}'.format(sysconfig_opt))
     run('/opt/scylladb/scripts/scylla_bootparam_setup --ami')
     os.remove('{}/.ssh/authorized_keys'.format(homedir))
     os.remove('/var/lib/scylla-housekeeping/housekeeping.uuid')
 
-    if distro == 'centos':
-        os.remove('/etc/udev/rules.d/80-net-name-slot.rules')
     with open('/etc/default/grub') as f:
         grub = f.read()
     grub = re.sub(r'^GRUB_CMDLINE_LINUX="(.+)"$', r'GRUB_CMDLINE_LINUX="\1 net.ifnames=0"', grub, flags=re.MULTILINE)
@@ -155,46 +163,58 @@ if __name__ == '__main__':
     else:
         run('grub-mkconfig -o /boot/grub/grub.cfg')
 
-    with open('/etc/cloud/cloud.cfg') as f:
-        lines = f.readlines()
-    s = StringIO()
-    for l in lines:
-        if not re.match(r'^ - mounts\n$', l):
-            s.write(l)
-    cfg = s.getvalue()
-    s.close()
     if distro == 'centos':
-        cfg = re.sub('^ssh_deletekeys:   0', 'ssh_deletekeys:   1', cfg, flags=re.MULTILINE)
-        cfg = re.sub('^    name: centos', '    name: scyllaadm', cfg, flags=re.MULTILINE)
+        profile = '/etc/skel/.bash_profile'
     else:
-        cfg = re.sub('^preserve_hostname: false', 'preserve_hostname: false\n\nssh_deletekeys: true', cfg, flags=re.MULTILINE)
-        cfg = re.sub('^     name: ubuntu', '     name: scyllaadm', cfg, flags=re.MULTILINE)
-    with open('/etc/cloud/cloud.cfg', 'w') as f:
-        f.write(cfg)
-    run('userdel -r -f {}'.format(distro))
-    run('cloud-init clean')
-    run('cloud-init init')
-    for skel in glob.glob('/etc/skel/.*'):
-        shutil.copy(skel, '/home/scyllaadm')
-        os.chown(skel, 1000, 1000)
-    if distro == 'centos':
-        profile = '/home/scyllaadm/.bash_profile'
-    else:
-        profile = '/home/scyllaadm/.profile'
+        profile = '/etc/skel/.profile'
     with open(profile, 'a') as f:
         f.write('\n\n/opt/scylladb/scylla-machine-image/scylla_login\n')
-    with open('/etc/cloud/cloud.cfg') as f:
-        cfg = yaml.safe_load(f)
-        groups = ','.join(cfg['system_info']['default_user']['groups'])
-    run('useradd -o -u 1000 -g scyllaadm -G {} -s /bin/bash -d /home/scyllaadm centos'.format(groups))
-    run('groupadd -o -g 1000 centos')
-    os.symlink('/home/scyllaadm', '/home/centos')
-    if distro == 'ubuntu':
-        run('useradd -o -u 1000 -g scyllaadm -G {} -s /bin/bash -d /home/scyllaadm ubuntu'.format(groups))
-        run('groupadd -o -g 1000 ubuntu')
-        os.symlink('/home/scyllaadm', '/home/ubuntu')
 
-    if distro == 'centos':
+    # On AWS, ssh user is statically created at AMI building time, so we need to
+    # change it to 'scyllaadm`.
+    # However, on GCE and Azure ssh user is dynamically created at instance startup
+    # time, and username is specified while launching the instance, we have nothing
+    # to do.
+    if args.target_cloud == 'aws':
+        with open('/etc/cloud/cloud.cfg') as f:
+            lines = f.readlines()
+        s = StringIO()
+        for l in lines:
+            match_groups = re.match(r'^\s+groups: \[(.+)\]\n$', l)
+            if match_groups:
+                groups = match_groups.group(1).replace(' ', '')
+            if not re.match(r'^ - mounts\n$', l):
+                s.write(l)
+        cfg = s.getvalue()
+        s.close()
+        if distro == 'centos':
+            cfg = re.sub('^ssh_deletekeys:   0', 'ssh_deletekeys:   1', cfg, flags=re.MULTILINE)
+            cfg = re.sub('^    name: centos', '    name: scyllaadm', cfg, flags=re.MULTILINE)
+        else:
+            cfg = re.sub('^preserve_hostname: false', 'preserve_hostname: false\n\nssh_deletekeys: true', cfg, flags=re.MULTILINE)
+            cfg = re.sub('^     name: ubuntu', '     name: scyllaadm', cfg, flags=re.MULTILINE)
+        with open('/etc/cloud/cloud.cfg', 'w') as f:
+            f.write(cfg)
+        run('userdel -r -f {}'.format(distro))
+        run('cloud-init clean')
+        run('cloud-init init')
+        for skel in glob.glob('/etc/skel/.*'):
+            shutil.copy(skel, '/home/scyllaadm')
+            os.chown(skel, 1000, 1000)
+        run('useradd -o -u 1000 -g scyllaadm -G {} -s /bin/bash -d /home/scyllaadm centos'.format(groups))
+        run('groupadd -o -g 1000 centos')
+        os.symlink('/home/scyllaadm', '/home/centos')
+        if distro == 'ubuntu':
+            run('useradd -o -u 1000 -g scyllaadm -G {} -s /bin/bash -d /home/scyllaadm ubuntu'.format(groups))
+            run('groupadd -o -g 1000 ubuntu')
+            os.symlink('/home/scyllaadm', '/home/ubuntu')
+
+    if args.target_cloud == 'azure':
+        with open('/etc/hosts', 'a') as f:
+            f.write('\n\n169.254.169.254    metadata.azure.internal\n')
+
+    # GCP CentOS is 8, don't need to install LTS kernel
+    if args.target_cloud == 'aws' and distro == 'centos':
         # We need to install LTS kernel for the AMI.
         # However, elrepo-kernel only provides x86_64 package,
         # and centos-kernel (altarch/7/kernel) only provides aarch64 package.

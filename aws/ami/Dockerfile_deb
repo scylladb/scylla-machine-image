@@ -1,12 +1,8 @@
 FROM ubuntu:20.04
 
 RUN apt-get update
-RUN apt-get install -y wget curl unzip sudo git findutils gnupg2 dpkg-dev
-
-ENV PACKER_VERSION=1.7.0
-ENV EXPECTED="935e81c07381a964bdbaddde2d890c91d52e88b9e5375f3882840925f6a96893  packer_linux_amd64.zip"
-
-RUN wget -nv https://releases.hashicorp.com/packer/${PACKER_VERSION}/packer_${PACKER_VERSION}_linux_amd64.zip -O packer_linux_amd64.zip && \
-    echo $EXPECTED | sha256sum --check && \
-    unzip -x packer_linux_amd64.zip -d /usr/bin && \
-    rm packer_linux_amd64.zip
+RUN apt-get install -y curl sudo git findutils gnupg2 dpkg-dev
+RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+RUN echo "deb https://apt.releases.hashicorp.com focal main" | sudo tee -a /etc/apt/sources.list.d/packer.list
+RUN apt-get update
+RUN apt-get install -y packer

@@ -36,7 +36,7 @@ print_usage() {
 }
 LOCALDEB=0
 DOWNLOAD_ONLY=0
-PACKER_SUB_CMD="build -force -on-error=abort"
+PACKER_SUB_CMD="build"
 REPO_FOR_INSTALL=
 PACKER_LOG_PATH=build/packer.log
 
@@ -208,8 +208,7 @@ echo "Calling Packer..."
   -var client_secret="$AZURE_CLIENT_SECRET" \
   -var tenant_id="$AZURE_TENANT_ID" \
   -var subscription_id="$AZURE_SUBSCRIPTION_ID" \
-  -var scylla_build_id="$BUILD_ID" \
-  -var python="/usr/bin/python3" scylla_azure.json
+  -var scylla_build_id="$BUILD_ID" scylla_azure.json
 
   # For some errors packer gives a success status even if fails.
   # Search log for errors
