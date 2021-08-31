@@ -19,6 +19,8 @@ source "$REALDIR"/../SCYLLA-VERSION-GEN
 
 PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
 BUILD_ID=$(date -u '+%FT%H-%M-%S')
+BRANCH="master"
+OPERATING_SYSTEM="ubuntu20.04"
 DIR=$(dirname $(realpath -se $0))
 PDIRNAME=$(basename $(realpath -se $DIR/..))
 EXIT_STATUS=0
@@ -44,6 +46,8 @@ print_usage() {
     echo "  --product             scylla or scylla-enterprise"
     echo "  --dry-run             validate template only (image is not built)"
     echo "  --build-id            Set unique build ID, will be part of GCE image name"
+    echo "  [--branch]            Set the release branch for GCE label. Default: master"
+    echo "  [--operating-system]  Set the base OS for the image. Default: ubuntu20.04"
     echo "  --download-no-server  download all deb needed excluding scylla from repo-for-install"
     echo "  --debug               Build debug image with special prefix for image name"
     echo "  --log-file            Path for log. Default build/ami.log on current dir"
@@ -85,6 +89,14 @@ while [ $# -gt 0 ]; do
             ;;
         "--build-id")
             BUILD_ID=$2
+            shift 2
+            ;;
+        "--branch")
+            BRANCH=$2
+            shift 2
+            ;;
+        "--operating-system")
+            OPERATING_SYSTEM=$2
             shift 2
             ;;
         "--log-file")
@@ -287,6 +299,8 @@ export PACKER_LOG_PATH
   -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" \
   -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" \
   -var scylla_build_id="$BUILD_ID" \
+  -var operating_system="$OPERATING_SYSTEM" \
+  -var branch="$BRANCH" \
   "${PACKER_ARGS[@]}" \
   "$REALDIR"/scylla.json
 
