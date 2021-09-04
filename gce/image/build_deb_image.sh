@@ -1,1 +1,1 @@
-../../packer/scripts/build_deb_image.sh
+../../packer/build_deb_image.sh

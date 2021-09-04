@@ -14,7 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-source ../../SCYLLA-VERSION-GEN
+REALDIR=$(dirname $(readlink -f "$0"))
+source "$REALDIR"/../SCYLLA-VERSION-GEN
 
 PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
 BUILD_ID=$(date -u '+%FT%H-%M-%S')
@@ -22,6 +23,16 @@ DIR=$(dirname $(realpath -se $0))
 PDIRNAME=$(basename $(realpath -se $DIR/..))
 EXIT_STATUS=0
 DRY_RUN=false
+TARGET=
+
+if [ -L "$0" ]; then
+    if [ "$PDIRNAME" = "aws" ] || [ "$PDIRNAME" = "gce" ] || [ "$PDIRNAME" = "azure" ]; then
+        TARGET="$PDIRNAME"
+    else
+        echo "no target detected"
+        exit 1
+    fi
+fi
 
 print_usage() {
     echo "$0 --localdeb --repo [URL] --target [distribution]"
@@ -34,6 +45,9 @@ print_usage() {
     echo "  --build-id           Set unique build ID, will be part of GCE image name"
     echo "  --download-no-server  download all deb needed excluding scylla from repo-for-install"
     echo "  --log-file            Path for log. Default build/ami.log on current dir"
+    if [ -z "$TARGET" ]; then
+        echo "  --target             Specify target cloud (aws/gce/azure)"
+    fi
     exit 1
 }
 LOCALDEB=0
@@ -41,13 +55,6 @@ DOWNLOAD_ONLY=0
 PACKER_SUB_CMD="build"
 REPO_FOR_INSTALL=
 PACKER_LOG_PATH=build/packer.log
-
-if [ "$PDIRNAME" = "aws" ] || [ "$PDIRNAME" = "gce" ] || [ "$PDIRNAME" = "azure" ]; then
-    TARGET="$PDIRNAME"
-else
-    echo "no target detected"
-    exit 1
-fi
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -93,6 +100,21 @@ while [ $# -gt 0 ]; do
             PACKER_SUB_CMD="validate"
             DRY_RUN=true
             shift 1
+            ;;
+        "--target")
+            if [ -n "$TARGET" ]; then
+                print_usage
+            fi
+            if [ "$2" = "aws" ]; then
+                DIR="$REALDIR/../$2/ami"
+            elif [ "$2" = "gce" ] || [ "$2" = "azure" ]; then
+                DIR="$REALDIR/../$2/image"
+            else
+                print_usage
+            fi
+            cd "$DIR"
+            TARGET="$2"
+            shift 2
             ;;
         *)
             echo "ERROR: Illegal option: $1"
