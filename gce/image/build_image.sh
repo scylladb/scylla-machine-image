@@ -1,1 +1,1 @@
-../../packer/scripts/build_image.sh
+../../packer/build_image.sh
