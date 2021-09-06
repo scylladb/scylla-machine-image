@@ -118,6 +118,9 @@ if __name__ == '__main__':
         # use easy_install instead of pip, because easy_install requires
         # fewer dependencies, no need to install gcc, it makes our AMI smaller.
         if distro == 'centos':
+            # this is for pinning kernel-ml describes later
+            run('cp elrepo-archive.repo /etc/yum.repos.d/')
+
             run('yum install -y epel-release')
             run('yum install -y pystache python-daemon python-setuptools')
             # Default install prefix on CentOS7 is /usr not /usr/local, but we need
@@ -221,9 +224,9 @@ if __name__ == '__main__':
         # So we have to use different kernel here.
         if platform.machine() == 'x86_64':
             run('yum -y install grubby')
-            run('rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org')
-            run('rpm -Uvh http://www.elrepo.org/elrepo-release-7.0-3.el7.elrepo.noarch.rpm')
-            run('yum -y --enablerepo=elrepo-kernel install kernel-ml')
+            # kernel-ml 5.14.0 and later does not boot up on EC2 instances https://github.com/scylladb/scylla-machine-image/issues/196
+            # force installing kernel 5.13.13 that is known to be good
+            run('yum -y install kernel-ml-5.13.13 kernel-ml-devel-5.13.13')
             mlkver = get_kver('/boot/vmlinuz-*el7.elrepo.x86_64')
             run('grubby --grub2 --set-default /boot/vmlinuz-{mlkver}'.format(mlkver=mlkver))
             with open('/etc/yum.conf', 'a') as f:
