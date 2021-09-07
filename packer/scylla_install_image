@@ -200,6 +200,8 @@ if __name__ == '__main__':
             cfg = re.sub('^     name: ubuntu', '     name: scyllaadm', cfg, flags=re.MULTILINE)
         with open('/etc/cloud/cloud.cfg', 'w') as f:
             f.write(cfg)
+        # before deleting home directory, need to change current directory
+        os.chdir('/tmp')
         run('userdel -r -f {}'.format(distro))
         run('cloud-init clean')
         run('cloud-init init')
