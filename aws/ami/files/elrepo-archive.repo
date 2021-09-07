@@ -1,5 +1,0 @@
-[kernel-ml-archive]
-name=kernel-ml-archive
-baseurl=http://linux-mirrors.fnal.gov/linux/elrepo/archive/kernel/el7/x86_64/
-enabled=1
-gpgcheck=0
