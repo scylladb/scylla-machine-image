@@ -22,6 +22,7 @@ from scylla_util import *
 from subprocess import run
 
 if __name__ == '__main__':
+    run('/opt/scylladb/scripts/scylla_cpuscaling_setup', shell=True, check=True)
     cloud_instance = get_cloud_instance()
     run('/opt/scylladb/scylla-machine-image/scylla_configure.py', shell=True, check=True)
     run('/opt/scylladb/scripts/scylla_sysconfig_setup --nic eth0 --setup-nic --ami', shell=True, check=True)
