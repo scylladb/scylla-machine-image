@@ -22,13 +22,13 @@ from scylla_util import *
 from subprocess import run
 
 if __name__ == '__main__':
+    run('/opt/scylladb/scripts/scylla_cpuscaling_setup', shell=True, check=True)
     cloud_instance = get_cloud_instance()
     run('/opt/scylladb/scylla-machine-image/scylla_configure.py', shell=True, check=True)
     if not os.path.ismount('/var/lib/scylla'):
         print('Failed to initialize RAID volume, exiting setup')
         sys.exit(1)
 
-    run('/opt/scylladb/scripts/scylla_cpuscaling_setup', shell=True, check=True)
     run('/opt/scylladb/scripts/scylla_sysconfig_setup --nic eth0 --setup-nic --ami', shell=True, check=True)
     if cloud_instance.is_supported_instance_class():
         cloud_instance.io_setup()
