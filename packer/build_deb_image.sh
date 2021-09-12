@@ -23,6 +23,7 @@ DIR=$(dirname $(realpath -se $0))
 PDIRNAME=$(basename $(realpath -se $DIR/..))
 EXIT_STATUS=0
 DRY_RUN=false
+DEBUG=false
 TARGET=
 
 if [ -L "$0" ]; then
@@ -42,8 +43,9 @@ print_usage() {
     echo "  --repo-for-update     repository for update, specify .repo/.list file URL"
     echo "  --product             scylla or scylla-enterprise"
     echo "  --dry-run             validate template only (image is not built)"
-    echo "  --build-id           Set unique build ID, will be part of GCE image name"
+    echo "  --build-id            Set unique build ID, will be part of GCE image name"
     echo "  --download-no-server  download all deb needed excluding scylla from repo-for-install"
+    echo "  --debug               Build debug image with special prefix for image name"
     echo "  --log-file            Path for log. Default build/ami.log on current dir"
     if [ -z "$TARGET" ]; then
         echo "  --target             Specify target cloud (aws/gce/azure)"
@@ -93,6 +95,11 @@ while [ $# -gt 0 ]; do
             ;;
         "--download-no-server")
             DOWNLOAD_ONLY=1
+            shift 1
+            ;;
+        "--debug")
+            echo "!!! Building image for debug !!!"
+            DEBUG=true
             shift 1
             ;;
         "--dry-run")
@@ -250,7 +257,10 @@ elif [ "$TARGET" = "azure" ]; then
     PACKER_ARGS+=(-var tenant_id="$AZURE_TENANT_ID")
     PACKER_ARGS+=(-var subscription_id="$AZURE_SUBSCRIPTION_ID")
     PACKER_ARGS+=(-var scylla_build_id="$BUILD_ID")
+fi
 
+if $DEBUG ; then
+  PACKER_ARGS+=(-var image_prefix="debug-image-")
 fi
 
 if [ ! -f variables.json ]; then
