@@ -245,7 +245,6 @@ elif [ "$TARGET" = "gce" ]; then
     SOURCE_IMAGE_FAMILY="ubuntu-2004-lts"
 
     PACKER_ARGS+=(-var source_image_family="$SOURCE_IMAGE_FAMILY")
-    PACKER_ARGS+=(-var scylla_build_id="$BUILD_ID")
 elif [ "$TARGET" = "azure" ]; then
     REGION="EAST US"
     SSH_USERNAME=azureuser
@@ -256,7 +255,6 @@ elif [ "$TARGET" = "azure" ]; then
     PACKER_ARGS+=(-var client_secret="$AZURE_CLIENT_SECRET")
     PACKER_ARGS+=(-var tenant_id="$AZURE_TENANT_ID")
     PACKER_ARGS+=(-var subscription_id="$AZURE_SUBSCRIPTION_ID")
-    PACKER_ARGS+=(-var scylla_build_id="$BUILD_ID")
 fi
 
 if $DEBUG ; then
@@ -284,6 +282,7 @@ export PACKER_LOG_PATH
   -var scylla_jmx_version="$SCYLLA_JMX_VERSION" \
   -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" \
   -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" \
+  -var scylla_build_id="$BUILD_ID" \
   "${PACKER_ARGS[@]}" \
   scylla.json
 
