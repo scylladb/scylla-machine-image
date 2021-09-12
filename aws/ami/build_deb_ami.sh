@@ -19,6 +19,7 @@ source ../../SCYLLA-VERSION-GEN
 PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
 DIR=$(dirname $(readlink -f $0))
 BUILD_ID=$(date -u '+%FT%H-%M-%S')
+DEBUG=false
 
 print_usage() {
     echo "build_deb_ami.sh --localdeb --repo [URL] --target [distribution]"
@@ -29,6 +30,7 @@ print_usage() {
     echo "  --product             scylla or scylla-enterprise"
     echo "  --dry-run             validate template only (image is not built)"
     echo "  --build-id           Set unique build ID, will be part of GCE image name"
+    echo "  --debug               Build debug image with special prefix for image name"
     echo "  --download-no-server  download all deb needed excluding scylla from repo-for-install"
     exit 1
 }
@@ -68,6 +70,11 @@ while [ $# -gt 0 ]; do
             ;;
         "--download-no-server")
             DOWNLOAD_ONLY=1
+            shift 1
+            ;;
+        "--debug")
+            echo "!!! Building image for debug !!!"
+            DEBUG=true
             shift 1
             ;;
         "--dry-run")
@@ -179,6 +186,10 @@ fi
 
 SCYLLA_AMI_DESCRIPTION="scylla-$SCYLLA_VERSION scylla-machine-image-$SCYLLA_MACHINE_IMAGE_VERSION scylla-jmx-$SCYLLA_JMX_VERSION scylla-tools-$SCYLLA_TOOLS_VERSION scylla-python3-$SCYLLA_PYTHON3_VERSION"
 
+if $DEBUG ; then
+  PACKER_ARGS+=(-var image_prefix="debug-image-")
+fi
+
 if [ ! -f variables.json ]; then
     echo "create variables.json before start building AMI"
     echo "see wiki page: https://github.com/scylladb/scylla/wiki/Building-CentOS-AMI"
@@ -205,6 +216,7 @@ export PACKER_LOG_PATH=build/ami.log
   -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" \
   -var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}" \
   -var scylla_build_id="$BUILD_ID" \
+  "${PACKER_ARGS[@]}" \
   -var python="/usr/bin/python3" scylla.json
 
 # For some errors packer gives a success status even if fails.

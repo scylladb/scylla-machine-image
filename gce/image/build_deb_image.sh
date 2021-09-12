@@ -19,6 +19,7 @@ source ../../SCYLLA-VERSION-GEN
 PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
 DIR=$(dirname $(readlink -f $0))
 BUILD_ID=$(date -u '+%FT%H-%M-%S')
+DEBUG=false
 
 print_usage() {
     echo "build_image.sh --localdeb --repo [URL] --target [distribution]"
@@ -30,6 +31,7 @@ print_usage() {
     echo "  --download-no-server download all rpms needed excluding scylla using .repo provided in --repo-for-install"
     echo "  --dry-run            validate template only (image is not built)"
     echo "  --build-id           Set unique build ID, will be part of GCE image name"
+    echo "  --debug               Build debug image with special prefix for image name"
     exit 1
 }
 LOCALDEB=0
@@ -64,6 +66,11 @@ while [ $# -gt 0 ]; do
         "--build-id")
             BUILD_ID=$2
             shift 2
+            ;;
+        "--debug")
+            echo "!!! Building image for debug !!!"
+            DEBUG=true
+            shift 1
             ;;
         "--download-no-server")
             DOWNLOAD_ONLY=1
@@ -161,6 +168,9 @@ else
 
 fi
 
+if $DEBUG ; then
+  PACKER_ARGS+=(-var image_prefix="debug-image-")
+fi
 
 if [ ! -f variables.json ]; then
     echo "'variables.json' not found. Please create it before start building GCE Image."
@@ -193,4 +203,5 @@ echo "Calling Packer..."
   -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" \
   -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" \
   -var scylla_build_id="$BUILD_ID" \
+  "${PACKER_ARGS[@]}" \
   scylla_gce.json
