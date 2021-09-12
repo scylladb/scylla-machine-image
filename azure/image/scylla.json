@@ -9,7 +9,7 @@
     "subscription_id": "{{user `subscription_id`}}",
 
     "managed_image_resource_group_name": "scylla-images",
-    "managed_image_name": "ScyllaDB-{{user `scylla_version`}}",
+    "managed_image_name": "{{user `image_prefix`}}ScyllaDB-{{user `scylla_version`}}",
 
     "os_type": "Linux",
     "image_publisher": "Canonical",
@@ -47,6 +47,7 @@
     }
   ],
   "variables": {
-    "ssh_username": ""
+    "ssh_username": "",
+    "image_prefix": ""
   }
 }
