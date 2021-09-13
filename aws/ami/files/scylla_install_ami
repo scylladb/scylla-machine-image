@@ -116,6 +116,7 @@ if __name__ == '__main__':
         run('rpm -Uvh http://www.elrepo.org/elrepo-release-7.0-3.el7.elrepo.noarch.rpm')
         run('yum -y --enablerepo=elrepo-kernel install kernel-ml')
         mlkver = get_kver('/boot/vmlinuz-*el7.elrepo.x86_64')
+        run('dracut --add-drivers "xen-blkfront xen-netfront ixgbevf ena nvme" --force /boot/initramfs-{mlkver}.img {mlkver}'.format(mlkver=mlkver))
         run('grubby --grub2 --set-default /boot/vmlinuz-{mlkver}'.format(mlkver=mlkver))
         with open('/etc/yum.conf', 'a') as f:
             f.write(u'exclude=kernel kernel-devel')
