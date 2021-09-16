@@ -274,6 +274,7 @@ export PACKER_LOG=1
 export PACKER_LOG_PATH
 
 /usr/bin/packer ${PACKER_SUB_CMD} \
+  -only="$TARGET" \
   -var-file=variables.json \
   -var install_args="$INSTALL_ARGS" \
   -var ssh_username="$SSH_USERNAME" \
@@ -284,7 +285,7 @@ export PACKER_LOG_PATH
   -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" \
   -var scylla_build_id="$BUILD_ID" \
   "${PACKER_ARGS[@]}" \
-  scylla.json
+  "$REALDIR"/scylla.json
 
 # For some errors packer gives a success status even if fails.
 # Search log for errors
