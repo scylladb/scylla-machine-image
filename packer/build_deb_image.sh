@@ -292,16 +292,20 @@ export PACKER_LOG_PATH
 if $DRY_RUN ; then
   echo "DryRun: No need to grep errors on log"
 else
+  GREP_STATUS=0
   if [ "$TARGET" = "aws" ]; then
     grep "us-east-1:" $PACKER_LOG_PATH
+    GREP_STATUS=$?
   elif [ "$TARGET" = "gce" ]; then
       grep "A disk image was created" $PACKER_LOG_PATH
+      GREP_STATUS=$?
   elif [ "$TARGET" = "azure" ]; then
     grep "Builds finished. The artifacts of successful builds are:" $PACKER_LOG_PATH
+    GREP_STATUS=$?
   fi
-  if [ $? -ne 0 ] ; then
+  if [ $GREP_STATUS -ne 0 ] ; then
     echo "Error: No image line found on log."
-    EXIT_STATUS=1
+    exit 1
   else
     echo "Success: image line found on log"
   fi
