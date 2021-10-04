@@ -47,9 +47,7 @@ print_usage() {
     echo "  --download-no-server  download all deb needed excluding scylla from repo-for-install"
     echo "  --debug               Build debug image with special prefix for image name"
     echo "  --log-file            Path for log. Default build/ami.log on current dir"
-    if [ -z "$TARGET" ]; then
-        echo "  --target             Specify target cloud (aws/gce/azure)"
-    fi
+    echo "  --target              target cloud (aws/gce/azure), needed when using this script directly, and not by soft links"
     exit 1
 }
 LOCALDEB=0
@@ -166,6 +164,11 @@ import_gpg_key () {
   sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 5e08fbd8b5d6ec9c
   sudo apt-get update --allow-insecure-repositories -y
 }
+
+if [ -z "$TARGET" ]; then
+    echo "Missing --target parameter. Please specify target cloud (aws/gce/azure)"
+    exit 1
+fi
 
 SSH_USERNAME=ubuntu
 
@@ -302,7 +305,11 @@ else
   elif [ "$TARGET" = "azure" ]; then
     grep "Builds finished. The artifacts of successful builds are:" $PACKER_LOG_PATH
     GREP_STATUS=$?
+  else
+    echo "No Target is defined"
+    GREP_STATUS=1
   fi
+  echo "GREP_STATUS: |$GREP_STATUS|"
   if [ $GREP_STATUS -ne 0 ] ; then
     echo "Error: No image line found on log."
     exit 1
