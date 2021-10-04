@@ -244,6 +244,7 @@ Resources:
           GroupSet:
             - !Ref SGCluster
             - !Ref SGAdmin
+            - !Ref SGExternal
   Node1:
     Condition: Launch2
     Type: 'AWS::EC2::Instance'
@@ -300,6 +301,7 @@ Resources:
           GroupSet:
             - !Ref SGCluster
             - !Ref SGAdmin
+            - !Ref SGExternal
   Node2:
     Condition: Launch3
     Type: 'AWS::EC2::Instance'
@@ -356,6 +358,7 @@ Resources:
           GroupSet:
             - !Ref SGCluster
             - !Ref SGAdmin
+            - !Ref SGExternal
   Node3:
     Condition: Launch4
     Type: 'AWS::EC2::Instance'
@@ -412,6 +415,7 @@ Resources:
           GroupSet:
             - !Ref SGCluster
             - !Ref SGAdmin
+            - !Ref SGExternal
   Node4:
     Condition: Launch5
     Type: 'AWS::EC2::Instance'
@@ -468,6 +472,7 @@ Resources:
           GroupSet:
             - !Ref SGCluster
             - !Ref SGAdmin
+            - !Ref SGExternal
   Node5:
     Condition: Launch6
     Type: 'AWS::EC2::Instance'
@@ -524,6 +529,7 @@ Resources:
           GroupSet:
             - !Ref SGCluster
             - !Ref SGAdmin
+            - !Ref SGExternal
   Node6:
     Condition: Launch7
     Type: 'AWS::EC2::Instance'
@@ -580,6 +586,7 @@ Resources:
           GroupSet:
             - !Ref SGCluster
             - !Ref SGAdmin
+            - !Ref SGExternal
   Node7:
     Condition: Launch8
     Type: 'AWS::EC2::Instance'
@@ -636,6 +643,7 @@ Resources:
           GroupSet:
             - !Ref SGCluster
             - !Ref SGAdmin
+            - !Ref SGExternal
   Node8:
     Condition: Launch9
     Type: 'AWS::EC2::Instance'
@@ -692,6 +700,7 @@ Resources:
           GroupSet:
             - !Ref SGCluster
             - !Ref SGAdmin
+            - !Ref SGExternal
   Node9:
     Condition: Launch10
     Type: 'AWS::EC2::Instance'
@@ -748,6 +757,7 @@ Resources:
           GroupSet:
             - !Ref SGCluster
             - !Ref SGAdmin
+            - !Ref SGExternal
   Route:
     Type: 'AWS::EC2::Route'
     DependsOn: GatewayAttachment
@@ -763,8 +773,23 @@ Resources:
           Value: !Sub '${ScyllaClusterName}-RT'
         - Key: ScyllaClusterName
           Value: !Ref ScyllaClusterName
-
       VpcId: !Ref VPC
+
+
+  SGExternal:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Security group for the cluster
+      Tags:
+        - Key: Name
+          Value: !Sub '${ScyllaClusterName}-SGExternal'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: '-1'
+      VpcId: !Ref VPC
+
   SGAdmin:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
@@ -783,9 +808,6 @@ Resources:
           FromPort: 22
           ToPort: 22
           IpProtocol: tcp
-      SecurityGroupEgress:
-        - CidrIp: 0.0.0.0/0
-          IpProtocol: '-1'
       VpcId: !Ref VPC
 
   SGCluster:
@@ -799,10 +821,53 @@ Resources:
           Value: !Ref ScyllaClusterName
       SecurityGroupIngress:
         - CidrIp: !Ref CIDR
-          IpProtocol: '-1'
-      SecurityGroupEgress:
-        - CidrIp: 0.0.0.0/0
-          IpProtocol: '-1'
+          IpProtocol: 'tcp'
+          FromPort: 9042
+          ToPort: 9042
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 9142
+          ToPort: 9142
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 7000
+          ToPort: 7001
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 7199
+          ToPort: 7199
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 10000
+          ToPort: 10000
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 9180
+          ToPort: 9180
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 9100
+          ToPort: 9100
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 9160
+          ToPort: 9160
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 19042
+          ToPort: 19042
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 19142
+          ToPort: 19142
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'icmp'
+          FromPort: 8
+          ToPort: '-1'
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 443
+          ToPort: 443
       VpcId: !Ref VPC
 
   SGUser:
@@ -863,6 +928,7 @@ Resources:
       SecurityGroupIds:
         - !Ref SGCluster
         - !Ref SGAdmin
+        - !Ref SGExternal
 
 Outputs:
   Node0:
@@ -995,6 +1061,8 @@ Outputs:
     Value: !GetAtt
       - Node9
       - PrivateIp
+  SGExternal:
+    Value: !Ref SGExternal
   SGAdmin:
     Value: !Ref SGAdmin
   SGCluster:
