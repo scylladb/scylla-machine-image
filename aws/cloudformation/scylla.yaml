@@ -4,7 +4,7 @@ Description: >-
   AWS CloudFormation Scylla Sample Template: This would create a new Scylla Cluster
   Including it's own VPC and subnet, Elastic IPs are used for accessing those node publicly
 
-  Use `SGUser` security group to enable access from outside to this cluster
+  Use `SGAdmin` security group to enable access from outside to this cluster
   By default only SSH port is out to the outside world.
 
   Caution: password authentication isn't enabled by default
@@ -870,20 +870,6 @@ Resources:
           ToPort: 443
       VpcId: !Ref VPC
 
-  SGUser:
-    Type: 'AWS::EC2::SecurityGroup'
-    Properties:
-      GroupDescription: Security group for the user CQL access
-      Tags:
-        - Key: Name
-          Value: !Sub '${ScyllaClusterName}-SGUser'
-        - Key: ScyllaClusterName
-          Value: !Ref ScyllaClusterName
-      SecurityGroupEgress:
-        - CidrIp: 0.0.0.0/0
-          IpProtocol: '-1'
-      VpcId: !Ref VPC
-
   Subnet:
     Type: 'AWS::EC2::Subnet'
     Properties:
@@ -1067,8 +1053,6 @@ Outputs:
     Value: !Ref SGAdmin
   SGCluster:
     Value: !Ref SGCluster
-  SGUser:
-    Value: !Ref SGUser
   Subnet:
     Value: !Ref Subnet
   VPC:
