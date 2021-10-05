@@ -296,20 +296,24 @@ if $DRY_RUN ; then
   echo "DryRun: No need to grep errors on log"
 else
   GREP_STATUS=0
-  if [ "$TARGET" = "aws" ]; then
-    grep "us-east-1:" $PACKER_LOG_PATH
-    GREP_STATUS=$?
-  elif [ "$TARGET" = "gce" ]; then
+  case "$TARGET" in
+    "aws")
+      grep "us-east-1:" $PACKER_LOG_PATH
+      GREP_STATUS=$?
+      ;;
+    "gce")
       grep "A disk image was created" $PACKER_LOG_PATH
       GREP_STATUS=$?
-  elif [ "$TARGET" = "azure" ]; then
-    grep "Builds finished. The artifacts of successful builds are:" $PACKER_LOG_PATH
-    GREP_STATUS=$?
-  else
-    echo "No Target is defined"
-    GREP_STATUS=1
-  fi
-  echo "GREP_STATUS: |$GREP_STATUS|"
+      ;;
+    "azure")
+      grep "Builds finished. The artifacts of successful builds are:" $PACKER_LOG_PATH
+      GREP_STATUS=$?
+      ;;
+    *)
+      echo "No Target is defined"
+      exit 1
+  esac
+
   if [ $GREP_STATUS -ne 0 ] ; then
     echo "Error: No image line found on log."
     exit 1
