@@ -28,6 +28,7 @@ print_usage() {
     echo "  --repo-for-update  repository for update, specify .repo/.list file URL"
     echo "  --product          scylla or scylla-enterprise"
     echo "  --dry-run            validate template only (image is not built)"
+    echo "  --debug              Build on debug mode (cause a 'debug-image-' prefix to be added to the image name)"
     echo "  --build-id           Set unique build ID, will be part of GCE image name"
     echo "  --download-no-server  download all rpm needed excluding scylla from `repo-for-install`"
     exit 1
@@ -73,6 +74,11 @@ while [ $# -gt 0 ]; do
         "--dry-run")
             echo "!!! Running in DRY-RUN mode !!!"
             PACKER_SUB_CMD="validate"
+            shift 1
+            ;;
+        "--debug")
+            echo "!!! DEBUG MODE !!!"
+            DEBUG=true
             shift 1
             ;;
         *)
@@ -152,6 +158,10 @@ fi
 
 SCYLLA_AMI_DESCRIPTION="scylla-$SCYLLA_VERSION scylla-machine-image-$SCYLLA_MACHINE_IMAGE_VERSION scylla-jmx-$SCYLLA_JMX_VERSION scylla-tools-$SCYLLA_TOOLS_VERSION scylla-python3-$SCYLLA_PYTHON3_VERSION"
 
+if $DEBUG ; then
+  PACKER_ARGS+=(-var image_prefix="debug-image-")
+fi
+
 if [ ! -f variables.json ]; then
     echo "create variables.json before start building AMI"
     echo "see wiki page: https://github.com/scylladb/scylla/wiki/Building-CentOS-AMI"
@@ -164,4 +174,4 @@ mkdir -p build
 export PACKER_LOG=1
 export PACKER_LOG_PATH=build/ami.log
 
-/usr/bin/packer ${PACKER_SUB_CMD} -var-file=variables.json -var install_args="$INSTALL_ARGS" -var region="$REGION" -var source_ami="${AMI[$(arch)]}" -var ssh_username="$SSH_USERNAME" -var scylla_version="$SCYLLA_VERSION" -var scylla_machine_image_version="$SCYLLA_MACHINE_IMAGE_VERSION" -var scylla_jmx_version="$SCYLLA_JMX_VERSION" -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" -var scylla_build_id="$BUILD_ID" -var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}" -var python="/usr/bin/python" scylla.json
+/usr/bin/packer ${PACKER_SUB_CMD} -var-file=variables.json -var install_args="$INSTALL_ARGS" -var region="$REGION" -var source_ami="${AMI[$(arch)]}" -var ssh_username="$SSH_USERNAME" -var scylla_version="$SCYLLA_VERSION" -var scylla_machine_image_version="$SCYLLA_MACHINE_IMAGE_VERSION" -var scylla_jmx_version="$SCYLLA_JMX_VERSION" -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" -var scylla_build_id="$BUILD_ID" -var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}" "${PACKER_ARGS[@]}" -var python="/usr/bin/python" scylla.json

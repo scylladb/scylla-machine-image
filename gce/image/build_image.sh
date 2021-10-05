@@ -30,6 +30,7 @@ print_usage() {
     echo "  --product            scylla or scylla-enterprise"
     echo "  --download-no-server download all rpms needed excluding scylla using .repo provided in --repo-for-install"
     echo "  --dry-run            validate template only (image is not built)"
+    echo "  --debug              Build on debug mode (cause a 'debug-image-' prefix to be added to the image name)"
     echo "  --build-id           Set unique build ID, will be part of GCE image name"
     exit 1
 }
@@ -73,6 +74,11 @@ while [ $# -gt 0 ]; do
         "--dry-run")
             echo "!!! Running in DRY-RUN mode !!!"
             PACKER_SUB_CMD="validate"
+            shift 1
+            ;;
+        "--debug")
+            echo "!!! DEBUG MODE !!!"
+            DEBUG=true
             shift 1
             ;;
         *)
@@ -151,6 +157,9 @@ else
 
 fi
 
+if $DEBUG ; then
+  PACKER_ARGS+=(-var image_prefix="debug-image-")
+fi
 
 if [ ! -f variables.json ]; then
     echo "'variables.json' not found. Please create it before start building GCE Image."
@@ -183,4 +192,5 @@ echo "Calling Packer..."
   -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" \
   -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" \
   -var scylla_build_id="$BUILD_ID" \
+  "${PACKER_ARGS[@]}" \
   scylla_gce.json
