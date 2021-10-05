@@ -42,6 +42,7 @@ print_usage() {
     echo "  --repo-for-update    repository for update, specify .repo/.list file URL"
     echo "  --product            scylla or scylla-enterprise"
     echo "  --dry-run            validate template only (image is not built)"
+    echo "  --debug              Build on debug mode (cause a 'debug-image-' prefix to be added to the image name)"
     echo "  --build-id           Set unique build ID, will be part of GCE image name"
     echo "  --download-no-server download all rpm needed excluding scylla from `repo-for-install`"
     echo "  --log-file           Path for log. Default build/ami.log on current dir"
@@ -99,6 +100,11 @@ while [ $# -gt 0 ]; do
             echo "!!! Running in DRY-RUN mode !!!"
             PACKER_SUB_CMD="validate"
             DRY_RUN=true
+            shift 1
+            ;;
+        "--debug")
+            echo "!!! DEBUG MODE !!!"
+            DEBUG=true
             shift 1
             ;;
         "--target")
@@ -224,6 +230,9 @@ elif [ "$TARGET" = "gce" ]; then
     PACKER_ARGS+=(-var scylla_build_id="$BUILD_ID")
 fi
 
+if $DEBUG ; then
+  PACKER_ARGS+=(-var image_prefix="debug-image-")
+fi
 
 if [ ! -f variables.json ]; then
     echo "create variables.json before start building AMI"
