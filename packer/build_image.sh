@@ -123,6 +123,12 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+if [ "$TARGET" = "aws" ]; then
+    TARGET_TYPE="amazon-ebs"
+elif [ "$TARGET" = "gce" ]; then
+    TARGET_TYPE="googlecompute"
+fi
+
 get_version_from_local_rpm () {
     RPM=$1
     RELEASE=$(rpm -qi $RPM | awk '/Release/ { print $3 }' )
@@ -238,7 +244,7 @@ export PACKER_LOG=1
 export PACKER_LOG_PATH
 
 /usr/bin/packer ${PACKER_SUB_CMD} \
-  -only="$TARGET" \
+  -only="$TARGET_TYPE" \
   -var-file=variables.json \
   -var install_args="$INSTALL_ARGS" \
   -var ssh_username="$SSH_USERNAME" \

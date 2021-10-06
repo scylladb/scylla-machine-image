@@ -1,7 +1,6 @@
 {
   "builders": [
     {
-      "name": "aws",
       "type": "amazon-ebs",
       "access_key": "{{user `access_key`}}",
       "ami_block_device_mappings": [
@@ -70,7 +69,6 @@
       }
     },
     {
-      "name": "gce",
       "type": "googlecompute",
       "source_image_family": "{{user `source_image_family`}}",
       "ssh_username": "{{user `ssh_username`}}",
@@ -101,7 +99,6 @@
       }
     },
     {
-      "name": "azure",
       "type": "azure-arm",
       "ssh_username": "{{user `ssh_username`}}",
       "client_id": "{{user `client_id`}}",
@@ -138,10 +135,13 @@
     },
     {
       "inline": [
-        "if [ {{build_name}} = aws ]; then sudo /usr/bin/cloud-init status --wait; fi",
+        "if [ {{build_type}} = amazon-ebs ]; then export TARGET_CLOUD=aws; fi",
+        "if [ {{build_type}} = googlecompute ]; then export TARGET_CLOUD=gce; fi",
+        "if [ {{build_type}} = azure-arm ]; then export TARGET_CLOUD=azure; fi",
+        "if [ $TARGET_CLOUD = aws ]; then sudo /usr/bin/cloud-init status --wait; fi",
         "if [ -f /etc/debian_version ]; then sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.8 1; fi",
-        "if [ {{build_name}} = gce ] && [ -f /etc/redhat-release ]; then sudo alternatives --set python /usr/bin/python3; fi",
-        "sudo /home/{{user `ssh_username`}}/scylla_install_image --target-cloud {{build_name}} {{user `install_args`}}"
+        "if [ $TARGET_CLOUD = gce ] && [ -f /etc/redhat-release ]; then sudo alternatives --set python /usr/bin/python3; fi",
+        "sudo /home/{{user `ssh_username`}}/scylla_install_image --target-cloud $TARGET_CLOUD {{user `install_args`}}"
       ],
       "type": "shell"
     }
