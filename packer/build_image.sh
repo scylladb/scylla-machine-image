@@ -46,9 +46,7 @@ print_usage() {
     echo "  --build-id           Set unique build ID, will be part of GCE image name"
     echo "  --download-no-server download all rpm needed excluding scylla from `repo-for-install`"
     echo "  --log-file           Path for log. Default build/ami.log on current dir"
-    if [ -z "$TARGET" ]; then
-        echo "  --target             Specify target cloud (aws/gce/azure)"
-    fi
+    echo "  --target             Target cloud (aws/gce), needed when using this script directly, and not by soft links"
     exit 1
 }
 LOCALRPM=0
@@ -153,6 +151,11 @@ check_rpm_exists () {
         fi
     done
 }
+
+if [ -z "$TARGET" ]; then
+    echo "Missing --target parameter. Please specify target cloud (aws/gce)"
+    exit 1
+fi
 
 if [ $LOCALRPM -eq 1 ]; then
     INSTALL_ARGS="$INSTALL_ARGS --localrpm"
