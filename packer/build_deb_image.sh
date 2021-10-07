@@ -125,20 +125,23 @@ while [ $# -gt 0 ]; do
             shift 1
             ;;
         "--target")
-            echo "--target parameter: |$2|"
-            if [ -n "$TARGET" ]; then
-                print_usage
-            fi
-            if [ "$2" = "aws" ]; then
-                DIR="$REALDIR/../$2/ami"
-            elif [ "$2" = "gce" ] || [ "$2" = "azure" ]; then
-                DIR="$REALDIR/../$2/image"
-            else
-                print_usage
-            fi
-            cd "$DIR"
             TARGET="$2"
             shift 2
+            echo "--target parameter TARGET: |$TARGET|"
+            case "$TARGET" in
+              "aws")
+                DIR="$REALDIR/../$TARGET/ami"
+                ;;
+              "gce")
+                DIR="$REALDIR/../$TARGET/image"
+                ;;
+              "azure")
+                DIR="$REALDIR/../$TARGET/azure"
+                ;;
+              *)
+                print_usage
+                ;;
+            esac
             ;;
         *)
             echo "ERROR: Illegal option: $1"
