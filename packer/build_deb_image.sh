@@ -39,19 +39,19 @@ fi
 
 print_usage() {
     echo "$0 --localdeb --repo [URL] --target [distribution]"
-    echo "  --localdeb            deploy locally built debs"
-    echo "  --repo                repository for both install and update, specify .repo/.list file URL"
-    echo "  --repo-for-install    repository for install, specify .repo/.list file URL"
-    echo "  --repo-for-update     repository for update, specify .repo/.list file URL"
-    echo "  --product             scylla or scylla-enterprise"
-    echo "  --dry-run             validate template only (image is not built)"
-    echo "  --build-id            Set unique build ID, will be part of GCE image name"
+    echo "  [--localdeb]          Deploy locally built debs Default: false"
+    echo "  --repo                Repository for both install and update, specify .repo/.list file URL"
+    echo "  --repo-for-install    Repository for install, specify .repo/.list file URL"
+    echo "  --repo-for-update     Repository for update, specify .repo/.list file URL"
+    echo "  [--product]           scylla or scylla-enterprise, default from SCYLLA-PRODUCT-FILE"
+    echo "  [--dry-run]           Validate template only (image is not built). Default: false"
+    echo "  [--build-id]          Set unique build ID, will be part of GCE image name and as a label. Default: Date."
     echo "  [--branch]            Set the release branch for GCE label. Default: master"
     echo "  [--operating-system]  Set the base OS for the image. Default: ubuntu20.04"
-    echo "  --download-no-server  download all deb needed excluding scylla from repo-for-install"
-    echo "  --debug               Build debug image with special prefix for image name"
-    echo "  --log-file            Path for log. Default build/ami.log on current dir"
-    echo "  --target              target cloud (aws/gce/azure), needed when using this script directly, and not by soft links"
+    echo "  --download-no-server  Download all deb needed excluding scylla from repo-for-install"
+    echo "  [--debug]             Build debug image with special prefix for image name. Default: false."
+    echo "  [--log-file]          Path for log. Default build/ami.log on current dir. Default: build/packer.log"
+    echo "  --target              Target cloud (aws/gce/azure), mandatory when using this script directly, and not by soft links"
     exit 1
 }
 LOCALDEB=0
