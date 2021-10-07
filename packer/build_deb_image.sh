@@ -63,48 +63,56 @@ PACKER_LOG_PATH=build/packer.log
 while [ $# -gt 0 ]; do
     case "$1" in
         "--localdeb")
+            echo "!!! Building image --localdeb !!!"
             LOCALDEB=1
             shift 1
             ;;
         "--repo")
             REPO_FOR_INSTALL=$2
-            echo "--repo: $REPO_FOR_INSTALL"
+            echo "--repo parameter: REPO_FOR_INSTALL $REPO_FOR_INSTALL"
             INSTALL_ARGS="$INSTALL_ARGS --repo $2"
             shift 2
             ;;
         "--repo-for-install")
             REPO_FOR_INSTALL=$2
-            echo "--repo-for-install: $REPO_FOR_INSTALL"
+            echo "--repo-for-install parameter: REPO_FOR_INSTALL $REPO_FOR_INSTALL"
             INSTALL_ARGS="$INSTALL_ARGS --repo-for-install $2"
             shift 2
             ;;
         "--repo-for-update")
+            echo "--repo-for-update parameter: |$2|"
             INSTALL_ARGS="$INSTALL_ARGS --repo-for-update $2"
             shift 2
             ;;
         "--product")
             PRODUCT=$2
+            echo "--product parameter: PRODUCT |$PRODUCT|"
             INSTALL_ARGS="$INSTALL_ARGS --product $2"
             shift 2
             ;;
         "--build-id")
             BUILD_ID=$2
+            echo "--build-id parameter: BUILD_ID |$BUILD_ID|"
             shift 2
             ;;
         "--branch")
             BRANCH=$2
+            echo "--branch parameter: BRANCH |$BRANCH|"
             shift 2
             ;;
         "--operating-system")
             OPERATING_SYSTEM=$2
+            echo "--operating-system parameter: OPERATING_SYSTEM |$OPERATING_SYSTEM|"
             shift 2
             ;;
         "--log-file")
             PACKER_LOG_PATH=$2
+            echo "--log-file parameter: PACKER_LOG_PATH |$PACKER_LOG_PATH|"
             shift 2
             ;;
         "--download-no-server")
             DOWNLOAD_ONLY=1
+            echo "--download-no-server parameter: DOWNLOAD_ONLY |$DOWNLOAD_ONLY|"
             shift 1
             ;;
         "--debug")
@@ -119,6 +127,7 @@ while [ $# -gt 0 ]; do
             shift 1
             ;;
         "--target")
+            echo "--target parameter: |$2|"
             if [ -n "$TARGET" ]; then
                 print_usage
             fi
@@ -139,6 +148,8 @@ while [ $# -gt 0 ]; do
             ;;
     esac
 done
+
+echo "INSTALL_ARGS: |$INSTALL_ARGS|"
 
 get_version_from_local_deb () {
     DEB=$1
@@ -288,6 +299,7 @@ mkdir -p build
 export PACKER_LOG=1
 export PACKER_LOG_PATH
 
+set -x
 /usr/bin/packer ${PACKER_SUB_CMD} \
   -only="$TARGET" \
   -var-file=variables.json \
@@ -303,7 +315,7 @@ export PACKER_LOG_PATH
   -var branch="$BRANCH" \
   "${PACKER_ARGS[@]}" \
   "$REALDIR"/scylla.json
-
+set +x
 # For some errors packer gives a success status even if fails.
 # Search log for errors
 if $DRY_RUN ; then
