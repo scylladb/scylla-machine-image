@@ -34,10 +34,19 @@ def create_raid(devices):
          "--root", "/var/lib/scylla", "--volume-role", "all", "--update-fstab"], check=True)
 
 
+def check_persistent_disks_are_empty(disks):
+    for disk in disks:
+        part = run(f'lsblk -dpnr -o PTTYPE /dev/{disk}', shell=True, check=True, capture_output=True, encoding='utf-8').stdout.strip()
+        fs = run(f'lsblk -dpnr -o FSTYPE /dev/{disk}', shell=True, check=True, capture_output=True, encoding='utf-8').stdout.strip()
+        if part != '' or fs != '':
+            raise Exception(f"/dev/{disk} is not empty, abort formatting")
+
+
 def get_disk_devices(instance, device_type):
     if is_ec2():
         devices = []
         if device_type == "attached":
+            check_persistent_disks_are_empty(instance.ebs_disks())
             devices = [str(Path('/dev', name)) for name in instance.ebs_disks() if Path('/dev', name).exists()]
         if not devices or device_type == "instance_store":
             devices = [str(Path('/dev', name)) for name in instance.ephemeral_disks()]
@@ -55,11 +64,20 @@ def get_disk_devices(instance, device_type):
 def get_default_devices(instance):
     disk_names = []
     if is_ec2():
-        disk_names = instance.ephemeral_disks() or instance.ebs_disks()
+        disk_names = instance.ephemeral_disks()
+        if not disk_names:
+            disk_names = instance.ebs_disks()
+            check_persistent_disks_are_empty(disk_names)
     elif is_gce():
-        disk_names = instance.getEphemeralOsDisks() or instance.getPersistentOsDisks()
+        disk_names = instance.getEphemeralOsDisks()
+        if not disk_names:
+            disk_names = instance.getPersistentOsDisks()
+            check_persistent_disks_are_empty(disk_names)
     elif is_azure():
-        disk_names = instance.getEphemeralOsDisks() or instance.getPersistentOsDisks()
+        disk_names = instance.getEphemeralOsDisks()
+        if not disk_names:
+            disk_names = instance.getPersistentOsDisks()
+            check_persistent_disks_are_empty(disk_names)
     else:
         raise Exception("Running in unknown cloud environment")
     return [str(Path('/dev', name)) for name in disk_names]
