@@ -85,17 +85,6 @@ if __name__ == '__main__':
             if not re.match(r'^ - mounts\n$', l):
                 f.write(l)
     run('/opt/scylladb/scripts/scylla_setup --ntp-domain amazon --no-coredump-setup --no-sysconfig-setup --no-raid-setup --no-io-setup --no-bootparam-setup --no-ec2-check --no-swap-setup')
-
-    # The difference comes from two different services to configure CPU scaling.
-    # On CentOS 'cpupower' fails when CPU scaling is not supported, so we can't
-    # enable it here.
-    # On Ubuntu 'cpufrequtils' never fails even CPU scaling is not supported,
-    # so we want to enable it here.
-    if distro == 'centos':
-        run('yum install -y cpupowerutils')
-    else:
-        run('/opt/scylladb/scripts/scylla_cpuscaling_setup --force')
-
     run('/opt/scylladb/scripts/scylla_sysconfig_setup --ami')
     run('/opt/scylladb/scripts/scylla_bootparam_setup --ami')
     os.remove('{}/.ssh/authorized_keys'.format(homedir))
