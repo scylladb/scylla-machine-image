@@ -5,7 +5,7 @@ Description: >-
   AWS CloudFormation Scylla Sample Template: This would create a new Scylla Cluster
   Including it's own VPC and subnet, Elastic IPs are used for accessing those node publicly
 
-  Use `SGUser` security group to enable access from outside to this cluster
+  Use `SGAdmin` security group to enable access from outside to this cluster
   By default only SSH port is out to the outside world.
 
   Caution: password authentication isn't enabled by default
@@ -58,7 +58,6 @@ Parameters:
     Description: |
         The IP address range that can be used to SSH to the EC2 instances
         (x.x.x.x/32 for specific IP, 0.0.0.0/0 to allow all IP addresses)
-    Default: 0.0.0.0/0
 
   InstanceCount:
     Description: Must be between 1 and {{ total_num_node }}
@@ -282,6 +281,7 @@ Resources:
           GroupSet:
             - !Ref SGCluster
             - !Ref SGAdmin
+            - !Ref SGExternal
 {%- endfor %}
   Route:
     Type: 'AWS::EC2::Route'
@@ -298,8 +298,22 @@ Resources:
           Value: !Sub '${ScyllaClusterName}-RT'
         - Key: ScyllaClusterName
           Value: !Ref ScyllaClusterName
-
       VpcId: !Ref VPC
+
+  SGExternal:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Security group for outbound rules
+      Tags:
+        - Key: Name
+          Value: !Sub '${ScyllaClusterName}-SGExternal'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: '-1'
+      VpcId: !Ref VPC
+
   SGAdmin:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
@@ -314,13 +328,6 @@ Resources:
           FromPort: 22
           ToPort: 22
           IpProtocol: tcp
-        - CidrIpv6: ::/0
-          FromPort: 22
-          ToPort: 22
-          IpProtocol: tcp
-      SecurityGroupEgress:
-        - CidrIp: 0.0.0.0/0
-          IpProtocol: '-1'
       VpcId: !Ref VPC
 
   SGCluster:
@@ -334,24 +341,53 @@ Resources:
           Value: !Ref ScyllaClusterName
       SecurityGroupIngress:
         - CidrIp: !Ref CIDR
-          IpProtocol: '-1'
-      SecurityGroupEgress:
-        - CidrIp: 0.0.0.0/0
-          IpProtocol: '-1'
-      VpcId: !Ref VPC
-
-  SGUser:
-    Type: 'AWS::EC2::SecurityGroup'
-    Properties:
-      GroupDescription: Security group for the user CQL access
-      Tags:
-        - Key: Name
-          Value: !Sub '${ScyllaClusterName}-SGUser'
-        - Key: ScyllaClusterName
-          Value: !Ref ScyllaClusterName
-      SecurityGroupEgress:
-        - CidrIp: 0.0.0.0/0
-          IpProtocol: '-1'
+          IpProtocol: 'tcp'
+          FromPort: 9042
+          ToPort: 9042
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 9142
+          ToPort: 9142
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 7000
+          ToPort: 7001
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 7199
+          ToPort: 7199
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 10000
+          ToPort: 10000
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 9180
+          ToPort: 9180
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 9100
+          ToPort: 9100
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 9160
+          ToPort: 9160
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 19042
+          ToPort: 19042
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 19142
+          ToPort: 19142
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'icmp'
+          FromPort: 8
+          ToPort: '-1'
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 443
+          ToPort: 443
       VpcId: !Ref VPC
 
   Subnet:
@@ -398,6 +434,7 @@ Resources:
       SecurityGroupIds:
         - !Ref SGCluster
         - !Ref SGAdmin
+        - !Ref SGExternal
 
 Outputs:
 {%- for node_index in range(total_num_node) %}
@@ -415,12 +452,12 @@ Outputs:
       - Node{{ node_index }}
       - PrivateIp
 {%- endfor %}
+  SGExternal:
+    Value: !Ref SGExternal
   SGAdmin:
     Value: !Ref SGAdmin
   SGCluster:
     Value: !Ref SGCluster
-  SGUser:
-    Value: !Ref SGUser
   Subnet:
     Value: !Ref Subnet
   VPC:

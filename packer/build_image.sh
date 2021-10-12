@@ -42,12 +42,11 @@ print_usage() {
     echo "  --repo-for-update    repository for update, specify .repo/.list file URL"
     echo "  --product            scylla or scylla-enterprise"
     echo "  --dry-run            validate template only (image is not built)"
+    echo "  --debug              Build on debug mode (cause a 'debug-image-' prefix to be added to the image name)"
     echo "  --build-id           Set unique build ID, will be part of GCE image name"
     echo "  --download-no-server download all rpm needed excluding scylla from `repo-for-install`"
     echo "  --log-file           Path for log. Default build/ami.log on current dir"
-    if [ -z "$TARGET" ]; then
-        echo "  --target             Specify target cloud (aws/gce/azure)"
-    fi
+    echo "  --target             Target cloud (aws/gce), needed when using this script directly, and not by soft links"
     exit 1
 }
 LOCALRPM=0
@@ -101,6 +100,11 @@ while [ $# -gt 0 ]; do
             DRY_RUN=true
             shift 1
             ;;
+        "--debug")
+            echo "!!! DEBUG MODE !!!"
+            DEBUG=true
+            shift 1
+            ;;
         "--target")
             if [ -n "$TARGET" ]; then
                 print_usage
@@ -147,6 +151,11 @@ check_rpm_exists () {
         fi
     done
 }
+
+if [ -z "$TARGET" ]; then
+    echo "Missing --target parameter. Please specify target cloud (aws/gce)"
+    exit 1
+fi
 
 if [ $LOCALRPM -eq 1 ]; then
     INSTALL_ARGS="$INSTALL_ARGS --localrpm"
@@ -224,6 +233,9 @@ elif [ "$TARGET" = "gce" ]; then
     PACKER_ARGS+=(-var scylla_build_id="$BUILD_ID")
 fi
 
+if $DEBUG ; then
+  PACKER_ARGS+=(-var image_prefix="debug-image-")
+fi
 
 if [ ! -f variables.json ]; then
     echo "create variables.json before start building AMI"
@@ -238,6 +250,7 @@ export PACKER_LOG=1
 export PACKER_LOG_PATH
 
 /usr/bin/packer ${PACKER_SUB_CMD} \
+  -only="$TARGET" \
   -var-file=variables.json \
   -var install_args="$INSTALL_ARGS" \
   -var ssh_username="$SSH_USERNAME" \
@@ -247,7 +260,7 @@ export PACKER_LOG_PATH
   -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" \
   -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" \
   "${PACKER_ARGS[@]}" \
-  scylla.json
+  "$REALDIR"/scylla.json
 
 # For some errors packer gives a success status even if fails.
 # Search log for errors

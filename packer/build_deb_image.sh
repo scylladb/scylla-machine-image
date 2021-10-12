@@ -23,6 +23,7 @@ DIR=$(dirname $(realpath -se $0))
 PDIRNAME=$(basename $(realpath -se $DIR/..))
 EXIT_STATUS=0
 DRY_RUN=false
+DEBUG=false
 TARGET=
 
 if [ -L "$0" ]; then
@@ -42,12 +43,11 @@ print_usage() {
     echo "  --repo-for-update     repository for update, specify .repo/.list file URL"
     echo "  --product             scylla or scylla-enterprise"
     echo "  --dry-run             validate template only (image is not built)"
-    echo "  --build-id           Set unique build ID, will be part of GCE image name"
+    echo "  --build-id            Set unique build ID, will be part of GCE image name"
     echo "  --download-no-server  download all deb needed excluding scylla from repo-for-install"
+    echo "  --debug               Build debug image with special prefix for image name"
     echo "  --log-file            Path for log. Default build/ami.log on current dir"
-    if [ -z "$TARGET" ]; then
-        echo "  --target             Specify target cloud (aws/gce/azure)"
-    fi
+    echo "  --target              target cloud (aws/gce/azure), needed when using this script directly, and not by soft links"
     exit 1
 }
 LOCALDEB=0
@@ -93,6 +93,11 @@ while [ $# -gt 0 ]; do
             ;;
         "--download-no-server")
             DOWNLOAD_ONLY=1
+            shift 1
+            ;;
+        "--debug")
+            echo "!!! Building image for debug !!!"
+            DEBUG=true
             shift 1
             ;;
         "--dry-run")
@@ -159,6 +164,11 @@ import_gpg_key () {
   sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 5e08fbd8b5d6ec9c
   sudo apt-get update --allow-insecure-repositories -y
 }
+
+if [ -z "$TARGET" ]; then
+    echo "Missing --target parameter. Please specify target cloud (aws/gce/azure)"
+    exit 1
+fi
 
 SSH_USERNAME=ubuntu
 
@@ -238,7 +248,6 @@ elif [ "$TARGET" = "gce" ]; then
     SOURCE_IMAGE_FAMILY="ubuntu-2004-lts"
 
     PACKER_ARGS+=(-var source_image_family="$SOURCE_IMAGE_FAMILY")
-    PACKER_ARGS+=(-var scylla_build_id="$BUILD_ID")
 elif [ "$TARGET" = "azure" ]; then
     REGION="EAST US"
     SSH_USERNAME=azureuser
@@ -249,8 +258,10 @@ elif [ "$TARGET" = "azure" ]; then
     PACKER_ARGS+=(-var client_secret="$AZURE_CLIENT_SECRET")
     PACKER_ARGS+=(-var tenant_id="$AZURE_TENANT_ID")
     PACKER_ARGS+=(-var subscription_id="$AZURE_SUBSCRIPTION_ID")
-    PACKER_ARGS+=(-var scylla_build_id="$BUILD_ID")
+fi
 
+if $DEBUG ; then
+  PACKER_ARGS+=(-var image_prefix="debug-image-")
 fi
 
 if [ ! -f variables.json ]; then
@@ -266,6 +277,7 @@ export PACKER_LOG=1
 export PACKER_LOG_PATH
 
 /usr/bin/packer ${PACKER_SUB_CMD} \
+  -only="$TARGET" \
   -var-file=variables.json \
   -var install_args="$INSTALL_ARGS" \
   -var ssh_username="$SSH_USERNAME" \
@@ -274,24 +286,37 @@ export PACKER_LOG_PATH
   -var scylla_jmx_version="$SCYLLA_JMX_VERSION" \
   -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" \
   -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" \
+  -var scylla_build_id="$BUILD_ID" \
   "${PACKER_ARGS[@]}" \
-  scylla.json
+  "$REALDIR"/scylla.json
 
 # For some errors packer gives a success status even if fails.
 # Search log for errors
 if $DRY_RUN ; then
   echo "DryRun: No need to grep errors on log"
 else
-  if [ "$TARGET" = "aws" ]; then
-    grep "us-east-1:" $PACKER_LOG_PATH
-  elif [ "$TARGET" = "gce" ]; then
+  GREP_STATUS=0
+  case "$TARGET" in
+    "aws")
+      grep "us-east-1:" $PACKER_LOG_PATH
+      GREP_STATUS=$?
+      ;;
+    "gce")
       grep "A disk image was created" $PACKER_LOG_PATH
-  elif [ "$TARGET" = "azure" ]; then
-    grep "Builds finished. The artifacts of successful builds are:" $PACKER_LOG_PATH
-  fi
-  if [ $? -ne 0 ] ; then
+      GREP_STATUS=$?
+      ;;
+    "azure")
+      grep "Builds finished. The artifacts of successful builds are:" $PACKER_LOG_PATH
+      GREP_STATUS=$?
+      ;;
+    *)
+      echo "No Target is defined"
+      exit 1
+  esac
+
+  if [ $GREP_STATUS -ne 0 ] ; then
     echo "Error: No image line found on log."
-    EXIT_STATUS=1
+    exit 1
   else
     echo "Success: image line found on log"
   fi

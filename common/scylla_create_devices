@@ -57,9 +57,9 @@ def get_default_devices(instance):
     if is_ec2():
         disk_names = instance.ephemeral_disks() or instance.ebs_disks()
     elif is_gce():
-        disk_names = instance.getEphemeralOsDisks()
+        disk_names = instance.getEphemeralOsDisks() or instance.getPersistentOsDisks()
     elif is_azure():
-        disk_names = instance.getEphemeralOsDisks()
+        disk_names = instance.getEphemeralOsDisks() or instance.getPersistentOsDisks()
     else:
         raise Exception("Running in unknown cloud environment")
     return [str(Path('/dev', name)) for name in disk_names]
