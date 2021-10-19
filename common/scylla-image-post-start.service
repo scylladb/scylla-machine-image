@@ -1,0 +1,16 @@
+[Unit]
+Description=Scylla cloud image post start service
+After=scylla-server.service
+ConditionPathExists=!/etc/scylla/machine_image_post_start_configured
+
+[Service]
+Type=oneshot
+# The ExecStartPre makes sure the scylla_post_start.py script 
+# will run only after scylla-server is up and running
+ExecStartPre=/bin/sleep 30
+ExecStart=/opt/scylladb/scylla-machine-image/scylla_post_start.py
+RemainAfterExit=yes
+TimeoutStartSec=900
+
+[Install]
+RequiredBy=scylla-server.service
