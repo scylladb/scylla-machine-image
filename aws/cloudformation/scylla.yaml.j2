@@ -1,5 +1,4 @@
 {%- set total_num_node = 10 %}
-{%- set new_ami_boot = True %}
 AWSTemplateFormatVersion: 2010-09-09
 Description: >-
   AWS CloudFormation Scylla Sample Template: This would create a new Scylla Cluster
@@ -208,7 +207,6 @@ Resources:
           Value: !Sub '${ScyllaClusterName}-Node-{{ node_index + 1 }}'
         - Key: ScyllaClusterName
           Value: !Ref ScyllaClusterName
-{%- if new_ami_boot %}
       UserData: !Base64
         'Fn::Join':
           - ''
@@ -230,43 +228,6 @@ Resources:
                     #!/bin/bash -ex
                     /usr/local/bin/cfn-signal --exit-code 0 --resource Node{{ node_index }} --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
-{%- else %}
-      UserData: !Base64
-        'Fn::Join':
-          - ''
-          - - !Sub '--ScyllaClusterName ${ScyllaClusterName}'
-            - |+
-
-            - '--base64postscript '
-            - !Base64
-              'Fn::Join':
-                - ''
-                - - !Sub |
-                    #!/bin/bash -ex
-                    trap '/usr/local/bin/cfn-signal --exit-code 1 --resource Node{{ node_index }} --region ${AWS::Region} --stack ${AWS::StackName}' ERR
-
-                    export PRIVATE_IP=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
-                    sed -i "s|# broadcast_address: 1.2.3.4|broadcast_address: $PRIVATE_IP|g" /etc/scylla/scylla.yaml
-                  - |+
-
-                  - export SEEDS=
-                  - !Join
-                    - ','
-                    - - !If [Launch1, !Select [0, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
-                      - !If [Launch1, !Select [1, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
-                      - !If [Launch1, !Select [2, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
-                  - |+
-
-                  - !Sub |
-                    sed -i "s|          - seeds: \"$PRIVATE_IP\"|          - seeds: \"$SEEDS\"|g" /etc/scylla/scylla.yaml
-                    /usr/local/bin/cfn-signal --exit-code 0 --resource Node{{ node_index }} --region ${AWS::Region} --stack ${AWS::StackName}
-                  - |+
-
-            - |+
-
-            - |
-              --totalnodes 1 --reflector example.com
-{%- endif %}
       NetworkInterfaces:
         - AssociatePublicIpAddress: !Ref EnablePublicAccess
           PrivateIpAddress: !Join
