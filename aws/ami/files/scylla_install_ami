@@ -139,6 +139,7 @@ if __name__ == '__main__':
     run('/opt/scylladb/scripts/scylla_setup --ntp-domain amazon --no-coredump-setup --no-sysconfig-setup --no-raid-setup --no-io-setup --no-bootparam-setup --no-ec2-check --no-swap-setup')
     run('/opt/scylladb/scripts/scylla_sysconfig_setup --ami --set-clocksource')
     run('/opt/scylladb/scripts/scylla_bootparam_setup --ami')
+	run('systemctl enable scylla-image-post-start.service')
     os.remove('{}/.ssh/authorized_keys'.format(homedir))
     os.remove('/var/lib/scylla-housekeeping/housekeeping.uuid')
 
