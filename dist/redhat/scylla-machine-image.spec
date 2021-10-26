@@ -29,18 +29,18 @@ Obsoletes:      %{product}-ami
 rm -rf $RPM_BUILD_ROOT
 
 install -d m755 $RPM_BUILD_ROOT%{_unitdir}
-install -m644 common/scylla-image-setup.service $RPM_BUILD_ROOT%{_unitdir}/
+install -m644 common/scylla-image-setup.service common/scylla-image-post-start.service $RPM_BUILD_ROOT%{_unitdir}/
 install -d -m755 $RPM_BUILD_ROOT/opt/scylladb
 install -d -m755 $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image
 install -d -m755 $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/lib
 install -m644 lib/log.py $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/lib
-install -m755 common/scylla_configure.py common/scylla_create_devices \
+install -m755 common/scylla_configure.py common/scylla_post_start.py common/scylla_create_devices \
         $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/
 ./tools/relocate_python_scripts.py \
     --installroot $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/ \
     --with-python3 ${RPM_BUILD_ROOT}/opt/scylladb/python3/bin/python3 \
     common/scylla_image_setup common/scylla_login common/scylla_configure.py \
-    common/scylla_create_devices
+    common/scylla_create_devices common/scylla_post_start.py
 
 %pre
 /usr/sbin/groupadd scylla 2> /dev/null || :
@@ -48,12 +48,15 @@ install -m755 common/scylla_configure.py common/scylla_create_devices \
 
 %post
 %systemd_post scylla-image-setup.service
+%systemd_post scylla-image-post-start.service
 
 %preun
 %systemd_preun scylla-image-setup.service
+%systemd_preun scylla-image-post-start.service
 
 %postun
 %systemd_postun scylla-image-setup.service
+%systemd_postun scylla-image-post-start.service
 
 %posttrans
 if [ -L /home/scyllaadm/.bash_profile ] && [ ! -e /home/scyllaadm/.bash_profile ]; then
@@ -73,6 +76,7 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root)
 
 %{_unitdir}/scylla-image-setup.service
+%{_unitdir}/scylla-image-post-start.service
 /opt/scylladb/scylla-machine-image/*
 
 %changelog
