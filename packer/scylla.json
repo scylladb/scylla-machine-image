@@ -147,6 +147,12 @@
         "sudo /home/{{user `ssh_username`}}/scylla_install_image --target-cloud {{build_name}} {{user `install_args`}}"
       ],
       "type": "shell"
+    },
+    {
+      "source": "/home/{{user `ssh_username`}}/scylla-packages.txt",
+      "destination": "build/",
+      "direction": "download",
+      "type": "file"
     }
   ],
   "variables": {

@@ -231,3 +231,20 @@ if __name__ == '__main__':
                 f.write(u'exclude=kernel kernel-devel')
         elif platform.machine() == 'aarch64':
             run('yum -y --enablerepo=centos-kernel update kernel')
+
+    # generate package manifest to scylla-packages.txt
+    if distro == 'centos':
+        run('yum install -y yum-utils')
+        packages = subprocess.check_output('repoquery --requires --resolve --recursive --installed scylla', stderr=subprocess.STDOUT, shell=True)
+        with open('{}/scylla-packages.txt'.format(homedir), 'w') as f:
+            f.write(packages)
+    else:
+        deps = subprocess.check_output('apt-cache depends --recurse --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances --installed scylla', stderr=subprocess.STDOUT, shell=True, encoding='utf-8').splitlines()
+        pkgs=[]
+        for d in deps:
+            if re.match(r'^\w', d) and not re.match(r'.+:i386$', d) and d not in pkgs:
+                pkgs.append(d)
+        with open('{}/scylla-packages.txt'.format(homedir), 'w') as f:
+            for pkg_name in pkgs:
+                pkg_name_version = subprocess.check_output("dpkg-query --showformat='${{Package}}-${{Version}}' --show {}".format(pkg_name), shell=True, encoding='utf-8')
+                f.write('{}\n'.format(pkg_name_version))
