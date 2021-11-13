@@ -33,7 +33,13 @@ if __name__ == '__main__':
 
     run('/opt/scylladb/scripts/scylla_sysconfig_setup --nic eth0 --setup-nic --ami', shell=True, check=True)
     if cloud_instance.is_supported_instance_class():
-        cloud_instance.io_setup()
+        # We run io_setup only when ehpemeral disks are available
+        if is_gce():
+            nr_disks = cloud_instance.nvmeDiskCount
+            if nr_disks < 0:
+                cloud_instance.io_setup()
+        else:
+            cloud_instance.io_setup()
     if os.path.ismount('/var/lib/scylla'):
         run('/opt/scylladb/scripts/scylla_coredump_setup --dump-to-raiddir', shell=True, check=True)
     else:
