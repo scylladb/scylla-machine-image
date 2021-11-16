@@ -157,12 +157,14 @@ echo "INSTALL_ARGS: |$INSTALL_ARGS|"
 get_version_from_local_deb () {
     DEB=$1
     VERSION=$(dpkg -f "$DEB" version)
+    VERSION=$(echo $VERSION | sed 's/\(.*\)\~)*/\1./')
     echo "$VERSION"
 }
 
 get_version_from_remote_deb () {
     DEB=$1
     VERSION=$(sudo apt-cache madison "$DEB"|head -n1|awk '{print $3}')
+    VERSION=$(echo $VERSION | sed 's/\(.*\)\~)*/\1./')
     echo "$VERSION"
 }
 
