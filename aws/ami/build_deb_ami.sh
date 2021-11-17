@@ -31,6 +31,7 @@ print_usage() {
     echo "  --dry-run             validate template only (image is not built)"
     echo "  --build-id           Set unique build ID, will be part of GCE image name"
     echo "  --debug               Build debug image with special prefix for image name"
+    echo "  --log-file           Path for log. Default build/ami.log on current dir"
     echo "  --download-no-server  download all deb needed excluding scylla from repo-for-install"
     exit 1
 }
@@ -39,6 +40,8 @@ DOWNLOAD_ONLY=0
 PACKER_SUB_CMD="build"
 
 REPO_FOR_INSTALL=
+PACKER_LOG_PATH=build/ami.log
+
 while [ $# -gt 0 ]; do
     case "$1" in
         "--localdeb")
@@ -66,6 +69,10 @@ while [ $# -gt 0 ]; do
             ;;
         "--build-id")
             BUILD_ID=$2
+            shift 2
+            ;;
+        "--log-file")
+            PACKER_LOG_PATH=$2
             shift 2
             ;;
         "--download-no-server")
@@ -200,7 +207,7 @@ cd $DIR
 mkdir -p build
 
 export PACKER_LOG=1
-export PACKER_LOG_PATH=build/ami.log
+export PACKER_LOG_PATH
 
 /usr/bin/packer ${PACKER_SUB_CMD} \
   -var-file=variables.json \

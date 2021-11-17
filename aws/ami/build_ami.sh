@@ -31,13 +31,15 @@ print_usage() {
     echo "  --debug              Build on debug mode (cause a 'debug-image-' prefix to be added to the image name)"
     echo "  --build-id           Set unique build ID, will be part of GCE image name"
     echo "  --download-no-server  download all rpm needed excluding scylla from `repo-for-install`"
+    echo "  --log-file           Path for log. Default build/ami.log on current dir"
     exit 1
 }
 LOCALRPM=0
 DOWNLOAD_ONLY=0
 PACKER_SUB_CMD="build"
-
 REPO_FOR_INSTALL=
+PACKER_LOG_PATH=build/ami.log
+
 while [ $# -gt 0 ]; do
     case "$1" in
         "--localrpm")
@@ -65,6 +67,10 @@ while [ $# -gt 0 ]; do
             ;;
         "--build-id")
             BUILD_ID=$2
+            shift 2
+            ;;
+        "--log-file")
+            PACKER_LOG_PATH=$2
             shift 2
             ;;
         "--download-no-server")
@@ -172,6 +178,6 @@ cd $DIR
 mkdir -p build
 
 export PACKER_LOG=1
-export PACKER_LOG_PATH=build/ami.log
+export PACKER_LOG_PATH
 
 /usr/bin/packer ${PACKER_SUB_CMD} -var-file=variables.json -var install_args="$INSTALL_ARGS" -var region="$REGION" -var source_ami="${AMI[$(arch)]}" -var ssh_username="$SSH_USERNAME" -var scylla_version="$SCYLLA_VERSION" -var scylla_machine_image_version="$SCYLLA_MACHINE_IMAGE_VERSION" -var scylla_jmx_version="$SCYLLA_JMX_VERSION" -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" -var scylla_build_id="$BUILD_ID" -var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}" "${PACKER_ARGS[@]}" -var python="/usr/bin/python" scylla.json
