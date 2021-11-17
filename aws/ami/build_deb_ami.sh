@@ -18,6 +18,7 @@ source ../../SCYLLA-VERSION-GEN
 
 PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
 DIR=$(dirname $(readlink -f $0))
+BUILD_ID=$(date -u '+%FT%H-%M-%S')
 
 print_usage() {
     echo "build_deb_ami.sh --localdeb --repo [URL] --target [distribution]"
@@ -27,6 +28,7 @@ print_usage() {
     echo "  --repo-for-update     repository for update, specify .repo/.list file URL"
     echo "  --product             scylla or scylla-enterprise"
     echo "  --dry-run             validate template only (image is not built)"
+    echo "  --build-id           Set unique build ID, will be part of GCE image name"
     echo "  --download-no-server  download all deb needed excluding scylla from repo-for-install"
     exit 1
 }
@@ -58,6 +60,10 @@ while [ $# -gt 0 ]; do
         "--product")
             PRODUCT=$2
             INSTALL_ARGS="$INSTALL_ARGS --product $2"
+            shift 2
+            ;;
+        "--build-id")
+            BUILD_ID=$2
             shift 2
             ;;
         "--download-no-server")
@@ -198,6 +204,7 @@ export PACKER_LOG_PATH=build/ami.log
   -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" \
   -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" \
   -var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}" \
+  -var scylla_build_id="$BUILD_ID" \
   -var python="/usr/bin/python3" scylla.json
 
 # For some errors packer gives a success status even if fails.

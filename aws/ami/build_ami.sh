@@ -17,8 +17,8 @@
 source ../../SCYLLA-VERSION-GEN
 
 PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
-
 DIR=$(dirname $(readlink -f $0))
+BUILD_ID=$(date -u '+%FT%H-%M-%S')
 
 print_usage() {
     echo "build_ami.sh --localrpm --repo [URL] --target [distribution]"
@@ -28,6 +28,7 @@ print_usage() {
     echo "  --repo-for-update  repository for update, specify .repo/.list file URL"
     echo "  --product          scylla or scylla-enterprise"
     echo "  --dry-run            validate template only (image is not built)"
+    echo "  --build-id           Set unique build ID, will be part of GCE image name"
     echo "  --download-no-server  download all rpm needed excluding scylla from `repo-for-install`"
     exit 1
 }
@@ -59,6 +60,10 @@ while [ $# -gt 0 ]; do
         "--product")
             PRODUCT=$2
             INSTALL_ARGS="$INSTALL_ARGS --product $2"
+            shift 2
+            ;;
+        "--build-id")
+            BUILD_ID=$2
             shift 2
             ;;
         "--download-no-server")
@@ -159,4 +164,4 @@ mkdir -p build
 export PACKER_LOG=1
 export PACKER_LOG_PATH=build/ami.log
 
-/usr/bin/packer ${PACKER_SUB_CMD} -var-file=variables.json -var install_args="$INSTALL_ARGS" -var region="$REGION" -var source_ami="${AMI[$(arch)]}" -var ssh_username="$SSH_USERNAME" -var scylla_version="$SCYLLA_VERSION" -var scylla_machine_image_version="$SCYLLA_MACHINE_IMAGE_VERSION" -var scylla_jmx_version="$SCYLLA_JMX_VERSION" -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" -var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}" -var python="/usr/bin/python" scylla.json
+/usr/bin/packer ${PACKER_SUB_CMD} -var-file=variables.json -var install_args="$INSTALL_ARGS" -var region="$REGION" -var source_ami="${AMI[$(arch)]}" -var ssh_username="$SSH_USERNAME" -var scylla_version="$SCYLLA_VERSION" -var scylla_machine_image_version="$SCYLLA_MACHINE_IMAGE_VERSION" -var scylla_jmx_version="$SCYLLA_JMX_VERSION" -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" -var scylla_build_id="$BUILD_ID" -var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}" -var python="/usr/bin/python" scylla.json
