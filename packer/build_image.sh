@@ -44,7 +44,7 @@ print_usage() {
     echo "  --dry-run            validate template only (image is not built)"
     echo "  --debug              Build on debug mode (cause a 'debug-image-' prefix to be added to the image name)"
     echo "  --build-id           Set unique build ID, will be part of GCE image name"
-    echo "  --download-no-server download all rpm needed excluding scylla from `repo-for-install`"
+    echo "  --download-no-server download all rpm needed excluding scylla from 'repo-for-install'"
     echo "  --log-file           Path for log. Default build/ami.log on current dir"
     echo "  --target             Target cloud (aws/gce), needed when using this script directly, and not by soft links"
     exit 1
