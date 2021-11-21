@@ -244,6 +244,11 @@ else
 
 fi
 
+# Following the replace made on scylla-machine-image/pull/121 we need
+# to revert the replacement here since Azure doesn't support `~` on
+# image name.
+SCYLLA_VERSION=$(echo $SCYLLA_VERSION | sed 's/\(.*\)\~)*/\1./')
+
 if [ "$TARGET" = "aws" ]; then
     SSH_USERNAME=ubuntu
     declare -A AMI
@@ -278,7 +283,6 @@ elif [ "$TARGET" = "azure" ]; then
     REGION="EAST US"
     SSH_USERNAME=azureuser
     SCYLLA_IMAGE_DESCRIPTION="scylla-$SCYLLA_VERSION scylla-machine-image-$SCYLLA_MACHINE_IMAGE_VERSION scylla-jmx-$SCYLLA_JMX_VERSION scylla-tools-$SCYLLA_TOOLS_VERSION scylla-python3-$SCYLLA_PYTHON3_VERSION"
-    SCYLLA_VERSION=$(echo $SCYLLA_VERSION | sed 's/\(.*\)\~)*/\1./')
 
     PACKER_ARGS+=(-var scylla_image_description="${SCYLLA_IMAGE_DESCRIPTION:0:255}")
     PACKER_ARGS+=(-var client_id="$AZURE_CLIENT_ID")
