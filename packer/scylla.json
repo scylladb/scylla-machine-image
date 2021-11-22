@@ -141,7 +141,6 @@
     },
     {
       "inline": [
-        "if [ {{build_name}} = gce ] && [ -f /etc/debian_version ]; then echo '#!/bin/sh\n/usr/bin/systemctl start google-guest-agent'|sudo tee /etc/rc.local;sudo chmod a+rx /etc/rc.local;sudo systemctl enable rc-local.service; fi",
         "if [ {{build_name}} = aws ]; then sudo /usr/bin/cloud-init status --wait; fi",
         "if [ -f /etc/debian_version ]; then sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.8 1; fi",
         "if [ {{build_name}} = gce ] && [ -f /etc/redhat-release ]; then sudo alternatives --set python /usr/bin/python3; fi",
