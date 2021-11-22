@@ -36,7 +36,7 @@ if __name__ == '__main__':
         # We run io_setup only when ehpemeral disks are available
         if is_gce():
             nr_disks = cloud_instance.nvmeDiskCount
-            if nr_disks < 0:
+            if nr_disks > 0:
                 cloud_instance.io_setup()
         else:
             cloud_instance.io_setup()
