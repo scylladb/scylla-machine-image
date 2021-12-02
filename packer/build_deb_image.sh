@@ -17,7 +17,6 @@
 REALDIR=$(dirname $(readlink -f "$0"))
 source "$REALDIR"/../SCYLLA-VERSION-GEN
 
-PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
 BUILD_ID=$(date -u '+%FT%H-%M-%S')
 BRANCH="master"
 OPERATING_SYSTEM="ubuntu20.04"
@@ -87,7 +86,6 @@ while [ $# -gt 0 ]; do
         "--product")
             PRODUCT=$2
             echo "--product parameter: PRODUCT |$PRODUCT|"
-            INSTALL_ARGS="$INSTALL_ARGS --product $2"
             shift 2
             ;;
         "--build-id")
@@ -151,6 +149,11 @@ while [ $# -gt 0 ]; do
             ;;
     esac
 done
+
+if [ -z "$PRODUCT" ]; then
+    PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
+fi
+INSTALL_ARGS="$INSTALL_ARGS --product $PRODUCT"
 
 echo "INSTALL_ARGS: |$INSTALL_ARGS|"
 
