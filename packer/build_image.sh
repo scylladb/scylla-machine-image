@@ -17,7 +17,6 @@
 REALDIR=$(dirname $(readlink -f "$0"))
 source "$REALDIR"/../SCYLLA-VERSION-GEN
 
-PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
 BUILD_ID=$(date -u '+%FT%H-%M-%S')
 DIR=$(dirname $(realpath -se $0))
 PDIRNAME=$(basename $(realpath -se $DIR/..))
@@ -79,7 +78,6 @@ while [ $# -gt 0 ]; do
             ;;
         "--product")
             PRODUCT=$2
-            INSTALL_ARGS="$INSTALL_ARGS --product $2"
             shift 2
             ;;
         "--build-id")
@@ -126,6 +124,11 @@ while [ $# -gt 0 ]; do
             ;;
     esac
 done
+
+if [ -z "$PRODUCT" ]; then
+    PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
+fi
+INSTALL_ARGS="$INSTALL_ARGS --product $PRODUCT"
 
 get_version_from_local_rpm () {
     RPM=$1
