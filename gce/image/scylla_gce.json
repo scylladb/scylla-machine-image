@@ -24,6 +24,9 @@
           "scylla_jmx_version": "{{user `scylla_jmx_version`| clean_resource_name}}",
           "scylla_tools_version": "{{user `scylla_tools_version`| clean_resource_name}}",
           "scylla_python3_version": "{{user `scylla_python3_version`| clean_resource_name}}",
+          "build-id": "{{user `scylla_build_id`| clean_resource_name}}",
+          "branch": "{{user `branch`| clean_resource_name}}",
+          "operating-system": "{{user `operating_system`| clean_resource_name}}",
           "user_data_format_version": "2"
       },
       "labels": {
