@@ -67,7 +67,8 @@
           "ScyllaToolsVersion": "{{user `scylla_tools_version`}}",
           "ScyllaPython3Version": "{{user `scylla_python3_version`}}",
           "user_data_format_version": "2"
-      }
+      },
+      "ami_regions": "{{user `ami_regions`}}"
     },
     {
       "name": "gce",

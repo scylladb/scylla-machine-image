@@ -46,6 +46,7 @@ print_usage() {
     echo "  [--dry-run]           Validate template only (image is not built). Default: false"
     echo "  [--build-id]          Set unique build ID, will be part of GCE image name and as a label. Default: Date."
     echo "  [--branch]            Set the release branch for GCE label. Default: master"
+    echo "  [--ami-regions]       Set regions to copy the AMI when done building it (including permissions and tags)"
     echo "  [--operating-system]  Set the base OS for the image. Default: ubuntu20.04"
     echo "  --download-no-server  Download all deb needed excluding scylla from repo-for-install"
     echo "  [--debug]             Build debug image with special prefix for image name. Default: false."
@@ -96,6 +97,11 @@ while [ $# -gt 0 ]; do
         "--branch")
             BRANCH=$2
             echo "--branch parameter: BRANCH |$BRANCH|"
+            shift 2
+            ;;
+        "--ami-regions"):
+            AMI_REGIONS=$2
+            echo "--ami-regions prameter: AMI_REGIONS |$AMI_REGIONS|"
             shift 2
             ;;
         "--operating-system")
@@ -324,6 +330,7 @@ set -x
   -var scylla_build_id="$BUILD_ID" \
   -var operating_system="$OPERATING_SYSTEM" \
   -var branch="$BRANCH" \
+  -var ami_regions="$AMI_REGIONS" \
   "${PACKER_ARGS[@]}" \
   "$REALDIR"/scylla.json
 set +x
