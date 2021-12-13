@@ -20,6 +20,7 @@ import shutil
 import tempfile
 import yaml
 import logging
+import unittest.mock
 from textwrap import dedent
 from unittest import TestCase
 from pathlib import Path
@@ -178,3 +179,23 @@ class TestScyllaConfigurator(TestCase):
         self.run_scylla_configure(user_data=raw_user_data, private_ipv4=self.private_ip)
         self.configurator.start_scylla_on_first_boot()
         assert self.configurator.DISABLE_START_FILE_PATH.exists(), "ami_disabled not created"
+
+    def test_default_raid0(self):
+        self.run_scylla_configure(**self.default_instance_metadata())
+        with unittest.mock.patch("subprocess.run") as mocked_run:
+            self.configurator.create_devices()
+            assert "--raid-level 0" in str(mocked_run.call_args)
+
+    def test_set_raid0(self):
+        raw_user_data = json.dumps(dict(raid_level=0))
+        self.run_scylla_configure(user_data=raw_user_data, private_ipv4=self.private_ip)
+        with unittest.mock.patch("subprocess.run") as mocked_run:
+            self.configurator.create_devices()
+            assert "--raid-level 0" in str(mocked_run.call_args)
+
+    def test_set_raid5(self):
+        raw_user_data = json.dumps(dict(raid_level=5))
+        self.run_scylla_configure(user_data=raw_user_data, private_ipv4=self.private_ip)
+        with unittest.mock.patch("subprocess.run") as mocked_run:
+            self.configurator.create_devices()
+            assert "--raid-level 5" in str(mocked_run.call_args)
