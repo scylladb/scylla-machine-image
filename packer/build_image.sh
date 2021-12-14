@@ -17,7 +17,6 @@
 REALDIR=$(dirname $(readlink -f "$0"))
 source "$REALDIR"/../SCYLLA-VERSION-GEN
 
-PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
 BUILD_ID=$(date -u '+%FT%H-%M-%S')
 DIR=$(dirname $(realpath -se $0))
 PDIRNAME=$(basename $(realpath -se $DIR/..))
@@ -41,10 +40,11 @@ print_usage() {
     echo "  --repo-for-install   repository for install, specify .repo/.list file URL"
     echo "  --repo-for-update    repository for update, specify .repo/.list file URL"
     echo "  --product            scylla or scylla-enterprise"
+    echo "  [--ami-regions]       Set regions to copy the AMI when done building it (including permissions and tags)"
     echo "  --dry-run            validate template only (image is not built)"
     echo "  --debug              Build on debug mode (cause a 'debug-image-' prefix to be added to the image name)"
     echo "  --build-id           Set unique build ID, will be part of GCE image name"
-    echo "  --download-no-server download all rpm needed excluding scylla from `repo-for-install`"
+    echo "  --download-no-server download all rpm needed excluding scylla from 'repo-for-install'"
     echo "  --log-file           Path for log. Default build/ami.log on current dir"
     echo "  --target             Target cloud (aws/gce), needed when using this script directly, and not by soft links"
     exit 1
@@ -77,9 +77,13 @@ while [ $# -gt 0 ]; do
             INSTALL_ARGS="$INSTALL_ARGS --repo-for-update $2"
             shift 2
             ;;
+        "--ami-regions"):
+            AMI_REGIONS=$2
+            echo "--ami-regions prameter: AMI_REGIONS |$AMI_REGIONS|"
+            shift 2
+            ;;
         "--product")
             PRODUCT=$2
-            INSTALL_ARGS="$INSTALL_ARGS --product $2"
             shift 2
             ;;
         "--build-id")
@@ -126,6 +130,11 @@ while [ $# -gt 0 ]; do
             ;;
     esac
 done
+
+if [ -z "$PRODUCT" ]; then
+    PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
+fi
+INSTALL_ARGS="$INSTALL_ARGS --product $PRODUCT"
 
 get_version_from_local_rpm () {
     RPM=$1
@@ -259,6 +268,7 @@ export PACKER_LOG_PATH
   -var scylla_jmx_version="$SCYLLA_JMX_VERSION" \
   -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" \
   -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" \
+  -var ami_regions="$AMI_REGIONS" \
   "${PACKER_ARGS[@]}" \
   "$REALDIR"/scylla.json
 

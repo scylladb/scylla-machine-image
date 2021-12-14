@@ -17,7 +17,6 @@
 REALDIR=$(dirname $(readlink -f "$0"))
 source "$REALDIR"/../SCYLLA-VERSION-GEN
 
-PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
 BUILD_ID=$(date -u '+%FT%H-%M-%S')
 BRANCH="master"
 OPERATING_SYSTEM="ubuntu20.04"
@@ -47,6 +46,7 @@ print_usage() {
     echo "  [--dry-run]           Validate template only (image is not built). Default: false"
     echo "  [--build-id]          Set unique build ID, will be part of GCE image name and as a label. Default: Date."
     echo "  [--branch]            Set the release branch for GCE label. Default: master"
+    echo "  [--ami-regions]       Set regions to copy the AMI when done building it (including permissions and tags)"
     echo "  [--operating-system]  Set the base OS for the image. Default: ubuntu20.04"
     echo "  --download-no-server  Download all deb needed excluding scylla from repo-for-install"
     echo "  [--debug]             Build debug image with special prefix for image name. Default: false."
@@ -87,7 +87,6 @@ while [ $# -gt 0 ]; do
         "--product")
             PRODUCT=$2
             echo "--product parameter: PRODUCT |$PRODUCT|"
-            INSTALL_ARGS="$INSTALL_ARGS --product $2"
             shift 2
             ;;
         "--build-id")
@@ -98,6 +97,11 @@ while [ $# -gt 0 ]; do
         "--branch")
             BRANCH=$2
             echo "--branch parameter: BRANCH |$BRANCH|"
+            shift 2
+            ;;
+        "--ami-regions"):
+            AMI_REGIONS=$2
+            echo "--ami-regions prameter: AMI_REGIONS |$AMI_REGIONS|"
             shift 2
             ;;
         "--operating-system")
@@ -151,6 +155,11 @@ while [ $# -gt 0 ]; do
             ;;
     esac
 done
+
+if [ -z "$PRODUCT" ]; then
+    PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
+fi
+INSTALL_ARGS="$INSTALL_ARGS --product $PRODUCT"
 
 echo "INSTALL_ARGS: |$INSTALL_ARGS|"
 
@@ -244,10 +253,15 @@ else
 
 fi
 
+# Following the replace made on scylla-machine-image/pull/121 we need
+# to revert the replacement here since Azure doesn't support `~` on
+# image name.
+SCYLLA_VERSION=$(echo $SCYLLA_VERSION | sed 's/\(.*\)\~)*/\1./')
+
 if [ "$TARGET" = "aws" ]; then
     SSH_USERNAME=ubuntu
     declare -A AMI
-    AMI=(["x86_64"]=ami-0074ee617a234808d ["aarch64"]=ami-0763a1094de643002)
+    AMI=(["x86_64"]=ami-04505e74c0741db8d ["aarch64"]=ami-0b49a4a6e8e22fa16)
     REGION=us-east-1
 
     arch="$(uname -m)"
@@ -316,6 +330,7 @@ set -x
   -var scylla_build_id="$BUILD_ID" \
   -var operating_system="$OPERATING_SYSTEM" \
   -var branch="$BRANCH" \
+  -var ami_regions="$AMI_REGIONS" \
   "${PACKER_ARGS[@]}" \
   "$REALDIR"/scylla.json
 set +x

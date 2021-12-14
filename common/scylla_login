@@ -33,76 +33,81 @@ MSG_HEADER = '''
               |___/                        
 
 Version:
-       {scylla_version}
+        {scylla_version}
 Nodetool:
-	nodetool help
+        nodetool help
 CQL Shell:
-	cqlsh
+        cqlsh
 More documentation available at: 
-	http://www.scylladb.com/doc/
-By default, Scylla sends certain information about this node to a data collection server. For information, see http://www.scylladb.com/privacy/
+        https://docs.scylladb.com/
+By default, Scylla sends certain information about this node to a data collection server. For more details, see https://www.scylladb.com/privacy/
 
 '''[1:-1]
 MSG_UNSUPPORTED_INSTANCE_TYPE = '''
     {red}{type} is not eligible for optimized automatic tuning!{nocolor}
-To continue startup ScyllaDB on this instance, run 'sudo scylla_io_setup' then 'systemctl start scylla-server'.
-For a list of optimized instance types and more EC2 instructions see '%s'"
+
+To continue the setup of Scylla on this instance, run 'sudo scylla_io_setup' 
+then 'sudo systemctl start scylla-server'.
+For a list of optimized instance types and more instructions, see %s
 
 '''[1:-1]
 MSG_UNSUPPORTED_INSTANCE_TYPE_NO_DISKS = '''
     {red}{type} is not eligible for optimized automatic tuning!{nocolor}
-To continue startup ScyllaDB on this instance, you need to attach additional disks, then run 'sudo scylla_io_setup' then 'systemctl start scylla-server'.
-For a list of optimized instance types and more EC2 instructions see '%s'"
 
+To continue the setup of Scylla on this instance, you need to attach additional disks, 
+next run 'sudo scylla_create_devices', 'sudo scylla_io_setup' 
+then 'sudo systemctl start scylla-server'.
+For a list of optimized instance types and more instructions, see %s
 '''[1:-1]
 MSG_SETUP_ACTIVATING = '''
     {green}Constructing RAID volume...{nocolor}
 
-Please wait for setup. To see status, run 
+Please wait for the setup to finish. To see its status, run 
  'systemctl status scylla-image-setup'
 
-After setup finished, scylla-server service will launch.
-To see status of scylla-server, run 
+After the setup has finished, scylla-server service will launch.
+To see the status of scylla-server, run 
  'systemctl status scylla-server'
 
 '''[1:-1]
 MSG_SETUP_FAILED = '''
-    {red}Initial image configuration failed!{nocolor}
+    {red}Initial image configuration has failed!{nocolor}
 
-To see status, run 
+To see the status of setup service, run 
  'systemctl status scylla-image-setup'
 
 '''[1:-1]
 MSG_SCYLLA_ACTIVATING = '''
-    {green}ScyllaDB is starting...{nocolor}
+    {green}Scylla is starting...{nocolor}
 
-Please wait for start. To see status, run 
+Please wait for Scylla startup to finish. To see its status, run 
  'systemctl status scylla-server'
 
 '''[1:-1]
 MSG_SCYLLA_FAILED = '''
-    {red}ScyllaDB is not started!{nocolor}
-Please wait for startup. To see status of ScyllaDB, run 
+    {red}Scylla has not started!{nocolor}
+
+To see the status of Scylla, run 
  'systemctl status scylla-server'
 
 '''[1:-1]
 MSG_SCYLLA_MOUNT_FAILED = '''
     {red}Failed mounting RAID volume!{nocolor}
 
-ScyllaDB aborted startup because of RAID volume missing.
-To see status, run
+Scylla has aborted startup because of a missing RAID volume.
+To see the status of Scylla, run
  'systemctl status scylla-server'
 
 '''[1:-1]
 MSG_SCYLLA_UNKNOWN = '''
-    {red}ScyllaDB is not started!{nocolor}
+    {red}Scylla has not started!{nocolor}
 
-To see status of ScyllaDB, run
+To see the status of Scylla, run
  'systemctl status scylla-server'
 
 '''[1:-1]
 MSG_SCYLLA_ACTIVE = '''
-    {green}ScyllaDB is active.{nocolor}
+    {green}Scylla is active.{nocolor}
 
 $ nodetool status
 

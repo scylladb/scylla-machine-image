@@ -67,7 +67,8 @@
           "ScyllaToolsVersion": "{{user `scylla_tools_version`}}",
           "ScyllaPython3Version": "{{user `scylla_python3_version`}}",
           "user_data_format_version": "2"
-      }
+      },
+      "ami_regions": "{{user `ami_regions`}}"
     },
     {
       "name": "gce",
@@ -141,13 +142,18 @@
     },
     {
       "inline": [
-        "if [ {{build_name}} = gce ] && [ -f /etc/debian_version ]; then echo '#!/bin/sh\n/usr/bin/systemctl start google-guest-agent'|sudo tee /etc/rc.local;sudo chmod a+rx /etc/rc.local;sudo systemctl enable rc-local.service; fi",
         "if [ {{build_name}} = aws ]; then sudo /usr/bin/cloud-init status --wait; fi",
         "if [ -f /etc/debian_version ]; then sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.8 1; fi",
         "if [ {{build_name}} = gce ] && [ -f /etc/redhat-release ]; then sudo alternatives --set python /usr/bin/python3; fi",
         "sudo /home/{{user `ssh_username`}}/scylla_install_image --target-cloud {{build_name}} {{user `install_args`}}"
       ],
       "type": "shell"
+    },
+    {
+      "source": "/home/{{user `ssh_username`}}/scylla-packages.txt",
+      "destination": "build/",
+      "direction": "download",
+      "type": "file"
     }
   ],
   "variables": {

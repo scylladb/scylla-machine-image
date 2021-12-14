@@ -27,16 +27,21 @@ if __name__ == '__main__':
         run('/opt/scylladb/scripts/scylla_cpuscaling_setup', shell=True, check=True)
     cloud_instance = get_cloud_instance()
     run('/opt/scylladb/scylla-machine-image/scylla_configure.py', shell=True, check=True)
-    if not os.path.ismount('/var/lib/scylla'):
-        print('Failed to initialize RAID volume, exiting setup')
-        sys.exit(1)
 
     run('/opt/scylladb/scripts/scylla_sysconfig_setup --nic eth0 --setup-nic --ami', shell=True, check=True)
-    if cloud_instance.is_supported_instance_class():
-        cloud_instance.io_setup()
     if os.path.ismount('/var/lib/scylla'):
-        run('/opt/scylladb/scripts/scylla_coredump_setup --dump-to-raiddir', shell=True, check=True)
+        if cloud_instance.is_supported_instance_class():
+            # We run io_setup only when ehpemeral disks are available
+            if is_gce():
+                nr_disks = cloud_instance.nvmeDiskCount
+                if nr_disks > 0:
+                    cloud_instance.io_setup()
+            else:
+                cloud_instance.io_setup()
+            run('/opt/scylladb/scripts/scylla_coredump_setup --dump-to-raiddir', shell=True, check=True)
     else:
         run('/opt/scylladb/scripts/scylla_coredump_setup', shell=True, check=True)
     run('/opt/scylladb/scripts/scylla_swap_setup --swap-directory /', shell=True, check=True)
+    if not os.path.ismount('/var/lib/scylla'):
+        print('Failed to initialize RAID volume!')
     pathlib.Path('/etc/scylla/machine_image_configured').touch()
