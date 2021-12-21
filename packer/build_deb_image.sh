@@ -329,6 +329,7 @@ set -x
   -var operating_system="$OPERATING_SYSTEM" \
   -var branch="$BRANCH" \
   -var ami_regions="$AMI_REGIONS" \
+  -var arch="$(arch)" \
   "${PACKER_ARGS[@]}" \
   "$REALDIR"/scylla.json
 set +x

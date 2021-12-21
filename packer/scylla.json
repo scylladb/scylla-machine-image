@@ -150,7 +150,7 @@
       "type": "shell"
     },
     {
-      "source": "/home/{{user `ssh_username`}}/scylla-packages.txt",
+      "source": "/home/{{user `ssh_username`}}/scylla-packages-{{user `arch`}}.txt",
       "destination": "build/",
       "direction": "download",
       "type": "file"
