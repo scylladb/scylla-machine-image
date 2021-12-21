@@ -96,7 +96,7 @@ if __name__ == '__main__':
         if args.repo_for_update:
             run('curl -L -o /etc/yum.repos.d/scylla.repo {REPO_FOR_UPDATE}'.format(REPO_FOR_UPDATE=args.repo_for_update))
     else:
-        run('apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 5e08fbd8b5d6ec9c')
+        run('apt-key adv --keyserver keyserver.ubuntu.com --recv-keys d0a112e067426ab2')
         if args.repo_for_install:
             run('curl -L -o /etc/apt/sources.list.d/scylla_install.list {REPO_FOR_INSTALL}'.format(REPO_FOR_INSTALL=args.repo_for_install))
         elif args.localrpm:
