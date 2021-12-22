@@ -107,10 +107,22 @@ class ScyllaMachineImageConfigurator:
         return self._instance_user_data
 
     def updated_ami_conf_defaults(self):
-        private_ip = self.cloud_instance.private_ipv4()
-        self.CONF_DEFAULTS["scylla_yaml"]["listen_address"] = private_ip
-        self.CONF_DEFAULTS["scylla_yaml"]["broadcast_rpc_address"] = private_ip
-        self.CONF_DEFAULTS["scylla_yaml"]["seed_provider"][0]['parameters'][0]['seeds'] = private_ip
+        if self.cloud_instance.ENDPOINT_SNITCH == "Ec2MultiRegionSnitch":
+            try:
+                public_ip = self.cloud_instance.public_ipv4()
+            except:
+                LOGGER.error("Failed to retrieve public ip!")
+                sys.exit(1)
+            private_ip = self.cloud_instance.private_ipv4()
+            self.CONF_DEFAULTS["scylla_yaml"]["listen_address"] = private_ip
+            self.CONF_DEFAULTS["scylla_yaml"]["broadcast_address"] = public_ip
+            self.CONF_DEFAULTS["scylla_yaml"]["broadcast_rpc_address"] = public_ip
+            self.CONF_DEFAULTS["scylla_yaml"]["seed_provider"][0]['parameters'][0]['seeds'] = public_ip
+        else:
+            private_ip = self.cloud_instance.private_ipv4()
+            self.CONF_DEFAULTS["scylla_yaml"]["listen_address"] = private_ip
+            self.CONF_DEFAULTS["scylla_yaml"]["broadcast_rpc_address"] = private_ip
+            self.CONF_DEFAULTS["scylla_yaml"]["seed_provider"][0]['parameters'][0]['seeds'] = private_ip
         self.CONF_DEFAULTS["scylla_yaml"]["endpoint_snitch"] = self.cloud_instance.ENDPOINT_SNITCH
 
     def configure_scylla_yaml(self):
