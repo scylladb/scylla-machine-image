@@ -282,7 +282,6 @@ if [ "$TARGET" = "aws" ]; then
     PACKER_ARGS+=(-var region="$REGION")
     PACKER_ARGS+=(-var instance_type="$INSTANCE_TYPE")
     PACKER_ARGS+=(-var source_ami="${AMI[$(arch)]}")
-    PACKER_ARGS+=(-var arch="$(arch)")
     PACKER_ARGS+=(-var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}")
 elif [ "$TARGET" = "gce" ]; then
     SSH_USERNAME=ubuntu
@@ -332,6 +331,7 @@ set -x
   -var operating_system="$OPERATING_SYSTEM" \
   -var branch="$BRANCH" \
   -var ami_regions="$AMI_REGIONS" \
+  -var arch="$(arch)" \
   "${PACKER_ARGS[@]}" \
   "$REALDIR"/scylla.json
 set +x
