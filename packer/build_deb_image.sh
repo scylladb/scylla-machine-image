@@ -330,6 +330,7 @@ set -x
   -var branch="$BRANCH" \
   -var ami_regions="$AMI_REGIONS" \
   -var arch="$(arch)" \
+  -var product="$PRODUCT" \
   "${PACKER_ARGS[@]}" \
   "$REALDIR"/scylla.json
 set +x
