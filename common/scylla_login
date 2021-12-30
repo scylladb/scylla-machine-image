@@ -117,7 +117,13 @@ if __name__ == '__main__':
     colorprint(MSG_HEADER.format(scylla_version=run("scylla --version", shell=True, check=True, capture_output=True, encoding='utf-8').stdout.strip()))
     cloud_instance = get_cloud_instance()
     if not cloud_instance.is_supported_instance_class():
-        if len(cloud_instance.non_root_disks()) == 0:
+        if is_ec2():
+            non_root_disks = cloud_instance.ehpemeral_disks() + cloud_instance.ebs_disks()
+        elif is_gce():
+            non_root_disks = cloud_instance.getPersistentOsDisks() + cloud_instance.getEphemeralOsDisks()
+        elif is_azure():
+            non_root_disks = cloud_instance.getPersistentOsDisks() + cloud_instance.getEphemeralOsDisks()
+        if len(non_root_disks) == 0:
             colorprint(MSG_UNSUPPORTED_INSTANCE_TYPE_NO_DISKS % cloud_instance.GETTING_STARTED_URL,
                 type=cloud_instance.instance_class())
 

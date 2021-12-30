@@ -49,6 +49,9 @@ def get_kver(pattern):
 def is_centos():
     return os.path.exists('/etc/redhat-release')
 
+def arch():
+    return platform.machine()
+
 if __name__ == '__main__':
     if os.getuid() > 0:
         print('Requires root permission.')
@@ -93,7 +96,7 @@ if __name__ == '__main__':
         if args.repo_for_update:
             run('curl -L -o /etc/yum.repos.d/scylla.repo {REPO_FOR_UPDATE}'.format(REPO_FOR_UPDATE=args.repo_for_update))
     else:
-        run('apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 5e08fbd8b5d6ec9c')
+        run('apt-key adv --keyserver keyserver.ubuntu.com --recv-keys d0a112e067426ab2')
         if args.repo_for_install:
             run('curl -L -o /etc/apt/sources.list.d/scylla_install.list {REPO_FOR_INSTALL}'.format(REPO_FOR_INSTALL=args.repo_for_install))
         elif args.localrpm:
@@ -250,7 +253,7 @@ if __name__ == '__main__':
     if distro == 'centos':
         run('yum install -y yum-utils')
         packages = subprocess.check_output('repoquery --requires --resolve --recursive --installed scylla', stderr=subprocess.STDOUT, shell=True)
-        with open('{}/scylla-packages.txt'.format(homedir), 'w') as f:
+        with open('{}/scylla-packages-{}.txt'.format(homedir, arch()), 'w') as f:
             f.write(packages)
     else:
         deps = subprocess.check_output('apt-cache depends --recurse --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances --installed scylla', stderr=subprocess.STDOUT, shell=True, encoding='utf-8').splitlines()
@@ -258,7 +261,7 @@ if __name__ == '__main__':
         for d in deps:
             if re.match(r'^\w', d) and not re.match(r'.+:i386$', d) and d not in pkgs:
                 pkgs.append(d)
-        with open('{}/scylla-packages.txt'.format(homedir), 'w') as f:
+        with open('{}/scylla-packages-{}.txt'.format(homedir, arch()), 'w') as f:
             for pkg_name in pkgs:
                 pkg_name_version = subprocess.check_output("dpkg-query --showformat='${{Package}}-${{Version}}' --show {}".format(pkg_name), shell=True, encoding='utf-8')
                 f.write('{}\n'.format(pkg_name_version))

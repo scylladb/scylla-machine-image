@@ -196,7 +196,7 @@ check_deb_exists () {
 import_gpg_key () {
   TMPREPO=$(mktemp -u -p /etc/apt/sources.list.d/ --suffix .list)
   sudo curl -o $TMPREPO $REPO_FOR_INSTALL
-  sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 5e08fbd8b5d6ec9c
+  sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys d0a112e067426ab2
   sudo apt-get update --allow-insecure-repositories -y
 }
 
@@ -331,6 +331,7 @@ set -x
   -var operating_system="$OPERATING_SYSTEM" \
   -var branch="$BRANCH" \
   -var ami_regions="$AMI_REGIONS" \
+  -var arch="$(arch)" \
   "${PACKER_ARGS[@]}" \
   "$REALDIR"/scylla.json
 set +x
