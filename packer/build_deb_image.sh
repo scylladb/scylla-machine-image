@@ -272,16 +272,17 @@ SCYLLA_VERSION=$(echo $SCYLLA_VERSION | sed 's/\(.*\)\~)*/\1./')
 
 if [ "$TARGET" = "aws" ]; then
     SSH_USERNAME=ubuntu
-    declare -A AMI
-    AMI=(["x86_64"]=ami-04505e74c0741db8d ["aarch64"]=ami-0ae74ae9c43584639)
+    SOURCE_AMI_OWNER=099720109477
     REGION=us-east-1
 
     arch="$(uname -m)"
     case "$arch" in
       "x86_64")
+        SOURCE_AMI_FILTER="ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64*"
         INSTANCE_TYPE="c4.xlarge"
         ;;
       "aarch64")
+        SOURCE_AMI_FILTER="ubuntu/images/hvm-ssd/ubuntu-focal-20.04-arm64*"
         INSTANCE_TYPE="a1.xlarge"
         ;;
       *)
@@ -293,7 +294,8 @@ if [ "$TARGET" = "aws" ]; then
 
     PACKER_ARGS+=(-var region="$REGION")
     PACKER_ARGS+=(-var instance_type="$INSTANCE_TYPE")
-    PACKER_ARGS+=(-var source_ami="${AMI[$(arch)]}")
+    PACKER_ARGS+=(-var source_ami_filter="$SOURCE_AMI_FILTER")
+    PACKER_ARGS+=(-var source_ami_owner="$SOURCE_AMI_OWNER")
     PACKER_ARGS+=(-var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}")
 elif [ "$TARGET" = "gce" ]; then
     SSH_USERNAME=ubuntu

@@ -211,16 +211,17 @@ fi
 
 if [ "$TARGET" = "aws" ]; then
     SSH_USERNAME=centos
-    declare -A AMI
-    AMI=(["x86_64"]=ami-00e87074e52e6c9f9 ["aarch64"]=ami-0b802bd2b502aa382)
+    SOURCE_AMI_OWNER=125523088429
     REGION=us-east-1
 
     arch="$(uname -m)"
     case "$arch" in
       "x86_64")
+        SOURCE_AMI_FILTER="CentOS 7.* x86_64"
         INSTANCE_TYPE="c4.xlarge"
         ;;
       "aarch64")
+        SOURCE_AMI_FILTER="CentOS 7.* aarch64"
         INSTANCE_TYPE="a1.xlarge"
         ;;
       *)
@@ -232,7 +233,8 @@ if [ "$TARGET" = "aws" ]; then
 
     PACKER_ARGS+=(-var region="$REGION")
     PACKER_ARGS+=(-var instance_type="$INSTANCE_TYPE")
-    PACKER_ARGS+=(-var source_ami="${AMI[$(arch)]}")
+    PACKER_ARGS+=(-var source_ami_filter="$SOURCE_AMI_FILTER")
+    PACKER_ARGS+=(-var source_ami_owner="$SOURCE_AMI_OWNER")
     PACKER_ARGS+=(-var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}")
 elif [ "$TARGET" = "gce" ]; then
     SSH_USERNAME=centos
