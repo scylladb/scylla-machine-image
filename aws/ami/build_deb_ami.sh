@@ -125,7 +125,7 @@ check_deb_exists () {
     done
 }
 declare -A AMI
-AMI=(["x86_64"]=ami-0074ee617a234808d ["aarch64"]=ami-0763a1094de643002)
+AMI=(["x86_64"]=ami-04505e74c0741db8d ["aarch64"]=ami-0ae74ae9c43584639)
 REGION=us-east-1
 SSH_USERNAME=ubuntu
 
