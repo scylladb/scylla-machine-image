@@ -261,7 +261,7 @@ SCYLLA_VERSION=$(echo $SCYLLA_VERSION | sed 's/\(.*\)\~)*/\1./')
 if [ "$TARGET" = "aws" ]; then
     SSH_USERNAME=ubuntu
     declare -A AMI
-    AMI=(["x86_64"]=ami-04505e74c0741db8d ["aarch64"]=ami-0b49a4a6e8e22fa16)
+    AMI=(["x86_64"]=ami-04505e74c0741db8d ["aarch64"]=ami-0ae74ae9c43584639)
     REGION=us-east-1
 
     arch="$(uname -m)"
