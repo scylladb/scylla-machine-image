@@ -71,7 +71,8 @@
           "branch": "{{user `branch`| clean_resource_name}}",
           "operating_system": "{{user `operating_system`| clean_resource_name}}",
           "scylla_build_sha_id": "{{user `scylla_build_sha_id`| clean_resource_name}}",
-          "arch": "{{user `arch`| clean_resource_name}}"
+          "arch": "{{user `arch`| clean_resource_name}}",
+          "build_tag": "{{user `build_tag`| clean_resource_name}}"
       },
       "ami_regions": "{{user `ami_regions`}}"
     },
@@ -104,7 +105,8 @@
           "branch": "{{user `branch`| clean_resource_name}}",
           "operating_system": "{{user `operating_system`| clean_resource_name}}",
           "scylla_build_sha_id": "{{user `scylla_build_sha_id`| clean_resource_name}}",
-          "arch": "{{user `arch`| clean_resource_name}}"
+          "arch": "{{user `arch`| clean_resource_name}}",
+          "build_tag": "{{user `build_tag`| clean_resource_name}}"
       },
       "labels": {
         "keep": 1,
@@ -136,8 +138,8 @@
         "branch": "{{user `branch`| clean_resource_name}}",
         "operating_system": "{{user `operating_system`| clean_resource_name}}",
         "scylla_build_sha_id": "{{user `scylla_build_sha_id`| clean_resource_name}}",
-        "arch": "{{user `arch`| clean_resource_name}}"
-
+        "arch": "{{user `arch`| clean_resource_name}}",
+        "build_tag": "{{user `build_tag`| clean_resource_name}}"
       },
       "location": "{{user `region`}}",
       "vm_size": "{{user `vm_size`}}"
