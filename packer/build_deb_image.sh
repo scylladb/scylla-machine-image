@@ -37,19 +37,21 @@ fi
 print_usage() {
     echo "$0 --localdeb --repo [URL] --target [distribution]"
     echo "  [--localdeb]          Deploy locally built debs Default: false"
-    echo "  --repo                Repository for both install and update, specify .repo/.list file URL"
-    echo "  --repo-for-install    Repository for install, specify .repo/.list file URL"
-    echo "  --repo-for-update     Repository for update, specify .repo/.list file URL"
-    echo "  [--product]           scylla or scylla-enterprise, default from SCYLLA-PRODUCT-FILE"
-    echo "  [--dry-run]           Validate template only (image is not built). Default: false"
-    echo "  [--build-id]          Set unique build ID, will be part of GCE image name and as a label. Default: Date."
-    echo "  [--branch]            Set the release branch for GCE label. Default: master"
-    echo "  [--ami-regions]       Set regions to copy the AMI when done building it (including permissions and tags)"
-    echo "  [--operating-system]  Set the base OS for the image. Default: ubuntu20.04"
-    echo "  --download-no-server  Download all deb needed excluding scylla from repo-for-install"
-    echo "  [--debug]             Build debug image with special prefix for image name. Default: false."
-    echo "  [--log-file]          Path for log. Default build/ami.log on current dir. Default: build/packer.log"
-    echo "  --target              Target cloud (aws/gce/azure), mandatory when using this script directly, and not by soft links"
+    echo "  --repo                  Repository for both install and update, specify .repo/.list file URL"
+    echo "  --repo-for-install      Repository for install, specify .repo/.list file URL"
+    echo "  --repo-for-update       Repository for update, specify .repo/.list file URL"
+    echo "  [--product]             scylla or scylla-enterprise, default from SCYLLA-PRODUCT-FILE"
+    echo "  [--dry-run]             Validate template only (image is not built). Default: false"
+    echo "  [--build-id]            Set unique build ID, will be part of GCE image name and as a label. Default: Date."
+    echo "  [--scylla-build-sha-id] Scylla build SHA id form metadata file"
+    echo "  [--branch]              Set the release branch for GCE label. Default: master"
+    echo "  [--ami-regions]         Set regions to copy the AMI when done building it (including permissions and tags)"
+    echo "  [--operating-system]    Set the base OS for the image. Default: ubuntu20.04"
+    echo "  [--build-tag]           Jenkins Build tag"
+    echo "  --download-no-server    Download all deb needed excluding scylla from repo-for-install"
+    echo "  [--debug]               Build debug image with special prefix for image name. Default: false."
+    echo "  [--log-file]            Path for log. Default build/ami.log on current dir. Default: build/packer.log"
+    echo "  --target                Target cloud (aws/gce/azure), mandatory when using this script directly, and not by soft links"
     exit 1
 }
 LOCALDEB=0
@@ -90,6 +92,16 @@ while [ $# -gt 0 ]; do
         "--build-id")
             BUILD_ID=$2
             echo "--build-id parameter: BUILD_ID |$BUILD_ID|"
+            shift 2
+            ;;
+        "--scylla-build-sha-id")
+            SCYLLA_BUILD_SHA_ID=$2
+            echo "--build-id parameter: SCYLLA_BUILD_SHA_ID |$SCYLLA_BUILD_SHA_ID|"
+            shift 2
+            ;;
+        "--build-tag")
+            BUILD_TAG=$2
+            echo "--build-tag parameter: BUILD_TAG |$BUILD_TAG|"
             shift 2
             ;;
         "--branch")
@@ -326,6 +338,8 @@ set -x
   -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" \
   -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" \
   -var scylla_build_id="$BUILD_ID" \
+  -var scylla_build_sha_id="$SCYLLA_BUILD_SHA_ID" \
+  -var build_tag="$BUILD_TAG" \
   -var operating_system="$OPERATING_SYSTEM" \
   -var branch="$BRANCH" \
   -var ami_regions="$AMI_REGIONS" \
