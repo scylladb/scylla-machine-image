@@ -49,6 +49,7 @@ print_usage() {
     echo "  [--branch]              Set the release branch for GCE label. Default: master"
     echo "  [--ami-regions]         Set regions to copy the AMI when done building it (including permissions and tags)"
     echo "  [--operating-system]    Set the base OS for the image. Default: ubuntu20.04"
+    echo "  [--build-tag]           Jenkins Build tag"
     echo "  --download-no-server    Download all deb needed excluding scylla from repo-for-install"
     echo "  [--debug]               Build debug image with special prefix for image name. Default: false."
     echo "  [--log-file]            Path for log. Default build/ami.log on current dir. Default: build/packer.log"
@@ -98,6 +99,11 @@ while [ $# -gt 0 ]; do
         "--scylla-build-sha-id")
             SCYLLA_BUILD_SHA_ID=$2
             echo "--build-id parameter: SCYLLA_BUILD_SHA_ID |$SCYLLA_BUILD_SHA_ID|"
+            shift 2
+            ;;
+        "--build-tag")
+            BUILD_TAG=$2
+            echo "--build-tag parameter: BUILD_TAG |$BUILD_TAG|"
             shift 2
             ;;
         "--branch")
@@ -334,7 +340,8 @@ set -x
   -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" \
   -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" \
   -var scylla_build_id="$BUILD_ID" \
-  -var scylla__build_sha_id="$SCYLLA_BUILD_SHA_ID" \
+  -var scylla_build_sha_id="$SCYLLA_BUILD_SHA_ID" \
+  -var build_tag="$BUILD_TAG" \
   -var operating_system="$OPERATING_SYSTEM" \
   -var branch="$BRANCH" \
   -var ami_regions="$AMI_REGIONS" \
