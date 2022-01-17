@@ -172,6 +172,12 @@
       "type": "file"
     }
   ],
+  "post-processors": [
+    {
+      "type": "manifest",
+      "output": "scylla-image-manifest.json"
+    }
+  ],
   "variables": {
     "access_key": "",
     "image_prefix": "",
