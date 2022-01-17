@@ -60,8 +60,6 @@ class ScyllaMachineImageConfigurator:
         'raid_level': 0  # Default raid level is 0, supported raid 0, 5
     }
 
-    DISABLE_START_FILE_PATH = Path("/etc/scylla/ami_disabled")
-
     def __init__(self, scylla_yaml_path="/etc/scylla/scylla.yaml"):
         self.scylla_yaml_path = Path(scylla_yaml_path)
         self.scylla_yaml_example_path = Path(scylla_yaml_path + ".example")
@@ -159,7 +157,7 @@ class ScyllaMachineImageConfigurator:
         default_start_scylla_on_first_boot = self.CONF_DEFAULTS["start_scylla_on_first_boot"]
         if not self.instance_user_data.get("start_scylla_on_first_boot", default_start_scylla_on_first_boot):
             LOGGER.info("Disabling Scylla start on first boot")
-            self.DISABLE_START_FILE_PATH.touch()
+            subprocess.run("/usr/bin/systemctl stop scylla-server.service", shell=True, check=True)
 
     def create_devices(self):
         device_type = self.instance_user_data.get("data_device", self.CONF_DEFAULTS['data_device'])

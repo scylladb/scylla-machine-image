@@ -89,7 +89,6 @@ class TestScyllaConfigurator(TestCase):
     def test_empty_user_data(self):
         self.run_scylla_configure(**self.default_instance_metadata())
         self.check_yaml_files_exist()
-        assert not self.configurator.DISABLE_START_FILE_PATH.exists(), "ami_disabled not created"
         with self.configurator.scylla_yaml_path.open() as scylla_yaml_file:
             LOGGER.info("Checking that defaults are set as expected...")
             scylla_yaml = yaml.load(scylla_yaml_file, Loader=yaml.SafeLoader)
@@ -179,10 +178,9 @@ class TestScyllaConfigurator(TestCase):
                 start_scylla_on_first_boot=False,
             )
         )
-        self.configurator.DISABLE_START_FILE_PATH = self.temp_dir_path / "ami_disabled"
         self.run_scylla_configure(user_data=raw_user_data, private_ipv4=self.private_ip)
-        self.configurator.start_scylla_on_first_boot()
-        assert self.configurator.DISABLE_START_FILE_PATH.exists(), "ami_disabled not created"
+        with unittest.mock.patch("subprocess.run") as mocked_run:
+            self.configurator.start_scylla_on_first_boot()
 
     def test_default_raid0(self):
         self.run_scylla_configure(**self.default_instance_metadata())
