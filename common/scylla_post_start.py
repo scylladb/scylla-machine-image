@@ -36,8 +36,7 @@ class ScyllaMachineImagePostStart:
     @property
     def cloud_instance(self):
         if not self._cloud_instance:
-            sys.path.append('/opt/scylladb/scripts')
-            from scylla_util import get_cloud_instance
+            from lib.scylla_cloud import get_cloud_instance
             self._cloud_instance = get_cloud_instance()
         return self._cloud_instance
 
