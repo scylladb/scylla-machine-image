@@ -18,10 +18,7 @@ import argparse
 import sys
 from pathlib import Path
 from subprocess import run
-
-
-sys.path.append('/opt/scylladb/scripts')
-from scylla_util import is_ec2, is_gce, is_azure, get_cloud_instance
+from lib.scylla_cloud import is_ec2, is_gce, is_azure, get_cloud_instance
 
 class DiskIsNotEmptyError(Exception):
     def __init__(self, disk):
