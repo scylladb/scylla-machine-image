@@ -268,6 +268,7 @@ export PACKER_LOG_PATH
   -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" \
   -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" \
   -var ami_regions="$AMI_REGIONS" \
+  -var arch="$(arch)" \
   "${PACKER_ARGS[@]}" \
   "$REALDIR"/scylla.json
 
