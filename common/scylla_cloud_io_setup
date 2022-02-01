@@ -33,7 +33,7 @@ if __name__ == "__main__":
                 sys.exit(1)
             disk_properties = {}
             disk_properties["mountpoint"] = datadir()
-            nr_disks = len(idata.ephemeral_disks())
+            nr_disks = len(idata.get_local_disks())
             ## both i3 and i2 can run with 1 I/O Queue per shard
             if idata.instance() == "i3.large":
                 disk_properties["read_iops"] = 111000
@@ -191,7 +191,7 @@ if __name__ == "__main__":
             if idata.is_recommended_instance():
                 disk_properties = {}
                 disk_properties["mountpoint"] = datadir()
-                nr_disks = idata.nvmeDiskCount
+                nr_disks = idata.nvme_disk_count
                 # below is based on https://cloud.google.com/compute/docs/disks/local-ssd#performance
                 # and https://cloud.google.com/compute/docs/disks/local-ssd#nvme
                 # note that scylla iotune might measure more, this is GCP recommended
@@ -242,7 +242,7 @@ if __name__ == "__main__":
             if idata.is_recommended_instance():
                 disk_properties = {}
                 disk_properties["mountpoint"] = datadir()
-                nr_disks = idata.nvmeDiskCount
+                nr_disks = idata.nvme_disk_count
                 # below is based on https://docs.microsoft.com/en-us/azure/virtual-machines/lsv2-series
                 # note that scylla iotune might measure more, this is Azure recommended
                 # since write properties are not defined, they come from our iotune tests

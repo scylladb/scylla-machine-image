@@ -59,10 +59,10 @@ def get_disk_devices(instance, device_type):
     if is_ec2():
         devices = []
         if device_type == "attached":
-            check_persistent_disks_are_empty(instance.ebs_disks())
-            devices = [str(Path('/dev', name)) for name in instance.ebs_disks() if Path('/dev', name).exists()]
+            check_persistent_disks_are_empty(instance.get_remote_disks())
+            devices = [str(Path('/dev', name)) for name in instance.get_remote_disks() if Path('/dev', name).exists()]
         if not devices or device_type == "instance_store":
-            devices = [str(Path('/dev', name)) for name in instance.ephemeral_disks()]
+            devices = [str(Path('/dev', name)) for name in instance.get_local_disks()]
         if not devices:
             raise Exception(f"No block devices were found for '{device_type}' device type")
         return devices
@@ -76,23 +76,10 @@ def get_disk_devices(instance, device_type):
 
 def get_default_devices(instance):
     disk_names = []
-    if is_ec2():
-        disk_names = instance.ephemeral_disks()
-        if not disk_names:
-            disk_names = instance.ebs_disks()
-            check_persistent_disks_are_empty(disk_names)
-    elif is_gce():
-        disk_names = instance.getEphemeralOsDisks()
-        if not disk_names:
-            disk_names = instance.getPersistentOsDisks()
-            check_persistent_disks_are_empty(disk_names)
-    elif is_azure():
-        disk_names = instance.getEphemeralOsDisks()
-        if not disk_names:
-            disk_names = instance.getPersistentOsDisks()
-            check_persistent_disks_are_empty(disk_names)
-    else:
-        raise Exception("Running in unknown cloud environment")
+    disk_names = instance.get_local_disks()
+    if not disk_names:
+        disk_names = instance.get_remote_disks()
+        check_persistent_disks_are_empty(disk_names)
     return [str(Path('/dev', name)) for name in disk_names]
 
 
