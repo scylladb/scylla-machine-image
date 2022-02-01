@@ -45,6 +45,12 @@ if [[ ! -f /etc/redhat-release ]]; then
     echo "Need Redhat like OS to build RPM"
 fi
 
+# Centos8 is EOL, need to change mirrors
+if [ "$VERSION" = "8" ] ; then
+  sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-Linux-* ;
+  sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-Linux-* ;
+fi
+
 # On clean CentOS Docker sudo command is not installed
 if ! rpm -q sudo; then
     yum install -y sudo
