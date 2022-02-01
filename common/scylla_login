@@ -125,11 +125,11 @@ if __name__ == '__main__':
         elif is_azure():
             non_root_disks = cloud_instance.getPersistentOsDisks() + cloud_instance.getEphemeralOsDisks()
         if len(non_root_disks) == 0:
-            colorprint(MSG_UNSUPPORTED_INSTANCE_TYPE_NO_DISKS % cloud_instance.GETTING_STARTED_URL,
+            colorprint(MSG_UNSUPPORTED_INSTANCE_TYPE_NO_DISKS % cloud_instance.getting_started_url,
                 type=cloud_instance.instance_class())
 
         else:
-            colorprint(MSG_UNSUPPORTED_INSTANCE_TYPE % cloud_instance.GETTING_STARTED_URL,
+            colorprint(MSG_UNSUPPORTED_INSTANCE_TYPE % cloud_instance.getting_started_url,
                 type=cloud_instance.instance_class())
     else:
         skip_scylla_server = False
