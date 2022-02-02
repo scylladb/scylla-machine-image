@@ -18,7 +18,8 @@ import os
 import sys
 import pathlib
 sys.path.append('/opt/scylladb/scripts')
-from scylla_util import *
+from scylla_util import is_redhat_variant
+from lib.scylla_cloud import get_cloud_instance, is_gce
 from subprocess import run
 
 if __name__ == '__main__':

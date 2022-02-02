@@ -166,19 +166,23 @@ if __name__ == '__main__':
         run('/opt/scylladb/scripts/scylla_cpuscaling_setup --force')
 
     run('/opt/scylladb/scripts/scylla_sysconfig_setup --ami --set-clocksource {}'.format(sysconfig_opt))
-    run('/opt/scylladb/scripts/scylla_bootparam_setup --ami')
     os.remove('{}/.ssh/authorized_keys'.format(homedir))
     os.remove('/var/lib/scylla-housekeeping/housekeeping.uuid')
 
-    with open('/etc/default/grub') as f:
-        grub = f.read()
-    grub = re.sub(r'^GRUB_CMDLINE_LINUX="(.+)"$', r'GRUB_CMDLINE_LINUX="\1 net.ifnames=0"', grub, flags=re.MULTILINE)
-    with open('/etc/default/grub', 'w') as f:
-        f.write(grub)
     if distro == 'centos':
+        with open('/etc/default/grub') as f:
+            grub = f.read()
+        grub = re.sub(r'^GRUB_CMDLINE_LINUX="(.+)"$', r'GRUB_CMDLINE_LINUX="\1 net.ifnames=0 clocksource=tsc tsc=reliable"', grub, flags=re.MULTILINE)
+        with open('/etc/default/grub', 'w') as f:
+            f.write(grub)
         run('grub2-mkconfig -o /boot/grub2/grub.cfg')
     else:
-        run('grub-mkconfig -o /boot/grub/grub.cfg')
+        with open('/etc/default/grub.d/50-cloudimg-settings.cfg') as f:
+            grub = f.read()
+        grub = re.sub(r'^GRUB_CMDLINE_LINUX_DEFAULT="(.+)"$', r'GRUB_CMDLINE_LINUX_DEFAULT="\1 net.ifnames=0 clocksource=tsc tsc=reliable"', grub, flags=re.MULTILINE)
+        with open('/etc/default/grub.d/50-cloudimg-settings.cfg', 'w') as f:
+            f.write(grub)
+        run('update-grub2')
 
     if distro == 'centos':
         profile = '/etc/skel/.bash_profile'

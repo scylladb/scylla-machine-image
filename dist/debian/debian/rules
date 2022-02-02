@@ -8,13 +8,14 @@ override_dh_auto_clean:
 
 override_dh_auto_install:
 	install -d -m755 $(CURDIR)/debian/tmp/opt/scylladb/scylla-machine-image/lib
-	install -m644 lib/log.py $(CURDIR)/debian/tmp/opt/scylladb/scylla-machine-image/lib
+	install -m644 lib/log.py lib/scylla_cloud.py $(CURDIR)/debian/tmp/opt/scylladb/scylla-machine-image/lib
 	install -m755 common/scylla_configure.py common/scylla_post_start.py common/scylla_create_devices $(CURDIR)/debian/tmp/opt/scylladb/scylla-machine-image
 	./tools/relocate_python_scripts.py \
 		--installroot $(CURDIR)/debian/tmp/opt/scylladb/scylla-machine-image/ \
 		--with-python3 $(CURDIR)/debian/tmp/opt/scylladb/python3/bin/python3 \
 	common/scylla_image_setup common/scylla_login common/scylla_configure.py \
-	common/scylla_create_devices common/scylla_post_start.py
+	common/scylla_create_devices common/scylla_post_start.py \
+	common/scylla_cloud_io_setup common/scylla_ec2_check
 
 override_dh_installinit:
 	dh_installinit --no-start --name scylla-image-setup
