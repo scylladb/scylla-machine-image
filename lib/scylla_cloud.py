@@ -27,6 +27,7 @@ import socket
 import glob
 from subprocess import run, DEVNULL
 from abc import ABCMeta, abstractmethod
+from lib.scylla_cloud_io_setup import aws_io_setup, gcp_io_setup, azure_io_setup
 
 # @param headers dict of k:v
 def curl(url, headers=None, byte=False, timeout=3, max_retries=5, retry_interval=5):
@@ -360,9 +361,15 @@ class gcp_instance(cloud_instance):
     def check():
         pass
 
-    @staticmethod
-    def io_setup():
-        return run('/opt/scylladb/scylla-machine-image/scylla_cloud_io_setup', shell=True, check=True)
+    def io_setup(self):
+        io = gcp_io_setup(self)
+        try:
+            io.generate()
+        except UnsupportedInstanceClassError:
+            logging.error('This is not a recommended Google Cloud instance setup for auto local disk tuning.')
+        except PresetNotFoundError:
+            logging.error('Did not detect number of disks in Google Cloud instance setup for auto local disk tuning.')
+        io.save()
 
     @property
     def user_data(self):
@@ -567,9 +574,16 @@ class azure_instance(cloud_instance):
     def check():
         pass
 
-    @staticmethod
-    def io_setup():
-        return run('/opt/scylladb/scylla-machine-image/scylla_cloud_io_setup', shell=True, check=True)
+    def io_setup(self):
+        io = azure_io_setup(self)
+        try:
+            io.generate()
+        except UnsupportedInstanceClassError:
+            logging.error('This is not a recommended Azure Cloud instance setup for auto local disk tuning.')
+        except PresetNotFoundError:
+            logging.error('Did not detect number of disks in Azure Cloud instance setup for auto local disk tuning.')
+        io.save()
+
 
 class aws_instance(cloud_instance):
     """Describe several aspects of the current AWS instance"""
@@ -747,9 +761,15 @@ class aws_instance(cloud_instance):
     def check():
         return run('/opt/scylladb/scylla-machine-image/scylla_ec2_check --nic eth0', shell=True)
 
-    @staticmethod
-    def io_setup():
-        return run('/opt/scylladb/scylla-machine-image/scylla_cloud_io_setup', shell=True, check=True)
+    def io_setup(self):
+        io = aws_io_setup(self)
+        try:
+            io.generate()
+        except UnsupportedInstanceClassError:
+            logging.error('This is not a recommended EC2 instance setup for auto local disk tuning.')
+        except PresetNotFoundError:
+            logging.error('This is a supported AWS instance type but there are no preconfigured IO scheduler parameters for it.')
+        io.save()
 
     @property
     def user_data(self):
