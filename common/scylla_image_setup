@@ -8,7 +8,7 @@ import os
 import sys
 import pathlib
 sys.path.append('/opt/scylladb/scripts')
-from scylla_util import is_redhat_variant
+from scylla_util import is_redhat_variant, systemd_unit
 from lib.scylla_cloud import get_cloud_instance, is_gce
 from subprocess import run
 
@@ -29,9 +29,9 @@ if __name__ == '__main__':
                     cloud_instance.io_setup()
             else:
                 cloud_instance.io_setup()
-            run('/opt/scylladb/scripts/scylla_coredump_setup --dump-to-raiddir', shell=True, check=True)
-    else:
-        run('/opt/scylladb/scripts/scylla_coredump_setup', shell=True, check=True)
+            systemd_unit.reload()
+            systemd_unit('var-lib-systemd-coredump.mount').enable()
+            systemd_unit('var-lib-systemd-coredump.mount').start()
     if not os.path.ismount('/var/lib/scylla'):
         print('Failed to initialize RAID volume!')
     pathlib.Path('/etc/scylla/machine_image_configured').touch()
