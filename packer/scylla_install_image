@@ -161,6 +161,27 @@ if __name__ == '__main__':
 
     run('/opt/scylladb/scripts/scylla_sysconfig_setup --ami --set-clocksource {}'.format(sysconfig_opt))
     run('/opt/scylladb/scripts/scylla_swap_setup --swap-size-bytes {}'.format(half_of_diskfree()))
+    run('/opt/scylladb/scripts/scylla_coredump_setup')
+    dot_mount = '''
+[Unit]
+Description=Save coredump to scylla data directory
+Conflicts=umount.target
+Before=scylla-server.service
+After=local-fs.target
+DefaultDependencies=no
+
+[Mount]
+What=/var/lib/scylla/coredump
+Where=/var/lib/systemd/coredump
+Type=none
+Options=bind
+
+[Install]
+WantedBy=multi-user.target
+'''[1:-1]
+    with open('/etc/systemd/system/var-lib-systemd-coredump.mount', 'w') as f:
+        f.write(dot_mount)
+    os.makedirs('/var/lib/scylla/coredump', exist_ok=True)
 
     os.remove('{}/.ssh/authorized_keys'.format(homedir))
     os.remove('/var/lib/scylla-housekeeping/housekeeping.uuid')
