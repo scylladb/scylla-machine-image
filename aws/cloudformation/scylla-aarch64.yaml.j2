@@ -1,0 +1,456 @@
+{%- set total_num_node = 10 %}
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  AWS CloudFormation Scylla Sample Template: This would create a new Scylla Cluster
+  Including it's own VPC and subnet, Elastic IPs are used for accessing those node publicly
+
+  Use `SGAdmin` security group to enable access from outside to this cluster
+  By default only SSH port is out to the outside world.
+
+  NOTE: the cluster password for the default user (cassandra) is the instance-id of
+  the first node, therefore connecting to the cluster should be something like
+  `cqlsh -u cassandra -p i-00a9d141da09ba159`.
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Scylla Parameters
+        Parameters:
+          - ScyllaClusterName
+          - ScyllaAmi
+          - ScyllaSeedIPs
+      - Label:
+          default: AWS Parameters
+        Parameters:
+          - InstanceType
+          - InstanceCount
+          - AvailabilityZone
+          - CIDR
+          - EnablePublicAccess
+          - PublicAccessCIDR
+          - KeyName
+    ParameterLabels:
+      ScyllaClusterName:
+        default: Scylla cluster name
+      ScyllaAmi:
+        default: Scylla AMI ID
+      ScyllaSeedIPs:
+        default: Scylla seed nodes IPs
+      InstanceType:
+        default: EC2 instance type
+      InstanceCount:
+        default: Number of Scylla nodes (EC2 Instances)
+      AvailabilityZone:
+        default: Availability Zone
+      CIDR:
+        default: CIDR block for Scylla VPC
+      EnablePublicAccess:
+        default: Allow public access (SSH)
+      PublicAccessCIDR:
+        default: Allowed subnet for public access (SSH)
+
+Parameters:
+  ScyllaClusterName:
+    Type: String
+
+  PublicAccessCIDR:
+    Type: String
+    Description: |
+        The IP address range that can be used to SSH to the EC2 instances
+        (x.x.x.x/32 for specific IP, 0.0.0.0/0 to allow all IP addresses)
+
+  InstanceCount:
+    Description: Must be between 1 and {{ total_num_node }}
+    Type: String
+    Default: 1
+    AllowedValues: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    ConstraintDescription: Must be a number between 1 and {{ total_num_node }}.
+
+  EnablePublicAccess:
+    Description: Sef true to enable public access to the Scylla cluster nodes
+    Type: String
+    AllowedValues:
+      - 'false'
+      - 'true'
+    Default: 'false'
+
+  InstanceType:
+    Type: String
+    Default: im4gn.xlarge
+    AllowedValues:
+      - im4gn.xlarge
+      - im4gn.2xlarge
+      - im4gn.4xlarge
+      - im4gn.8xlarge
+      - im4gn.16xlarge
+      - is4gen.xlarge
+      - is4gen.2xlarge
+      - is4gen.4xlarge
+    ConstraintDescription: must be a valid EC2 instance type.
+
+  AvailabilityZone:
+    Type: 'AWS::EC2::AvailabilityZone::Name'
+    ConstraintDescription: must be the name of available AvailabilityZone.
+
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instances
+    Type: 'AWS::EC2::KeyPair::KeyName'
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+
+  CIDR:
+    Description: |
+        Currently supports 8, 16, or 24 netmask.
+        The node IPs will be x.x.x.10, x.x.x.11, x.x.x.12 etc.
+    Type: 'String'
+    Default: '172.31.0.0/16'
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: must be a valid CIDR (ex. 172.31.0.0/16)
+
+  ScyllaSeedIPs:
+    Description: |
+      Will be set as `seeds` on /etc/scylla/scylla.yaml.
+      NOTE: The first four IP addresses and the last IP address in each subnet reserved by AWS,
+      for more information, see https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html#VPC_Sizing
+    Type: CommaDelimitedList
+    Default: '172.31.0.10, 172.31.0.11, 172.31.0.12'
+
+# Those conditions would be used to enable nodes based on InstanceCount parameter
+Conditions:
+    Launch1: !Equals [1, 1]
+    Launch2: !Not [!Equals [1, !Ref InstanceCount]]
+{%- for node_index in range(3, total_num_node) %}
+    Launch{{ node_index }}: !And
+{%- for i in range(1, node_index) %}
+      - !Not [!Equals [{{ i }}, !Ref InstanceCount]]
+{%- endfor %}
+{%- endfor %}
+    Launch{{ total_num_node }}: !Equals [{{ total_num_node }}, !Ref InstanceCount]
+
+Mappings:
+  RegionMap:
+    ap-northeast-2:
+      HVM64: placeholder-ap-northeast-2
+    ap-southeast-2:
+      HVM64: placeholder-ap-southeast-2
+    ap-southeast-1:
+      HVM64: placeholder-ap-southeast-1
+    ca-central-1:
+      HVM64: placeholder-ca-central-1
+    us-east-2:
+      HVM64: placeholder-us-east-2
+    us-east-1:
+      HVM64: placeholder-us-east-1
+    sa-east-1:
+      HVM64: placeholder-sa-east-1
+    eu-west-1:
+      HVM64: placeholder-eu-west-1
+    eu-west-2:
+      HVM64: placeholder-eu-west-2
+    eu-central-1:
+      HVM64: placeholder-eu-central-1
+    us-west-2:
+      HVM64: placeholder-us-west-2
+    eu-west-3:
+      HVM64: placeholder-eu-west-3
+    eu-north-1:
+      HVM64: placeholder-eu-north-1
+    ap-northeast-1:
+      HVM64: placeholder-ap-northeast-1
+    ap-northeast-3:
+      HVM64: placeholder-ap-northeast-3
+    ap-south-1:
+      HVM64: placeholder-ap-south-1
+    us-west-1:
+      HVM64: placeholder-us-west-1
+
+Resources:
+  GatewayAttachment:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  InternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${ScyllaClusterName}-Gateway'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
+
+{%- for node_index in range(total_num_node) %}
+  Node{{ node_index }}:
+    Condition: Launch{{ node_index + 1 }}
+    Type: 'AWS::EC2::Instance'
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT10M
+    DependsOn: CfnEndpoint
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            DeleteOnTermination: true
+            VolumeSize: 50
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", HVM64]
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      Tags:
+        - Key: Name
+          Value: !Sub '${ScyllaClusterName}-Node-{{ node_index + 1 }}'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
+{%- if node_index == 0 %}
+      UserData: !Base64
+        'Fn::Join':
+          - ''
+          - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
+            - !Join
+              - ','
+              - - !If [Launch1, !Select [0, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch2, !Select [1, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch3, !Select [2, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+            - '"}]}]'
+            - !Sub ', "cluster_name": "${ScyllaClusterName}", '
+            - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch", '
+            - '"authenticator": "PasswordAuthenticator"}, '
+            - '"start_scylla_on_first_boot": true, '
+            - '"post_configuration_script" : "'
+            - !Base64
+              'Fn::Join':
+                - ''
+                - - !Sub |
+                    #!/bin/bash -ex
+                    /usr/local/bin/cfn-signal --exit-code 0 --resource Node{{ node_index }} --region ${AWS::Region} --stack ${AWS::StackName}
+            - '", '
+            - '"post_start_script": "'
+            - !Base64
+              'Fn::Join':
+                - ''
+                - - !Sub |
+                    #!/bin/bash -ex
+                    export INSTANCE_ID=$(curl -sS http://169.254.169.254/latest/meta-data/instance-id)
+                    /usr/bin/cqlsh -u cassandra -p cassandra -e "ALTER USER cassandra WITH PASSWORD '$INSTANCE_ID';"
+                    /usr/bin/cqlsh -u cassandra -p $INSTANCE_ID -e "ALTER KEYSPACE system_auth WITH REPLICATION = {'class': 'SimpleStrategy', 'replication_factor': ${InstanceCount}};"
+            - '"}'
+{%- else %}
+      UserData: !Base64
+        'Fn::Join':
+          - ''
+          - - '{"scylla_yaml": {"seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider", "parameters": [{"seeds": "'
+            - !Join
+              - ','
+              - - !If [Launch1, !Select [0, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch2, !Select [1, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+                - !If [Launch3, !Select [2, !Ref ScyllaSeedIPs], !Ref "AWS::NoValue"]
+            - '"}]}]'
+            - !Sub ', "cluster_name": "${ScyllaClusterName}", '
+            - '"endpoint_snitch": "org.apache.cassandra.locator.Ec2Snitch", '
+            - '"authenticator": "PasswordAuthenticator"}, '
+            - '"start_scylla_on_first_boot": true, '
+            - '"post_configuration_script" : "'
+            - !Base64
+              'Fn::Join':
+                - ''
+                - - !Sub |
+                    #!/bin/bash -ex
+                    /usr/local/bin/cfn-signal --exit-code 0 --resource Node{{ node_index }} --region ${AWS::Region} --stack ${AWS::StackName}
+            - '"}'
+{%- endif %}
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: !Ref EnablePublicAccess
+          PrivateIpAddress: !Join
+            - '.'
+            - - !Select [0, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [1, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - !Select [2, !Split ['.', !Select [0, !Split ['/', !Ref CIDR]]]]
+              - {{ node_index + 10 }}
+          SubnetId: !Ref Subnet
+          DeviceIndex: '0'
+          Description: 'Primary network interface'
+          GroupSet:
+            - !Ref SGCluster
+            - !Ref SGAdmin
+            - !Ref SGExternal
+{%- endfor %}
+  Route:
+    Type: 'AWS::EC2::Route'
+    DependsOn: GatewayAttachment
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref RouteTable
+  RouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${ScyllaClusterName}-RT'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
+      VpcId: !Ref VPC
+
+  SGExternal:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Security group for outbound rules
+      Tags:
+        - Key: Name
+          Value: !Sub '${ScyllaClusterName}-SGExternal'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: '-1'
+      VpcId: !Ref VPC
+
+  SGAdmin:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Security group for the admin
+      Tags:
+        - Key: Name
+          Value: !Sub '${ScyllaClusterName}-SGAdmin'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
+      SecurityGroupIngress:
+        - CidrIp: !Ref PublicAccessCIDR
+          FromPort: 22
+          ToPort: 22
+          IpProtocol: tcp
+      VpcId: !Ref VPC
+
+  SGCluster:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Security group for the cluster
+      Tags:
+        - Key: Name
+          Value: !Sub '${ScyllaClusterName}-SGCluster'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
+      SecurityGroupIngress:
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 9042
+          ToPort: 9042
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 9142
+          ToPort: 9142
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 7000
+          ToPort: 7001
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 7199
+          ToPort: 7199
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 10000
+          ToPort: 10000
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 9180
+          ToPort: 9180
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 9100
+          ToPort: 9100
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 9160
+          ToPort: 9160
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 19042
+          ToPort: 19042
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 19142
+          ToPort: 19142
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'icmp'
+          FromPort: 8
+          ToPort: '-1'
+        - CidrIp: !Ref CIDR
+          IpProtocol: 'tcp'
+          FromPort: 443
+          ToPort: 443
+      VpcId: !Ref VPC
+
+  Subnet:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Ref AvailabilityZone
+      CidrBlock: !Ref CIDR
+      MapPublicIpOnLaunch: !Ref EnablePublicAccess
+      Tags:
+        - Key: Name
+          Value: !Sub '${ScyllaClusterName}-Subnet'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
+      VpcId: !Ref VPC
+
+  SubnetRouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref RouteTable
+      SubnetId: !Ref Subnet
+
+  VPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: !Ref CIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${ScyllaClusterName}-VPC'
+        - Key: ScyllaClusterName
+          Value: !Ref ScyllaClusterName
+
+  CfnEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DependsOn: SGCluster
+    Properties:
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.cloudformation"
+      VpcEndpointType: "Interface"
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref Subnet
+      SecurityGroupIds:
+        - !Ref SGCluster
+        - !Ref SGAdmin
+        - !Ref SGExternal
+
+Outputs:
+{%- for node_index in range(total_num_node) %}
+  Node{{ node_index }}:
+    Condition: Launch{{ node_index + 1 }}
+    Value: !Ref Node{{ node_index }}
+  Node{{ node_index }}PrivateDnsName:
+    Condition: Launch{{ node_index + 1 }}
+    Value: !GetAtt
+      - Node{{ node_index }}
+      - PrivateDnsName
+  Node{{ node_index }}PrivateIp:
+    Condition: Launch{{ node_index + 1 }}
+    Value: !GetAtt
+      - Node{{ node_index }}
+      - PrivateIp
+{%- endfor %}
+  SGExternal:
+    Value: !Ref SGExternal
+  SGAdmin:
+    Value: !Ref SGAdmin
+  SGCluster:
+    Value: !Ref SGCluster
+  Subnet:
+    Value: !Ref Subnet
+  VPC:
+    Value: !Ref VPC
