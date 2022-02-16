@@ -260,5 +260,5 @@ if __name__ == '__main__':
                 pkgs.append(d)
         with open('{}/scylla-packages.txt'.format(homedir), 'w') as f:
             for pkg_name in pkgs:
-                pkg_name_version = subprocess.check_output("dpkg-query --showformat='${{Package}}-${{Version}}' --show {}".format(pkg_name), shell=True, encoding='utf-8')
+                pkg_name_version = subprocess.check_output("dpkg-query --showformat='${{Package}}=${{Version}}' --show {}".format(pkg_name), shell=True, encoding='utf-8')
                 f.write('{}\n'.format(pkg_name_version))
