@@ -75,6 +75,7 @@ Parameters:
       - 'true'
     Default: 'false'
 
+{% if 'x86_64' in arch %}
   InstanceType:
     Type: String
     Default: i3.large
@@ -94,6 +95,20 @@ Parameters:
       - i3en.12xlarge
       - i3en.24xlarge
       - i3en.metal
+{% elif 'aarch64' in arch %}
+  InstanceType:
+    Type: String
+    Default: im4gn.xlarge
+    AllowedValues:
+      - im4gn.xlarge
+      - im4gn.2xlarge
+      - im4gn.4xlarge
+      - im4gn.8xlarge
+      - im4gn.16xlarge
+      - is4gen.xlarge
+      - is4gen.2xlarge
+      - is4gen.4xlarge
+{% endif %}
     ConstraintDescription: must be a valid EC2 instance type.
 
   AvailabilityZone:
