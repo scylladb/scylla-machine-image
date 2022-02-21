@@ -226,7 +226,7 @@ class gcp_instance(cloud_instance):
         """get # of nvme disks available for scylla raid"""
         if self.__nvmeDiskCount is None:
             try:
-                ephemeral_disks = self.getEphemeralOsDisks()
+                ephemeral_disks = self.get_local_disks()
                 count_os_disks=len(ephemeral_disks)
             except Exception as e:
                 print ("Problem when parsing disks from OS:")
@@ -312,7 +312,7 @@ class gcp_instance(cloud_instance):
     def firstNvmeSize(self):
         """return the size of first non root NVME disk in GB"""
         if self.__firstNvmeSize is None:
-            ephemeral_disks = self.getEphemeralOsDisks()
+            ephemeral_disks = self.get_local_disks()
             if len(ephemeral_disks) > 0:
                 firstDisk = ephemeral_disks[0]
                 firstDiskSize = self.get_file_size_by_seek(os.path.join("/dev/", firstDisk))
@@ -480,7 +480,7 @@ class azure_instance(cloud_instance):
         """get # of nvme disks available for scylla raid"""
         if self.__nvmeDiskCount is None:
             try:
-                ephemeral_disks = self.getEphemeralOsDisks()
+                ephemeral_disks = self.get_local_disks()
                 count_os_disks = len(ephemeral_disks)
             except Exception as e:
                 print("Problem when parsing disks from OS:")
