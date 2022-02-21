@@ -15,6 +15,7 @@ import urllib.request
 import psutil
 import socket
 import glob
+import distro
 from subprocess import run, DEVNULL
 from abc import ABCMeta, abstractmethod
 from lib.scylla_cloud_io_setup import aws_io_setup, gcp_io_setup, azure_io_setup
@@ -785,3 +786,15 @@ def get_cloud_instance():
         return azure_instance()
     else:
         raise Exception("Unknown cloud provider! Only AWS/GCP/Azure supported.")
+
+
+CONCOLORS = {'green': '\033[1;32m', 'red': '\033[1;31m', 'nocolor': '\033[0m'}
+
+
+def colorprint(msg, **kwargs):
+    fmt = dict(CONCOLORS)
+    fmt.update(kwargs)
+    print(msg.format(**fmt))
+
+def is_redhat_variant():
+    return 'rhel' in distro.like().split()
