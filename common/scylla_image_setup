@@ -17,14 +17,13 @@
 import os
 import sys
 import pathlib
-sys.path.append('/opt/scylladb/scripts')
-from scylla_util import is_redhat_variant
+import distro
 from lib.scylla_cloud import get_cloud_instance, is_gce
 from subprocess import run
 
 if __name__ == '__main__':
     # On Ubuntu, we configure CPU scaling while AMI building time
-    if is_redhat_variant():
+    if distro.id() == 'centos':
         run('/opt/scylladb/scripts/scylla_cpuscaling_setup', shell=True, check=True)
     cloud_instance = get_cloud_instance()
     run('/opt/scylladb/scylla-machine-image/scylla_configure.py', shell=True, check=True)

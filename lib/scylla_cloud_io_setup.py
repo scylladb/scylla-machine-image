@@ -19,8 +19,6 @@ import os
 import yaml
 import logging
 import sys
-sys.path.append('/opt/scylladb/scripts')
-from scylla_util import is_developer_mode, etcdir, datadir
 from abc import ABCMeta, abstractmethod
 
 def UnsupportedInstanceClassError(Exception):
@@ -36,12 +34,12 @@ class cloud_io_setup(metaclass=ABCMeta):
 
     def save(self):
         assert "read_iops" in self.disk_properties
-        properties_file = open(etcdir() + "/scylla.d/io_properties.yaml", "w")
+        properties_file = open("/etc/scylla.d/io_properties.yaml", "w")
         yaml.dump({"disks": [self.disk_properties]}, properties_file,  default_flow_style=False)
-        ioconf = open(etcdir() + "/scylla.d/io.conf", "w")
+        ioconf = open("/etc/scylla.d/io.conf", "w")
         ioconf.write("SEASTAR_IO=\"--io-properties-file={}\"\n".format(properties_file.name))
-        os.chmod(etcdir() + '/scylla.d/io_properties.yaml', 0o644)
-        os.chmod(etcdir() + '/scylla.d/io.conf', 0o644)
+        os.chmod('/etc/scylla.d/io_properties.yaml', 0o644)
+        os.chmod('/etc/scylla.d/io.conf', 0o644)
 
 
 class aws_io_setup(cloud_io_setup):
@@ -52,7 +50,7 @@ class aws_io_setup(cloud_io_setup):
     def generate(self):
         if not self.idata.is_supported_instance_class():
             raise UnsupportedInstanceClassError()
-        self.disk_properties["mountpoint"] = datadir()
+        self.disk_properties["mountpoint"] = '/var/lib/scylla'
         nr_disks = len(self.idata.get_local_disks())
         ## both i3 and i2 can run with 1 I/O Queue per shard
         if self.idata.instance() == "i3.large":
@@ -210,7 +208,7 @@ class gcp_io_setup(cloud_io_setup):
         if not self.idata.is_supported_instance_class():
             raise UnsupportedInstanceClassError()
         self.disk_properties = {}
-        self.disk_properties["mountpoint"] = datadir()
+        self.disk_properties["mountpoint"] = '/var/lib/scylla'
         nr_disks = self.idata.nvme_disk_count
         # below is based on https://cloud.google.com/compute/docs/disks/local-ssd#performance
         # and https://cloud.google.com/compute/docs/disks/local-ssd#nvme
@@ -259,7 +257,7 @@ class azure_io_setup(cloud_io_setup):
             raise UnsupportedInstanceClassError()
 
         self.disk_properties = {}
-        self.disk_properties["mountpoint"] = datadir()
+        self.disk_properties["mountpoint"] = '/var/lib/scylla'
         nr_disks = self.idata.nvme_disk_count
         # below is based on https://docs.microsoft.com/en-us/azure/virtual-machines/lsv2-series
         # note that scylla iotune might measure more, this is Azure recommended

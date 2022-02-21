@@ -795,3 +795,12 @@ def get_cloud_instance():
         return azure_instance()
     else:
         raise Exception("Unknown cloud provider! Only AWS/GCP/Azure supported.")
+
+
+CONCOLORS = {'green': '\033[1;32m', 'red': '\033[1;31m', 'nocolor': '\033[0m'}
+
+
+def colorprint(msg, **kwargs):
+    fmt = dict(CONCOLORS)
+    fmt.update(kwargs)
+    print(msg.format(**fmt))
