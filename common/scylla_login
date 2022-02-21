@@ -19,7 +19,7 @@ import os
 import sys
 sys.path.append('/opt/scylladb/scripts')
 from scylla_util import colorprint, systemd_unit
-from lib.scylla_cloud import get_cloud_instance, is_ec2, is_gce, is_azure
+from lib.scylla_cloud import get_cloud_instance
 from subprocess import run
 
 MSG_HEADER = '''
@@ -118,12 +118,7 @@ if __name__ == '__main__':
     colorprint(MSG_HEADER.format(scylla_version=run("scylla --version", shell=True, check=True, capture_output=True, encoding='utf-8').stdout.strip()))
     cloud_instance = get_cloud_instance()
     if not cloud_instance.is_supported_instance_class():
-        if is_ec2():
-            non_root_disks = cloud_instance.ehpemeral_disks() + cloud_instance.ebs_disks()
-        elif is_gce():
-            non_root_disks = cloud_instance.getPersistentOsDisks() + cloud_instance.getEphemeralOsDisks()
-        elif is_azure():
-            non_root_disks = cloud_instance.getPersistentOsDisks() + cloud_instance.getEphemeralOsDisks()
+        non_root_disks = cloud_instance.get_local_disks() + cloud_instance.get_remote_disks()
         if len(non_root_disks) == 0:
             colorprint(MSG_UNSUPPORTED_INSTANCE_TYPE_NO_DISKS % cloud_instance.getting_started_url,
                 type=cloud_instance.instance_class())
