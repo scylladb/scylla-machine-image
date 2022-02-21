@@ -26,6 +26,8 @@ import psutil
 import socket
 import glob
 from subprocess import run, DEVNULL
+from abc import ABCMeta, abstractmethod
+from lib.scylla_cloud_io_setup import aws_io_setup, gcp_io_setup, azure_io_setup
 
 # @param headers dict of k:v
 def curl(url, headers=None, byte=False, timeout=3, max_retries=5, retry_interval=5):
@@ -45,7 +47,62 @@ def curl(url, headers=None, byte=False, timeout=3, max_retries=5, retry_interval
                 raise
 
 
-class gcp_instance:
+class cloud_instance(metaclass=ABCMeta):
+    @abstractmethod
+    def get_local_disks(self):
+        pass
+
+    @abstractmethod
+    def get_remote_disks(self):
+        pass
+
+    @abstractmethod
+    def private_ipv4(self):
+        pass
+
+    @abstractmethod
+    def is_supported_instance_class(self):
+        pass
+
+    @abstractmethod
+    def instance_class(self):
+        pass
+
+    @abstractmethod
+    def instance_size(self):
+        pass
+
+    @abstractmethod
+    def io_setup(self):
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def check():
+        pass
+
+    @property
+    @abstractmethod
+    def user_data(self):
+        pass
+
+    @property
+    @abstractmethod
+    def nvme_disk_count(self):
+        pass
+
+    @property
+    @abstractmethod
+    def endpoint_snitch(self):
+        pass
+
+    @property
+    @abstractmethod
+    def getting_started_url(self):
+        pass
+
+
+class gcp_instance(cloud_instance):
     """Describe several aspects of the current GCP instance"""
 
     EPHEMERAL = "ephemeral"
@@ -62,6 +119,14 @@ class gcp_instance:
         self.__nvmeDiskCount = None
         self.__firstNvmeSize = None
         self.__osDisks = None
+
+    @property
+    def endpoint_snitch(self):
+        return self.ENDPOINT_SNITCH
+
+    @property
+    def getting_started_url(self):
+        return self.GETTING_STARTED_URL
 
     @staticmethod
     def is_gce_instance():
@@ -129,11 +194,11 @@ class gcp_instance:
             self.__osDisks = __osDisks
         return self.__osDisks
 
-    def getEphemeralOsDisks(self):
+    def get_local_disks(self):
         """return just transient disks"""
         return self.os_disks[self.EPHEMERAL]
 
-    def getPersistentOsDisks(self):
+    def get_remote_disks(self):
         """return just persistent disks"""
         return self.os_disks[self.PERSISTENT]
 
@@ -157,11 +222,11 @@ class gcp_instance:
         return nvmedisks
 
     @property
-    def nvmeDiskCount(self):
+    def nvme_disk_count(self):
         """get # of nvme disks available for scylla raid"""
         if self.__nvmeDiskCount is None:
             try:
-                ephemeral_disks = self.getEphemeralOsDisks()
+                ephemeral_disks = self.get_local_disks()
                 count_os_disks=len(ephemeral_disks)
             except Exception as e:
                 print ("Problem when parsing disks from OS:")
@@ -247,7 +312,7 @@ class gcp_instance:
     def firstNvmeSize(self):
         """return the size of first non root NVME disk in GB"""
         if self.__firstNvmeSize is None:
-            ephemeral_disks = self.getEphemeralOsDisks()
+            ephemeral_disks = self.get_local_disks()
             if len(ephemeral_disks) > 0:
                 firstDisk = ephemeral_disks[0]
                 firstDiskSize = self.get_file_size_by_seek(os.path.join("/dev/", firstDisk))
@@ -265,7 +330,7 @@ class gcp_instance:
         if not self.is_unsupported_instance_class() and self.is_supported_instance_class() and self.is_recommended_instance_size():
             # at least 1:2GB cpu:ram ratio , GCP is at 1:4, so this should be fine
             if self.cpu/self.memoryGB < 0.5:
-                diskCount = self.nvmeDiskCount
+                diskCount = self.nvme_disk_count
                 # to reach max performance for > 16 disks we mandate 32 or more vcpus
                 # https://cloud.google.com/compute/docs/disks/local-ssd#performance
                 if diskCount >= 16 and self.cpu < 32:
@@ -296,9 +361,15 @@ class gcp_instance:
     def check():
         pass
 
-    @staticmethod
-    def io_setup():
-        return run('/opt/scylladb/scylla-machine-image/scylla_cloud_io_setup', shell=True, check=True)
+    def io_setup(self):
+        io = gcp_io_setup(self)
+        try:
+            io.generate()
+        except UnsupportedInstanceClassError:
+            logging.error('This is not a recommended Google Cloud instance setup for auto local disk tuning.')
+        except PresetNotFoundError:
+            logging.error('Did not detect number of disks in Google Cloud instance setup for auto local disk tuning.')
+        io.save()
 
     @property
     def user_data(self):
@@ -308,7 +379,7 @@ class gcp_instance:
             return ""
 
 
-class azure_instance:
+class azure_instance(cloud_instance):
     """Describe several aspects of the current Azure instance"""
 
     EPHEMERAL = "ephemeral"
@@ -327,6 +398,14 @@ class azure_instance:
         self.__nvmeDiskCount = None
         self.__firstNvmeSize = None
         self.__osDisks = None
+
+    @property
+    def endpoint_snitch(self):
+        return self.ENDPOINT_SNITCH
+
+    @property
+    def getting_started_url(self):
+        return self.GETTING_STARTED_URL
 
     @staticmethod
     def is_azure_instance():
@@ -388,20 +467,20 @@ class azure_instance:
             self.__osDisks = __osDisks
         return self.__osDisks
 
-    def getEphemeralOsDisks(self):
+    def get_local_disks(self):
         """return just transient disks"""
         return self.os_disks[self.EPHEMERAL]
 
-    def getPersistentOsDisks(self):
+    def get_remote_disks(self):
         """return just persistent disks"""
         return self.os_disks[self.PERSISTENT]
 
     @property
-    def nvmeDiskCount(self):
+    def nvme_disk_count(self):
         """get # of nvme disks available for scylla raid"""
         if self.__nvmeDiskCount is None:
             try:
-                ephemeral_disks = self.getEphemeralOsDisks()
+                ephemeral_disks = self.get_local_disks()
                 count_os_disks = len(ephemeral_disks)
             except Exception as e:
                 print("Problem when parsing disks from OS:")
@@ -495,11 +574,18 @@ class azure_instance:
     def check():
         pass
 
-    @staticmethod
-    def io_setup():
-        return run('/opt/scylladb/scylla-machine-image/scylla_cloud_io_setup', shell=True, check=True)
+    def io_setup(self):
+        io = azure_io_setup(self)
+        try:
+            io.generate()
+        except UnsupportedInstanceClassError:
+            logging.error('This is not a recommended Azure Cloud instance setup for auto local disk tuning.')
+        except PresetNotFoundError:
+            logging.error('Did not detect number of disks in Azure Cloud instance setup for auto local disk tuning.')
+        io.save()
 
-class aws_instance:
+
+class aws_instance(cloud_instance):
     """Describe several aspects of the current AWS instance"""
     GETTING_STARTED_URL = "http://www.scylladb.com/doc/getting-started-amazon/"
     META_DATA_BASE_URL = "http://169.254.169.254/latest/"
@@ -576,6 +662,14 @@ class aws_instance:
         self._type = self.__instance_metadata("instance-type")
         self.__populate_disks()
 
+    @property
+    def endpoint_snitch(self):
+        return self.ENDPOINT_SNITCH
+
+    @property
+    def getting_started_url(self):
+        return self.GETTING_STARTED_URL
+
     @classmethod
     def is_aws_instance(cls):
         """Check if it's AWS instance via query to metadata server."""
@@ -638,11 +732,15 @@ class aws_instance:
         """Returns all attached disks but root. Include ephemeral and EBS devices"""
         return set(self._disks["ephemeral"] + self._disks["ebs"])
 
-    def ephemeral_disks(self):
+    @property
+    def nvme_disk_count(self):
+        return len(non_root_disks)
+
+    def get_local_disks(self):
         """Returns all ephemeral disks. Include standard SSDs and NVMe"""
         return set(self._disks["ephemeral"])
 
-    def ebs_disks(self):
+    def get_remote_disks(self):
         """Returns all EBS disks"""
         return set(self._disks["ebs"])
 
@@ -663,9 +761,15 @@ class aws_instance:
     def check():
         return run('/opt/scylladb/scylla-machine-image/scylla_ec2_check --nic eth0', shell=True)
 
-    @staticmethod
-    def io_setup():
-        return run('/opt/scylladb/scylla-machine-image/scylla_cloud_io_setup', shell=True, check=True)
+    def io_setup(self):
+        io = aws_io_setup(self)
+        try:
+            io.generate()
+        except UnsupportedInstanceClassError:
+            logging.error('This is not a recommended EC2 instance setup for auto local disk tuning.')
+        except PresetNotFoundError:
+            logging.error('This is a supported AWS instance type but there are no preconfigured IO scheduler parameters for it.')
+        io.save()
 
     @property
     def user_data(self):
