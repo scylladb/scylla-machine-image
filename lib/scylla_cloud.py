@@ -764,7 +764,11 @@ class aws_instance(cloud_instance):
 
     @property
     def user_data(self):
-        return curl(self.META_DATA_BASE_URL + "user-data")
+        base_contents = curl(self.META_DATA_BASE_URL).splitlines()
+        if 'user-data' in base_contents:
+            return curl(self.META_DATA_BASE_URL + 'user-data')
+        else:
+            return ''
 
 
 
