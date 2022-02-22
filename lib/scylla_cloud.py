@@ -725,7 +725,7 @@ class aws_instance(cloud_instance):
 
     @property
     def nvme_disk_count(self):
-        return len(non_root_disks)
+        return len(self.non_root_disks())
 
     def get_local_disks(self):
         """Returns all ephemeral disks. Include standard SSDs and NVMe"""
