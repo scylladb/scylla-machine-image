@@ -24,8 +24,12 @@ jobs:
 
         run: |
             pip install pyyaml==5.3
+            pip install httpretty
+            pip install psutil
+            pip install distro
             cd ./tests
             python -m unittest test_scylla_configure.py
+            python -m unittest test_aws_instance.py
 
       - name: Build Centos 7 RPM
         run: docker run -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm centos:7.2.1511 bash -c './dist/redhat/build_rpm.sh -t centos7'
