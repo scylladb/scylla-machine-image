@@ -3,17 +3,7 @@
 #
 # Copyright 2020 ScyllaDB
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
 
 import os
 import sys
@@ -51,6 +41,10 @@ def is_centos():
 
 def arch():
     return platform.machine()
+
+def half_of_diskfree():
+    disk = os.statvfs('/')
+    return int((disk.f_bavail * disk.f_frsize) / 2)
 
 if __name__ == '__main__':
     if os.getuid() > 0:
@@ -166,6 +160,29 @@ if __name__ == '__main__':
         run('/opt/scylladb/scripts/scylla_cpuscaling_setup --force')
 
     run('/opt/scylladb/scripts/scylla_sysconfig_setup --ami --set-clocksource {}'.format(sysconfig_opt))
+    run('/opt/scylladb/scripts/scylla_swap_setup --swap-size-bytes {}'.format(half_of_diskfree()))
+    run('/opt/scylladb/scripts/scylla_coredump_setup')
+    dot_mount = '''
+[Unit]
+Description=Save coredump to scylla data directory
+Conflicts=umount.target
+Before=scylla-server.service
+After=local-fs.target
+DefaultDependencies=no
+
+[Mount]
+What=/var/lib/scylla/coredump
+Where=/var/lib/systemd/coredump
+Type=none
+Options=bind
+
+[Install]
+WantedBy=multi-user.target
+'''[1:-1]
+    with open('/etc/systemd/system/var-lib-systemd-coredump.mount', 'w') as f:
+        f.write(dot_mount)
+    os.makedirs('/var/lib/scylla/coredump', exist_ok=True)
+
     os.remove('{}/.ssh/authorized_keys'.format(homedir))
     os.remove('/var/lib/scylla-housekeeping/housekeeping.uuid')
 
