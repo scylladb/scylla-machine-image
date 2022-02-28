@@ -729,11 +729,11 @@ class aws_instance(cloud_instance):
 
     def get_local_disks(self):
         """Returns all ephemeral disks. Include standard SSDs and NVMe"""
-        return set(self._disks["ephemeral"])
+        return self._disks["ephemeral"]
 
     def get_remote_disks(self):
         """Returns all EBS disks"""
-        return set(self._disks["ebs"])
+        return self._disks["ebs"]
 
     def public_ipv4(self):
         """Returns the public IPv4 address of this instance"""

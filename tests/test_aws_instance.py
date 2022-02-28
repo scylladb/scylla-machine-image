@@ -369,7 +369,7 @@ vpc-ipv6-cidr-blocks
             unittest.mock.patch('lib.scylla_cloud.run', side_effect=mock_multi_run_i3en_2xlarge),\
             unittest.mock.patch('builtins.open', unittest.mock.MagicMock(side_effect=mock_multi_open_i3en_2xlarge)):
             ins = aws_instance()
-            assert ins.get_local_disks() == {'nvme2n1', 'nvme1n1'}
+            assert ins.get_local_disks() == ['nvme2n1', 'nvme1n1']
 
     def test_get_remote_disks_i3en_2xlarge(self):
         self.httpretty_aws_metadata()
@@ -378,7 +378,7 @@ vpc-ipv6-cidr-blocks
             unittest.mock.patch('lib.scylla_cloud.run', side_effect=mock_multi_run_i3en_2xlarge),\
             unittest.mock.patch('builtins.open', unittest.mock.MagicMock(side_effect=mock_multi_open_i3en_2xlarge)):
             ins = aws_instance()
-            assert ins.get_remote_disks() == set()
+            assert ins.get_remote_disks() == []
 
 
     def test_non_root_nvmes_i3en_2xlarge_with_ebs(self):
@@ -426,7 +426,7 @@ vpc-ipv6-cidr-blocks
             unittest.mock.patch('lib.scylla_cloud.run', side_effect=mock_multi_run_i3en_2xlarge),\
             unittest.mock.patch('builtins.open', unittest.mock.MagicMock(side_effect=mock_multi_open_i3en_2xlarge_with_ebs)):
             ins = aws_instance()
-            assert ins.get_local_disks() == {'nvme3n1', 'nvme4n1'}
+            assert ins.get_local_disks() == ['nvme3n1', 'nvme4n1']
 
     def test_get_remote_disks_i3en_2xlarge_with_ebs(self):
         self.httpretty_aws_metadata(with_ebs=True)
@@ -435,7 +435,7 @@ vpc-ipv6-cidr-blocks
             unittest.mock.patch('lib.scylla_cloud.run', side_effect=mock_multi_run_i3en_2xlarge),\
             unittest.mock.patch('builtins.open', unittest.mock.MagicMock(side_effect=mock_multi_open_i3en_2xlarge_with_ebs)):
             ins = aws_instance()
-            assert ins.get_remote_disks() == {'nvme2n1', 'nvme1n1'}
+            assert ins.get_remote_disks() == ['nvme2n1', 'nvme1n1']
 
 
     def test_non_root_nvmes_i3_2xlarge(self):
@@ -510,7 +510,7 @@ vpc-ipv6-cidr-blocks
             unittest.mock.patch('lib.scylla_cloud.run', side_effect=mock_multi_run_i3_2xlarge),\
             unittest.mock.patch('builtins.open', unittest.mock.MagicMock(side_effect=mock_multi_open_i3_2xlarge)):
             ins = aws_instance()
-            assert ins.get_local_disks() == {'nvme0n1', 'nvme1n1'}
+            assert ins.get_local_disks() == ['nvme0n1', 'nvme1n1']
 
     def test_get_remote_disks_i3_2xlarge(self):
         self.httpretty_aws_metadata()
@@ -519,5 +519,5 @@ vpc-ipv6-cidr-blocks
             unittest.mock.patch('lib.scylla_cloud.run', side_effect=mock_multi_run_i3_2xlarge),\
             unittest.mock.patch('builtins.open', unittest.mock.MagicMock(side_effect=mock_multi_open_i3_2xlarge)):
             ins = aws_instance()
-            assert ins.get_remote_disks() == set()
+            assert ins.get_remote_disks() == []
 
