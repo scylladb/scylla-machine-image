@@ -55,12 +55,9 @@ class cloud_instance(metaclass=ABCMeta):
     def is_supported_instance_class(self):
         pass
 
+    @property
     @abstractmethod
-    def instance_class(self):
-        pass
-
-    @abstractmethod
-    def instance_size(self):
+    def instancetype(self):
         pass
 
     @abstractmethod
@@ -670,7 +667,8 @@ class aws_instance(cloud_instance):
         except (urllib.error.URLError, urllib.error.HTTPError):
             return False
 
-    def instance(self):
+    @property
+    def instancetype(self):
         """Returns which instance we are running in. i.e.: i3.16xlarge"""
         return self._type
 
