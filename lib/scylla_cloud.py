@@ -496,14 +496,14 @@ class azure_instance(cloud_instance):
     def instancelocation(self):
         """return the location of this instance, e.g. eastus"""
         if self.__location is None:
-            self.__location = self.__instance_metadata("location")
+            self.__location = self.__instance_metadata("/compute/location")
         return self.__location
 
     @property
     def instancezone(self):
         """return the zone of this instance, e.g. 1"""
         if self.__zone is None:
-            self.__zone = self.__instance_metadata("zone")
+            self.__zone = self.__instance_metadata("/compute/zone")
         return self.__zone
 
     @property
