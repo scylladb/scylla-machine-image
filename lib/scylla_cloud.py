@@ -25,6 +25,7 @@ import urllib.request
 import psutil
 import socket
 import glob
+import base64
 from subprocess import run, DEVNULL
 
 # @param headers dict of k:v
@@ -498,6 +499,15 @@ class azure_instance:
     @staticmethod
     def io_setup():
         return run('/opt/scylladb/scylla-machine-image/scylla_cloud_io_setup', shell=True, check=True)
+
+    @property
+    def user_data(self):
+        encoded_user_data = self.__instance_metadata("/compute/userData")
+        if not encoded_user_data:
+            return ''
+        return base64.b64decode(encoded_user_data).decode()
+
+
 
 class aws_instance:
     """Describe several aspects of the current AWS instance"""
