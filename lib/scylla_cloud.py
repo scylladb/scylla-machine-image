@@ -16,6 +16,7 @@ import psutil
 import socket
 import glob
 import distro
+import base64
 from subprocess import run, DEVNULL
 from abc import ABCMeta, abstractmethod
 from lib.scylla_cloud_io_setup import aws_io_setup, gcp_io_setup, azure_io_setup
@@ -571,6 +572,13 @@ class azure_instance(cloud_instance):
         except PresetNotFoundError:
             logging.error('Did not detect number of disks in Azure Cloud instance setup for auto local disk tuning.')
         io.save()
+
+    @property
+    def user_data(self):
+        encoded_user_data = self.__instance_metadata("/compute/userData")
+        if not encoded_user_data:
+            return ''
+        return base64.b64decode(encoded_user_data).decode()
 
 
 class aws_instance(cloud_instance):
