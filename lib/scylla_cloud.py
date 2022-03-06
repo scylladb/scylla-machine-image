@@ -314,6 +314,7 @@ class azure_instance:
 
     EPHEMERAL = "ephemeral"
     PERSISTENT = "persistent"
+    SWAP = "swap"
     ROOT = "root"
     GETTING_STARTED_URL = "http://www.scylladb.com/doc/getting-started-azure/"
     ENDPOINT_SNITCH = "AzureSnitch"
@@ -364,6 +365,12 @@ class azure_instance:
         nvmes_present = list(filter(nvme_re.match, os.listdir("/dev")))
         return {self.ROOT: root_devs, self.EPHEMERAL: [x for x in nvmes_present if not self.is_in_root_devs(x, root_devs)]}
 
+    def _get_swap_dev(self):
+        if os.path.exists('/dev/disk/cloud/azure_resource'):
+            return os.path.realpath('/dev/disk/cloud/azure_resource')
+        else:
+            return None
+
     def _non_root_disks(self):
         """get list of disks from os, filter away if one of them is root"""
         disk_re = re.compile(r"/dev/sd[b-z]+$")
@@ -373,7 +380,12 @@ class azure_instance:
         root_devs = [x.device for x in root_dev_candidates]
 
         disks_present = list(filter(disk_re.match, glob.glob("/dev/sd*")))
-        return {self.PERSISTENT: [x.lstrip('/dev/') for x in disks_present if not self.is_in_root_devs(x.lstrip('/dev/'), root_devs)]}
+        swap_dev = self._get_swap_dev()
+        swap = []
+        if swap_dev:
+            swap.append(swap_dev.lstrip('/dev/'))
+        persistent = [x.lstrip('/dev/') for x in disks_present if not self.is_in_root_devs(x.lstrip('/dev/'), root_devs) and not x == swap_dev]
+        return {self.PERSISTENT: persistent, self.SWAP: swap}
 
     @property
     def os_disks(self):
@@ -396,6 +408,9 @@ class azure_instance:
     def getPersistentOsDisks(self):
         """return just persistent disks"""
         return self.os_disks[self.PERSISTENT]
+
+    def get_swap_disks(self):
+        return self.os_disks[self.SWAP]
 
     @property
     def nvmeDiskCount(self):
