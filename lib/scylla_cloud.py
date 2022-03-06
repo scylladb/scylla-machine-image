@@ -476,7 +476,7 @@ class azure_instance:
 
     def is_recommended_instance_size(self):
         """if this instance has at least 2 cpus, it has a recommended size"""
-        if int(self.instance_size()) > 1:
+        if self.cpu > 1:
             return True
         return False
 
