@@ -535,10 +535,6 @@ class azure_instance(cloud_instance):
         """Returns the purpose of the instance we are running in. i.e.: L8s"""
         return self.instancetype.split("_")[1]
 
-    def is_unsupported_instance_class(self):
-        """Returns if this instance type belongs to unsupported ones for nvmes"""
-        return False
-
     def is_supported_instance_class(self):
         """Returns if this instance type belongs to supported ones for nvmes"""
         if self.instance_class() in list(self.instanceToDiskCount.keys()):
@@ -552,7 +548,7 @@ class azure_instance(cloud_instance):
         return False
 
     def is_recommended_instance(self):
-        if self.is_unsupported_instance_class() and self.is_supported_instance_class():
+        if self.is_supported_instance_class():
             return True
         return False
 
