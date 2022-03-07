@@ -397,14 +397,14 @@ class azure_instance(cloud_instance):
     def getting_started_url(self):
         return self.GETTING_STARTED_URL
 
-    @staticmethod
-    def is_azure_instance():
-        """Check if it's Azure instance via DNS lookup to metadata server."""
+    @classmethod
+    def is_azure_instance(cls):
+        """Check if it's Azure instance via query to metadata server."""
         try:
-            addrlist = socket.getaddrinfo('metadata.azure.internal', 80)
-        except socket.gaierror:
+            curl(cls.META_DATA_BASE_URL + cls.API_VERSION + "&format=text", headers = { "Metadata": "True" }, max_retries=2, retry_interval=1)
+            return True
+        except (urllib.error.URLError, urllib.error.HTTPError):
             return False
-        return True
 
 # as per https://docs.microsoft.com/en-us/azure/virtual-machines/windows/instance-metadata-service?tabs=windows#supported-api-versions
     API_VERSION = "?api-version=2021-01-01"
