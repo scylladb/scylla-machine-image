@@ -90,9 +90,11 @@ if __name__ == '__main__':
     run('yum -y update kernel')
     run('yum -y install dkms git grubby kernel-devel')
     run('rpm -e kernel-$(uname -r)', shell=True)
-    run('rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org')
-    run('rpm -Uvh http://www.elrepo.org/elrepo-release-7.0-3.el7.elrepo.noarch.rpm')
-    run('yum -y --enablerepo=elrepo-kernel install kernel-ml kernel-ml-devel')
+    # this is for pinning kernel-ml describes later
+    run('cp elrepo-archive.repo /etc/yum.repos.d/')
+    # kernel-ml 5.16.3 does not able to initialize ENA device correctly,
+    # force installing 5.15.8 this is known to be good
+    run('yum -y install kernel-ml-5.15.8 kernel-ml-devel-5.15.8')
     os.remove('/etc/udev/rules.d/80-net-name-slot.rules')
     with open('/etc/default/grub') as f:
         grub = f.read()
