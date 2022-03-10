@@ -113,9 +113,11 @@ if __name__ == '__main__':
     # So we have to use different kernel here.
     if platform.machine() == 'x86_64':
         run('yum -y install grubby')
-        run('rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org')
-        run('rpm -Uvh http://www.elrepo.org/elrepo-release-7.0-3.el7.elrepo.noarch.rpm')
-        run('yum -y --enablerepo=elrepo-kernel install kernel-ml')
+        # this is for pinning kernel-ml describes later
+        run('cp elrepo-archive.repo /etc/yum.repos.d/')
+        # kernel-ml 5.16.3 does not able to initialize ENA device correctly,
+        # force installing 5.15.8 this is known to be good
+        run('yum -y install kernel-ml-5.15.8 kernel-ml-devel-5.15.8')
         mlkver = get_kver('/boot/vmlinuz-*el7.elrepo.x86_64')
         run('dracut --add-drivers "xen-blkfront xen-netfront ixgbevf ena nvme" --force /boot/initramfs-{mlkver}.img {mlkver}'.format(mlkver=mlkver))
         run('grubby --grub2 --set-default /boot/vmlinuz-{mlkver}'.format(mlkver=mlkver))
