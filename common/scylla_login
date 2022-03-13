@@ -7,9 +7,7 @@
 
 import os
 import sys
-sys.path.append('/opt/scylladb/scripts')
-from scylla_util import colorprint, systemd_unit
-from lib.scylla_cloud import get_cloud_instance
+from lib.scylla_cloud import get_cloud_instance, colorprint
 from subprocess import run
 
 MSG_HEADER = '''
@@ -119,8 +117,7 @@ if __name__ == '__main__':
     else:
         skip_scylla_server = False
         if not os.path.exists('/etc/scylla/machine_image_configured'):
-            setup = systemd_unit('scylla-image-setup.service')
-            res = setup.is_active()
+            res = run('systemctl is-active scylla-image-setup.service', shell=True, capture_output=True, encoding='utf-8').stdout.strip()
             if res == 'activating':
                 colorprint(MSG_SETUP_ACTIVATING)
                 skip_scylla_server = True
@@ -128,8 +125,7 @@ if __name__ == '__main__':
                 colorprint(MSG_SETUP_FAILED)
                 skip_scylla_server = True
         if not skip_scylla_server:
-            server = systemd_unit('scylla-server.service')
-            res = server.is_active()
+            res = run('systemctl is-active scylla-server.service', shell=True, capture_output=True, encoding='utf-8').stdout.strip()
             if res == 'activating':
                 colorprint(MSG_SCYLLA_ACTIVATING)
             elif res == 'failed':

@@ -9,9 +9,7 @@ import os
 import sys
 import re
 import argparse
-sys.path.append('/opt/scylladb/scripts')
-from scylla_util import is_valid_nic, colorprint
-from lib.scylla_cloud import is_ec2, aws_instance
+from lib.scylla_cloud import is_ec2, aws_instance, colorprint
 from subprocess import run
 
 if __name__ == '__main__':
@@ -22,7 +20,7 @@ if __name__ == '__main__':
                         help='specify NIC')
     args = parser.parse_args()
 
-    if not is_valid_nic(args.nic):
+    if not os.path.exists(f'/sys/class/net/{args.nic}'):
         print('NIC {} doesn\'t exist.'.format(args.nic))
         sys.exit(1)
 

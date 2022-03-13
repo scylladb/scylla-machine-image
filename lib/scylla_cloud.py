@@ -15,6 +15,7 @@ import urllib.request
 import psutil
 import socket
 import glob
+import distro
 from subprocess import run, DEVNULL
 from abc import ABCMeta, abstractmethod
 from lib.scylla_cloud_io_setup import aws_io_setup, gcp_io_setup, azure_io_setup
@@ -724,15 +725,15 @@ class aws_instance(cloud_instance):
 
     @property
     def nvme_disk_count(self):
-        return len(non_root_disks)
+        return len(self.non_root_disks())
 
     def get_local_disks(self):
         """Returns all ephemeral disks. Include standard SSDs and NVMe"""
-        return set(self._disks["ephemeral"])
+        return self._disks["ephemeral"]
 
     def get_remote_disks(self):
         """Returns all EBS disks"""
-        return set(self._disks["ebs"])
+        return self._disks["ebs"]
 
     def public_ipv4(self):
         """Returns the public IPv4 address of this instance"""
@@ -763,7 +764,11 @@ class aws_instance(cloud_instance):
 
     @property
     def user_data(self):
-        return curl(self.META_DATA_BASE_URL + "user-data")
+        base_contents = curl(self.META_DATA_BASE_URL).splitlines()
+        if 'user-data' in base_contents:
+            return curl(self.META_DATA_BASE_URL + 'user-data')
+        else:
+            return ''
 
 
 
@@ -785,3 +790,15 @@ def get_cloud_instance():
         return azure_instance()
     else:
         raise Exception("Unknown cloud provider! Only AWS/GCP/Azure supported.")
+
+
+CONCOLORS = {'green': '\033[1;32m', 'red': '\033[1;31m', 'nocolor': '\033[0m'}
+
+
+def colorprint(msg, **kwargs):
+    fmt = dict(CONCOLORS)
+    fmt.update(kwargs)
+    print(msg.format(**fmt))
+
+def is_redhat_variant():
+    return 'rhel' in distro.like().split()
