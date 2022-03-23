@@ -16,6 +16,7 @@ import psutil
 import socket
 import glob
 import distro
+import base64
 from subprocess import run, DEVNULL
 from abc import ABCMeta, abstractmethod
 from lib.scylla_cloud_io_setup import aws_io_setup, gcp_io_setup, azure_io_setup
@@ -55,12 +56,9 @@ class cloud_instance(metaclass=ABCMeta):
     def is_supported_instance_class(self):
         pass
 
+    @property
     @abstractmethod
-    def instance_class(self):
-        pass
-
-    @abstractmethod
-    def instance_size(self):
+    def instancetype(self):
         pass
 
     @abstractmethod
@@ -375,6 +373,7 @@ class azure_instance(cloud_instance):
 
     EPHEMERAL = "ephemeral"
     PERSISTENT = "persistent"
+    SWAP = "swap"
     ROOT = "root"
     GETTING_STARTED_URL = "http://www.scylladb.com/doc/getting-started-azure/"
     ENDPOINT_SNITCH = "AzureSnitch"
@@ -398,14 +397,14 @@ class azure_instance(cloud_instance):
     def getting_started_url(self):
         return self.GETTING_STARTED_URL
 
-    @staticmethod
-    def is_azure_instance():
-        """Check if it's Azure instance via DNS lookup to metadata server."""
+    @classmethod
+    def is_azure_instance(cls):
+        """Check if it's Azure instance via query to metadata server."""
         try:
-            addrlist = socket.getaddrinfo('metadata.azure.internal', 80)
-        except socket.gaierror:
+            curl(cls.META_DATA_BASE_URL + cls.API_VERSION + "&format=text", headers = { "Metadata": "True" }, max_retries=2, retry_interval=1)
+            return True
+        except (urllib.error.URLError, urllib.error.HTTPError):
             return False
-        return True
 
 # as per https://docs.microsoft.com/en-us/azure/virtual-machines/windows/instance-metadata-service?tabs=windows#supported-api-versions
     API_VERSION = "?api-version=2021-01-01"
@@ -433,6 +432,12 @@ class azure_instance(cloud_instance):
         nvmes_present = list(filter(nvme_re.match, os.listdir("/dev")))
         return {self.ROOT: root_devs, self.EPHEMERAL: [x for x in nvmes_present if not self.is_in_root_devs(x, root_devs)]}
 
+    def _get_swap_dev(self):
+        if os.path.exists('/dev/disk/cloud/azure_resource'):
+            return os.path.realpath('/dev/disk/cloud/azure_resource')
+        else:
+            return None
+
     def _non_root_disks(self):
         """get list of disks from os, filter away if one of them is root"""
         disk_re = re.compile(r"/dev/sd[b-z]+$")
@@ -442,7 +447,12 @@ class azure_instance(cloud_instance):
         root_devs = [x.device for x in root_dev_candidates]
 
         disks_present = list(filter(disk_re.match, glob.glob("/dev/sd*")))
-        return {self.PERSISTENT: [x.lstrip('/dev/') for x in disks_present if not self.is_in_root_devs(x.lstrip('/dev/'), root_devs)]}
+        swap_dev = self._get_swap_dev()
+        swap = []
+        if swap_dev:
+            swap.append(swap_dev.lstrip('/dev/'))
+        persistent = [x.lstrip('/dev/') for x in disks_present if not self.is_in_root_devs(x.lstrip('/dev/'), root_devs) and not x == swap_dev]
+        return {self.PERSISTENT: persistent, self.SWAP: swap}
 
     @property
     def os_disks(self):
@@ -465,6 +475,9 @@ class azure_instance(cloud_instance):
     def get_remote_disks(self):
         """return just persistent disks"""
         return self.os_disks[self.PERSISTENT]
+
+    def get_swap_disks(self):
+        return self.os_disks[self.SWAP]
 
     @property
     def nvme_disk_count(self):
@@ -498,14 +511,14 @@ class azure_instance(cloud_instance):
     def instancelocation(self):
         """return the location of this instance, e.g. eastus"""
         if self.__location is None:
-            self.__location = self.__instance_metadata("location")
+            self.__location = self.__instance_metadata("/compute/location")
         return self.__location
 
     @property
     def instancezone(self):
         """return the zone of this instance, e.g. 1"""
         if self.__zone is None:
-            self.__zone = self.__instance_metadata("zone")
+            self.__zone = self.__instance_metadata("/compute/zone")
         return self.__zone
 
     @property
@@ -537,10 +550,6 @@ class azure_instance(cloud_instance):
         """Returns the purpose of the instance we are running in. i.e.: L8s"""
         return self.instancetype.split("_")[1]
 
-    def is_unsupported_instance_class(self):
-        """Returns if this instance type belongs to unsupported ones for nvmes"""
-        return False
-
     def is_supported_instance_class(self):
         """Returns if this instance type belongs to supported ones for nvmes"""
         if self.instance_class() in list(self.instanceToDiskCount.keys()):
@@ -549,12 +558,12 @@ class azure_instance(cloud_instance):
 
     def is_recommended_instance_size(self):
         """if this instance has at least 2 cpus, it has a recommended size"""
-        if int(self.instance_size()) > 1:
+        if self.cpu > 1:
             return True
         return False
 
     def is_recommended_instance(self):
-        if self.is_unsupported_instance_class() and self.is_supported_instance_class():
+        if self.is_supported_instance_class():
             return True
         return False
 
@@ -574,6 +583,13 @@ class azure_instance(cloud_instance):
         except PresetNotFoundError:
             logging.error('Did not detect number of disks in Azure Cloud instance setup for auto local disk tuning.')
         io.save()
+
+    @property
+    def user_data(self):
+        encoded_user_data = self.__instance_metadata("/compute/userData")
+        if not encoded_user_data:
+            return ''
+        return base64.b64decode(encoded_user_data).decode()
 
 
 class aws_instance(cloud_instance):
@@ -670,7 +686,8 @@ class aws_instance(cloud_instance):
         except (urllib.error.URLError, urllib.error.HTTPError):
             return False
 
-    def instance(self):
+    @property
+    def instancetype(self):
         """Returns which instance we are running in. i.e.: i3.16xlarge"""
         return self._type
 

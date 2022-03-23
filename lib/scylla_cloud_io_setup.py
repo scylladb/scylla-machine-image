@@ -43,12 +43,12 @@ class aws_io_setup(cloud_io_setup):
         self.disk_properties["mountpoint"] = '/var/lib/scylla'
         nr_disks = len(self.idata.get_local_disks())
         ## both i3 and i2 can run with 1 I/O Queue per shard
-        if self.idata.instance() == "i3.large":
+        if self.idata.instancetype == "i3.large":
             self.disk_properties["read_iops"] = 111000
             self.disk_properties["read_bandwidth"] = 653925080
             self.disk_properties["write_iops"] = 36800
             self.disk_properties["write_bandwidth"] = 215066473
-        elif self.idata.instance() == "i3.xlarge":
+        elif self.idata.instancetype == "i3.xlarge":
             self.disk_properties["read_iops"] = 200800
             self.disk_properties["read_bandwidth"] = 1185106376
             self.disk_properties["write_iops"] = 53180
@@ -59,12 +59,12 @@ class aws_io_setup(cloud_io_setup):
             self.disk_properties["write_iops"] = 181500 * nr_disks
             self.disk_properties["write_bandwidth"] = 808775652 * nr_disks
         elif self.idata.instance_class() == "i3en":
-            if self.idata.instance() == "i3en.large":
+            if self.idata.instancetype == "i3en.large":
                 self.disk_properties["read_iops"] = 43315
                 self.disk_properties["read_bandwidth"] = 330301440
                 self.disk_properties["write_iops"] = 33177
                 self.disk_properties["write_bandwidth"] = 165675008
-            elif self.idata.instance() in ("i3en.xlarge", "i3en.2xlarge"):
+            elif self.idata.instancetype in ("i3en.xlarge", "i3en.2xlarge"):
                 self.disk_properties["read_iops"] = 84480 * nr_disks
                 self.disk_properties["read_bandwidth"] = 666894336 * nr_disks
                 self.disk_properties["write_iops"] = 66969 * nr_disks
@@ -125,62 +125,62 @@ class aws_io_setup(cloud_io_setup):
                 self.disk_properties["read_bandwidth"] = 2527296683 * nr_disks
                 self.disk_properties["write_iops"] = 156326 * nr_disks
                 self.disk_properties["write_bandwidth"] = 1063657088 * nr_disks
-        elif self.idata.instance() == "im4gn.large":
+        elif self.idata.instancetype == "im4gn.large":
             self.disk_properties["read_iops"] = 33943
             self.disk_properties["read_bandwidth"] = 288433525
             self.disk_properties["write_iops"] = 27877
             self.disk_properties["write_bandwidth"] = 126864680
-        elif self.idata.instance() == "im4gn.xlarge":
+        elif self.idata.instancetype == "im4gn.xlarge":
             self.disk_properties["read_iops"] = 68122
             self.disk_properties["read_bandwidth"] = 576603520
             self.disk_properties["write_iops"] = 55246
             self.disk_properties["write_bandwidth"] = 254534954
-        elif self.idata.instance() == "im4gn.2xlarge":
+        elif self.idata.instancetype == "im4gn.2xlarge":
             self.disk_properties["read_iops"] = 136422
             self.disk_properties["read_bandwidth"] = 1152663765
             self.disk_properties["write_iops"] = 92184
             self.disk_properties["write_bandwidth"] = 508926453
-        elif self.idata.instance() == "im4gn.4xlarge":
+        elif self.idata.instancetype == "im4gn.4xlarge":
             self.disk_properties["read_iops"] = 273050
             self.disk_properties["read_bandwidth"] = 1638427264
             self.disk_properties["write_iops"] = 92173
             self.disk_properties["write_bandwidth"] = 1027966826
-        elif self.idata.instance() == "im4gn.8xlarge":
+        elif self.idata.instancetype == "im4gn.8xlarge":
             self.disk_properties["read_iops"] = 250241 * nr_disks
             self.disk_properties["read_bandwidth"] = 1163130709 * nr_disks
             self.disk_properties["write_iops"] = 86374 * nr_disks
             self.disk_properties["write_bandwidth"] = 977617664 * nr_disks
-        elif self.idata.instance() == "im4gn.16xlarge":
+        elif self.idata.instancetype == "im4gn.16xlarge":
             self.disk_properties["read_iops"] = 273030 * nr_disks
             self.disk_properties["read_bandwidth"] = 1638211413 * nr_disks
             self.disk_properties["write_iops"] = 92607 * nr_disks
             self.disk_properties["write_bandwidth"] = 1028340266 * nr_disks
-        elif self.idata.instance() == "is4gen.medium":
+        elif self.idata.instancetype == "is4gen.medium":
             self.disk_properties["read_iops"] = 33965
             self.disk_properties["read_bandwidth"] = 288462506
             self.disk_properties["write_iops"] = 27876
             self.disk_properties["write_bandwidth"] = 126954200
-        elif self.idata.instance() == "is4gen.large":
+        elif self.idata.instancetype == "is4gen.large":
             self.disk_properties["read_iops"] = 68131
             self.disk_properties["read_bandwidth"] = 576654869
             self.disk_properties["write_iops"] = 55257
             self.disk_properties["write_bandwidth"] = 254551002
-        elif self.idata.instance() == "is4gen.xlarge":
+        elif self.idata.instancetype == "is4gen.xlarge":
             self.disk_properties["read_iops"] = 136413
             self.disk_properties["read_bandwidth"] = 1152747904
             self.disk_properties["write_iops"] = 92180
             self.disk_properties["write_bandwidth"] = 508889546
-        elif self.idata.instance() == "is4gen.2xlarge":
+        elif self.idata.instancetype == "is4gen.2xlarge":
             self.disk_properties["read_iops"] = 273038
             self.disk_properties["read_bandwidth"] = 1628982613
             self.disk_properties["write_iops"] = 92182
             self.disk_properties["write_bandwidth"] = 1027983530
-        elif self.idata.instance() == "is4gen.4xlarge":
+        elif self.idata.instancetype == "is4gen.4xlarge":
             self.disk_properties["read_iops"] = 260493 * nr_disks
             self.disk_properties["read_bandwidth"] = 1217396928 * nr_disks
             self.disk_properties["write_iops"] = 83169 * nr_disks
             self.disk_properties["write_bandwidth"] = 1000390784 * nr_disks
-        elif self.idata.instance() == "is4gen.8xlarge":
+        elif self.idata.instancetype == "is4gen.8xlarge":
             self.disk_properties["read_iops"] = 273021 * nr_disks
             self.disk_properties["read_bandwidth"] = 1656354602 * nr_disks
             self.disk_properties["write_iops"] = 92233 * nr_disks

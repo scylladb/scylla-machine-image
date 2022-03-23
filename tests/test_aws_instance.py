@@ -217,15 +217,15 @@ vpc-ipv6-cidr-blocks
         ins = aws_instance()
         assert ins.getting_started_url == 'http://www.scylladb.com/doc/getting-started-amazon/'
 
-    def test_instance_i3en_2xlarge(self):
+    def test_instancetype_i3en_2xlarge(self):
         self.httpretty_aws_metadata()
         ins = aws_instance()
-        assert ins.instance() == 'i3en.2xlarge'
+        assert ins.instancetype == 'i3en.2xlarge'
 
-    def test_instance_t3_nano(self):
+    def test_instancetype_t3_nano(self):
         self.httpretty_aws_metadata(instance_type='t3.nano')
         ins = aws_instance()
-        assert ins.instance() == 't3.nano'
+        assert ins.instancetype == 't3.nano'
 
     def test_instance_size_2xlarge(self):
         self.httpretty_aws_metadata()
