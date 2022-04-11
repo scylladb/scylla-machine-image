@@ -104,7 +104,8 @@ if __name__ == '__main__':
 
         run('apt-get update --allow-insecure-repositories -y')
         run('apt-get upgrade -y')
-        run('apt-get install -y --auto-remove --allow-unauthenticated {0}-machine-image {0}-server-dbg systemd-coredump'.format(args.product))
+        run('apt-get purge -y apport fuse')
+        run('apt-get install -y --allow-unauthenticated {0}-machine-image {0}-server-dbg systemd-coredump'.format(args.product))
 
         os.remove('/etc/apt/sources.list.d/scylla_install.list')
         if args.repo_for_update:
