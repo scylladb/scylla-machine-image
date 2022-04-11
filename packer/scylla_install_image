@@ -115,6 +115,7 @@ if __name__ == '__main__':
         run('apt-get purge -y unattended-upgrades update-notifier-common')
         # remove snapd
         run('apt-get purge -y snapd')
+        run('apt-get purge -y modemmanager')
 
     if args.target_cloud == 'aws':
         # use easy_install instead of pip, because easy_install requires
