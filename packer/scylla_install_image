@@ -116,6 +116,8 @@ if __name__ == '__main__':
         # remove snapd
         run('apt-get purge -y snapd')
         run('apt-get purge -y modemmanager')
+        # drop packages does not needed anymore
+        run('apt-get autoremove --purge -y')
 
     if args.target_cloud == 'aws':
         # use easy_install instead of pip, because easy_install requires
