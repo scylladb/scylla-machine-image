@@ -113,6 +113,8 @@ if __name__ == '__main__':
 
         # disable unattended-upgrades
         run('apt-get purge -y unattended-upgrades update-notifier-common')
+        # remove snapd
+        run('apt-get purge -y snapd')
 
     if args.target_cloud == 'aws':
         # use easy_install instead of pip, because easy_install requires
@@ -131,6 +133,12 @@ if __name__ == '__main__':
             run('apt-get install -y python3-pystache python3-lockfile python3-setuptools')
             run('python3 -m easy_install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz')
             pyver = '3'
+
+            # install .deb version of ssm-agent since we dropped snapd version
+            run('curl -L -o /tmp/amazon-ssm-agent.deb https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_amd64/amazon-ssm-agent.deb')
+            run('dpkg -i /tmp/amazon-ssm-agent.deb')
+            run('systemctl enable amazon-ssm-agent')
+
         cfnpath = out('python{} -c "import cfnbootstrap as _; print(_.__path__[0])"'.format(pyver))
         initpath = os.path.abspath('{}/../init/{}/cfn-hup'.format(cfnpath, 'redhat' if distro == 'centos' else 'ubuntu'))
         shutil.copyfile(initpath, '/etc/init.d/cfn-hup')
