@@ -138,7 +138,13 @@ if __name__ == '__main__':
             pyver = '3'
 
             # install .deb version of ssm-agent since we dropped snapd version
-            run('curl -L -o /tmp/amazon-ssm-agent.deb https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_amd64/amazon-ssm-agent.deb')
+            match arch():
+                case "x86_64":
+                    run('curl -L -o /tmp/amazon-ssm-agent.deb https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_amd64/amazon-ssm-agent.deb')
+                case "aarch64":
+                    run('curl -L -o /tmp/amazon-ssm-agent.deb https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_arm64/amazon-ssm-agent.deb')
+                case _:
+                    raise Exception("Unknown arch")
             run('dpkg -i /tmp/amazon-ssm-agent.deb')
             run('systemctl enable amazon-ssm-agent')
 
