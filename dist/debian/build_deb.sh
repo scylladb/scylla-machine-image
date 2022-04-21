@@ -81,6 +81,7 @@ pkg_install python3
 pkg_install python3-devel
 pkg_install python3-pip
 
+git config --global --add safe.directory "$BUILDDIR"/scylla-machine-image
 echo "Building in $PWD..."
 
 VERSION=$(./SCYLLA-VERSION-GEN)
