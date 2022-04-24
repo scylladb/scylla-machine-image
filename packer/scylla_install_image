@@ -93,6 +93,7 @@ if __name__ == '__main__':
     # remove snapd
     run('apt-get purge -y snapd', shell=True, check=True)
     run('apt-get purge -y modemmanager', shell=True, check=True)
+    run('apt-get purge -y accountsservice', shell=True, check=True)
     # drop packages does not needed anymore
     run('apt-get autoremove --purge -y', shell=True, check=True)
 
