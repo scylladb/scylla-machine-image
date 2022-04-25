@@ -95,6 +95,10 @@ if __name__ == '__main__':
     run('apt-get purge -y modemmanager', shell=True, check=True)
     run('apt-get purge -y accountsservice', shell=True, check=True)
     run('apt-get purge -y udisks2', shell=True, check=True)
+    # cannot remove policykit since add-apt-repository depends on that,
+    # so just disable the service
+    run('systemctl disable polkit.service', shell=True, check=True)
+
     # drop packages does not needed anymore
     run('apt-get autoremove --purge -y', shell=True, check=True)
 
