@@ -10,6 +10,7 @@ import yaml
 import logging
 import sys
 from abc import ABCMeta, abstractmethod
+from lib.scylla_cloud import cloud_instance, is_ec2, is_gce, is_azure
 
 def UnsupportedInstanceClassError(Exception):
     pass
@@ -39,6 +40,7 @@ class aws_io_setup(cloud_io_setup):
 
     def generate(self):
         if not self.idata.is_supported_instance_class():
+            logging.error('This is not a recommended EC2 instance setup for auto local disk tuning.')
             raise UnsupportedInstanceClassError()
         self.disk_properties["mountpoint"] = '/var/lib/scylla'
         nr_disks = len(self.idata.get_local_disks())
@@ -186,6 +188,7 @@ class aws_io_setup(cloud_io_setup):
             self.disk_properties["write_iops"] = 92233 * nr_disks
             self.disk_properties["write_bandwidth"] = 1028010325 * nr_disks
         if not "read_iops" in self.disk_properties:
+            logging.error('This is a supported AWS instance type but there are no preconfigured IO scheduler parameters for it.')
             raise PresetNotFoundError()
 
 
@@ -196,6 +199,7 @@ class gcp_io_setup(cloud_io_setup):
 
     def generate(self):
         if not self.idata.is_supported_instance_class():
+            logging.error('This is not a recommended Google Cloud instance setup for auto local disk tuning.')
             raise UnsupportedInstanceClassError()
         self.disk_properties = {}
         self.disk_properties["mountpoint"] = '/var/lib/scylla'
@@ -234,6 +238,7 @@ class gcp_io_setup(cloud_io_setup):
             #self.disk_properties["write_bandwidth"] = 4680 * mbs
 
         if not "read_iops" in self.disk_properties:
+            logging.error('Did not detect number of disks in Google Cloud instance setup for auto local disk tuning.')
             raise PresetNotFoundError()
 
 
@@ -244,6 +249,7 @@ class azure_io_setup(cloud_io_setup):
 
     def generate(self):
         if not self.idata.is_supported_instance_class():
+            logging.error('This is not a recommended Azure Cloud instance setup for auto local disk tuning.')
             raise UnsupportedInstanceClassError()
 
         self.disk_properties = {}
@@ -284,4 +290,22 @@ class azure_io_setup(cloud_io_setup):
             self.disk_properties["write_iops"] = 2546511
             self.disk_properties["write_bandwidth"] = 11998 * mbs
         if not "read_iops" in self.disk_properties:
+            logging.error('Did not detect number of disks in Azure Cloud instance setup for auto local disk tuning.')
             raise PresetNotFoundError()
+
+if __name__ == '__main__':
+    if not os.path.ismount('/var/lib/scylla'):
+       logging.error('RAID volume not mounted')
+       sys.exit(1)
+    cloud_instance = get_cloud_instance()
+    if is_ec2():
+        io = aws_io_setup(cloud_instance)
+    elif is_gce():
+        io = gcp_io_setup(cloud_instance)
+    elif is_azure():
+        io = azure_io_setup(cloud_instance)
+    try:
+        io.generate()
+        io.save()
+    except (UnsupportedInstanceClassError, PresetNotFoundError) as e:
+        sys.exit(1)
