@@ -46,6 +46,38 @@ def half_of_diskfree():
     disk = os.statvfs('/')
     return int((disk.f_bavail * disk.f_frsize) / 2)
 
+
+def install_required_packages(distro):
+    """
+    The python packages will be installed with easy_install instead of pip, because
+    easy_install requires fewer dependencies, no need to install gcc, it makes our AMI smaller.
+    """
+
+    deb_packages = ['python3-pystache', 'python3-lockfile', 'python3-setuptools']
+    rpm_packages = ['pystache', 'python-daemon', 'python-setuptools']
+    pip_packages = ['scylla-api-client']
+
+    if distro == 'centos':
+        run('yum install -y epel-release')
+
+        for package in rpm_packages:
+            run(f'yum install -y {package}')
+
+        for package in pip_packages:
+            run(f'python -m easy_install {package}')
+
+    elif distro == 'ubuntu':
+        for package in deb_packages:
+            run(f'apt-get install -y {package}')
+
+        for package in pip_packages:
+            run(f'python3 -m easy_install {package}')
+
+    else:
+        print(f"Unknown distro {distro}")
+        sys.exit(1)
+
+
 if __name__ == '__main__':
     if os.getuid() > 0:
         print('Requires root permission.')
@@ -91,6 +123,7 @@ if __name__ == '__main__':
             os.remove('/etc/yum.repos.d/scylla_install.repo')
         if args.repo_for_update:
             run('curl -L -o /etc/yum.repos.d/scylla.repo {REPO_FOR_UPDATE}'.format(REPO_FOR_UPDATE=args.repo_for_update))
+        install_required_packages(distro)
     else:
         run('apt-key adv --keyserver keyserver.ubuntu.com --recv-keys d0a112e067426ab2')
         if args.repo_for_install:
@@ -118,13 +151,10 @@ if __name__ == '__main__':
         run('apt-get purge -y modemmanager')
         # drop packages does not needed anymore
         run('apt-get autoremove --purge -y')
+        install_required_packages(distro)
 
     if args.target_cloud == 'aws':
-        # use easy_install instead of pip, because easy_install requires
-        # fewer dependencies, no need to install gcc, it makes our AMI smaller.
         if distro == 'centos':
-            run('yum install -y epel-release')
-            run('yum install -y pystache python-daemon python-setuptools')
             # Default install prefix on CentOS7 is /usr not /usr/local, but we need
             # to align path for executable, so specify script-dir to /usr/local/bin
             run('python -m easy_install --script-dir /usr/local/bin https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz')
@@ -133,7 +163,6 @@ if __name__ == '__main__':
             # XXX: we want install dependencies from distro repo, but
             # python-daemon-2.2 on Ubuntu 20.04 is too new for aws-cfn-bootstrap,
             # so install python-daemon-2.1 from pypi
-            run('apt-get install -y python3-pystache python3-lockfile python3-setuptools')
             run('python3 -m easy_install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz')
             pyver = '3'
 
@@ -156,9 +185,11 @@ if __name__ == '__main__':
     elif args.target_cloud == 'gce':
         setup_opt = ''
         sysconfig_opt = '--disable-writeback-cache'
+        install_required_packages(distro)
     elif args.target_cloud == 'azure':
         setup_opt = ''
         sysconfig_opt = '--disable-writeback-cache'
+        install_required_packages(distro)
 
     run('systemctl daemon-reload')
     run('systemctl enable scylla-image-setup.service')
