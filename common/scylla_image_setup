@@ -30,6 +30,7 @@ if __name__ == '__main__':
     run('/opt/scylladb/scylla-machine-image/scylla_configure.py', shell=True, check=True)
 
     run('/opt/scylladb/scripts/scylla_sysconfig_setup --nic eth0 --setup-nic --ami', shell=True, check=True)
+
     if os.path.ismount('/var/lib/scylla'):
         if cloud_instance.is_supported_instance_class():
             # We run io_setup only when ehpemeral disks are available
@@ -40,6 +41,8 @@ if __name__ == '__main__':
             else:
                 cloud_instance.io_setup()
             run('/opt/scylladb/scripts/scylla_coredump_setup --dump-to-raiddir', shell=True, check=True)
+            # some distro has fstrim enabled by default, since we are using XFS with online discard, we don't need fstrim
+            run('systemctl is-active -q fstrim.timer && systemctl disable fstrim.timer', shell=True, check=True)
     else:
         run('/opt/scylladb/scripts/scylla_coredump_setup', shell=True, check=True)
     run('/opt/scylladb/scripts/scylla_swap_setup --swap-directory /', shell=True, check=True)
