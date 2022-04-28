@@ -40,4 +40,4 @@ jobs:
         run: docker run -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm rockylinux bash -c './dist/redhat/build_rpm.sh -t centos8'
 
       - name: Build Ubuntu DEB
-        run: docker run -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm ubuntu:20.04 bash -c './dist/debian/build_deb.sh'
+        run: docker run -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm ubuntu:20.04 bash -c 'apt update -y; apt install -y git ; git config --global --add safe.directory "*"; ./dist/debian/build_deb.sh'
