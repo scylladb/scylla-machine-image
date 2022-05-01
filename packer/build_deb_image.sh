@@ -8,7 +8,6 @@ REALDIR=$(dirname $(readlink -f "$0"))
 source "$REALDIR"/../SCYLLA-VERSION-GEN
 
 BUILD_ID=$(date -u '+%FT%H-%M-%S')
-BRANCH="master"
 OPERATING_SYSTEM="ubuntu20.04"
 DIR=$(dirname $(realpath -se $0))
 PDIRNAME=$(basename $(realpath -se $DIR/..))
