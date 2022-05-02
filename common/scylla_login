@@ -7,7 +7,7 @@
 
 import os
 import sys
-from lib.scylla_cloud import get_cloud_instance, colorprint
+from lib.scylla_cloud import get_cloud_instance, colorprint, out
 from subprocess import run
 
 MSG_HEADER = '''
@@ -103,7 +103,7 @@ $ nodetool status
 '''[1:-1]
 
 if __name__ == '__main__':
-    colorprint(MSG_HEADER.format(scylla_version=run("scylla --version", shell=True, check=True, capture_output=True, encoding='utf-8').stdout.strip()))
+    colorprint(MSG_HEADER.format(scylla_version=out("scylla --version")))
     cloud_instance = get_cloud_instance()
     if not cloud_instance.is_supported_instance_class():
         non_root_disks = cloud_instance.get_local_disks() + cloud_instance.get_remote_disks()
@@ -117,7 +117,7 @@ if __name__ == '__main__':
     else:
         skip_scylla_server = False
         if not os.path.exists('/etc/scylla/machine_image_configured'):
-            res = run('systemctl is-active scylla-image-setup.service', shell=True, capture_output=True, encoding='utf-8').stdout.strip()
+            res = out('systemctl is-active scylla-image-setup.service', ignore_error=True)
             if res == 'activating':
                 colorprint(MSG_SETUP_ACTIVATING)
                 skip_scylla_server = True
@@ -125,7 +125,7 @@ if __name__ == '__main__':
                 colorprint(MSG_SETUP_FAILED)
                 skip_scylla_server = True
         if not skip_scylla_server:
-            res = run('systemctl is-active scylla-server.service', shell=True, capture_output=True, encoding='utf-8').stdout.strip()
+            res = out('systemctl is-active scylla-server.service', ignore_error=True)
             if res == 'activating':
                 colorprint(MSG_SCYLLA_ACTIVATING)
             elif res == 'failed':

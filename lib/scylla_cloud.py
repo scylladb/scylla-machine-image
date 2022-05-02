@@ -18,9 +18,27 @@ import glob
 import distro
 import base64
 import datetime
-from subprocess import run, DEVNULL
+from subprocess import run, CalledProcessError
 from abc import ABCMeta, abstractmethod
 from lib.scylla_cloud_io_setup import aws_io_setup, gcp_io_setup, azure_io_setup
+
+
+def out(cmd, shell=True, timeout=None, encoding='utf-8', ignore_error=False, user=None, group=None):
+    try:
+        res = run(cmd, capture_output=True, shell=shell, timeout=timeout, check=not ignore_error, encoding=encoding, user=user, group=group)
+    except CalledProcessError as e:
+        print(f'''
+Command '{cmd}' returned non-zero exit status: {e.returncode}
+----------  stdout  ----------
+{e.stdout.strip()}
+------------------------------
+----------  stderr  ----------
+{e.stderr.strip()}
+------------------------------
+'''[1:-1])
+        raise
+    return res.stdout.strip()
+
 
 # @param headers dict of k:v
 def curl(url, headers=None, method=None, byte=False, timeout=3, max_retries=5, retry_interval=5):
@@ -643,7 +661,7 @@ class aws_instance(cloud_instance):
 
         root_dev = root_dev_candidates[0].device
         if root_dev == '/dev/root':
-            root_dev = run('findmnt -n -o SOURCE /', shell=True, check=True, capture_output=True, encoding='utf-8').stdout.strip()
+            root_dev = out('findmnt -n -o SOURCE /')
         ephemeral_present = list(filter(lambda x: self.__filter_nvmes(x, 'ephemeral'), os.listdir("/dev")))
         ebs_present = list(filter(lambda x: self.__filter_nvmes(x, 'ebs'), os.listdir("/dev")))
         return {"root": [ root_dev ], "ephemeral": ephemeral_present, "ebs": [ x for x in ebs_present if not root_dev.startswith(os.path.join("/dev/", x))] }
