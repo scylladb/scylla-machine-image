@@ -9,8 +9,10 @@ import subprocess
 import yaml
 import time
 import logging
+import sys
 from textwrap import dedent
 from datetime import datetime
+from lib.scylla_cloud import scylla_excepthook
 from lib.log import setup_logging
 from lib.user_data import UserData
 from pathlib import Path
@@ -118,6 +120,7 @@ class ScyllaMachineImageConfigurator(UserData):
                 LOGGER.info("Running post configuration script:\n%s", decoded_script)
                 subprocess.run(decoded_script, check=True, shell=True, timeout=int(script_timeout))
             except Exception as e:
+                scylla_excepthook(*sys.exc_info())
                 LOGGER.error("Post configuration script failed: %s", e)
 
     def start_scylla_on_first_boot(self):
@@ -134,6 +137,7 @@ class ScyllaMachineImageConfigurator(UserData):
             LOGGER.info(f"Create scylla data devices as {device_type}")
             subprocess.run(cmd_create_devices, shell=True, check=True)
         except Exception as e:
+            scylla_excepthook(*sys.exc_info())
             LOGGER.error("Failed to create devices: %s", e)
 
     def configure(self):
