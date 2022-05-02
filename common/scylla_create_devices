@@ -8,7 +8,7 @@ import argparse
 import sys
 from pathlib import Path
 from subprocess import run
-from lib.scylla_cloud import is_ec2, is_gce, is_azure, get_cloud_instance
+from lib.scylla_cloud import is_ec2, is_gce, is_azure, get_cloud_instance, out
 
 class DiskIsNotEmptyError(Exception):
     def __init__(self, disk):
@@ -39,8 +39,8 @@ def create_raid(devices, raid_level=0):
 
 def check_persistent_disks_are_empty(disks):
     for disk in disks:
-        part = run(f'lsblk -dpnr -o PTTYPE /dev/{disk}', shell=True, check=True, capture_output=True, encoding='utf-8').stdout.strip()
-        fs = run(f'lsblk -dpnr -o FSTYPE /dev/{disk}', shell=True, check=True, capture_output=True, encoding='utf-8').stdout.strip()
+        part = out(f'lsblk -dpnr -o PTTYPE /dev/{disk}')
+        fs = out(f'lsblk -dpnr -o FSTYPE /dev/{disk}')
         if part != '' or fs != '':
             raise DiskIsNotEmptyError(f'/dev/{disk}')
 
