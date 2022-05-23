@@ -1,7 +1,7 @@
 #!/bin/sh
 
 PRODUCT=scylla-enterprise
-VERSION=2022.1.rc5
+VERSION=2022.1.rc6
 
 BASE_VERSION=5.0
 
