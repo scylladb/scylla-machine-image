@@ -484,7 +484,7 @@ class azure_instance:
         return False
 
     def is_recommended_instance(self):
-        if self.is_unsupported_instance_class() and self.is_supported_instance_class():
+        if self.is_supported_instance_class():
             return True
         return False
 
