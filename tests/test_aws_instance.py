@@ -114,6 +114,11 @@ user-data
 '''[1:-1]
             )
         httpretty.register_uri(
+            httpretty.PUT,
+            'http://169.254.169.254/latest/api/token',
+            'AQAAAONS_5Sm5ED3PboTRTN6YZXlUYrW441avHNVzV74vTtP2JL-vw=='
+        )
+        httpretty.register_uri(
             httpretty.GET,
             'http://169.254.169.254/latest/meta-data/instance-type',
             instance_type
