@@ -92,9 +92,9 @@ if __name__ == '__main__':
     run('rpm -e kernel-$(uname -r)', shell=True)
     # this is for pinning kernel-ml describes later
     run('cp elrepo-archive.repo /etc/yum.repos.d/')
-    # kernel-ml 5.16.3 does not able to initialize ENA device correctly,
-    # force installing 5.15.8 this is known to be good
-    run('yum -y install kernel-ml-5.15.8 kernel-ml-devel-5.15.8')
+    # kernel-ml 5.18.0 does not able to initialize ENA device correctly,
+    # force installing 5.18.0 this is known to be good
+    run('yum -y install kernel-ml-5.18.0 kernel-ml-devel-5.18.0')
     os.remove('/etc/udev/rules.d/80-net-name-slot.rules')
     with open('/etc/default/grub') as f:
         grub = f.read()
