@@ -25,6 +25,7 @@ import urllib.request
 import psutil
 import socket
 import glob
+import base64
 from subprocess import run, DEVNULL
 
 # @param headers dict of k:v
@@ -313,6 +314,7 @@ class azure_instance:
 
     EPHEMERAL = "ephemeral"
     PERSISTENT = "persistent"
+    SWAP = "swap"
     ROOT = "root"
     GETTING_STARTED_URL = "http://www.scylladb.com/doc/getting-started-azure/"
     ENDPOINT_SNITCH = "AzureSnitch"
@@ -328,14 +330,14 @@ class azure_instance:
         self.__firstNvmeSize = None
         self.__osDisks = None
 
-    @staticmethod
-    def is_azure_instance():
-        """Check if it's Azure instance via DNS lookup to metadata server."""
+    @classmethod
+    def is_azure_instance(cls):
+        """Check if it's Azure instance via query to metadata server."""
         try:
-            addrlist = socket.getaddrinfo('metadata.azure.internal', 80)
-        except socket.gaierror:
+            curl(cls.META_DATA_BASE_URL + cls.API_VERSION + "&format=text", headers = { "Metadata": "True" }, max_retries=2, retry_interval=1)
+            return True
+        except (urllib.error.URLError, urllib.error.HTTPError):
             return False
-        return True
 
 # as per https://docs.microsoft.com/en-us/azure/virtual-machines/windows/instance-metadata-service?tabs=windows#supported-api-versions
     API_VERSION = "?api-version=2021-01-01"
@@ -363,6 +365,12 @@ class azure_instance:
         nvmes_present = list(filter(nvme_re.match, os.listdir("/dev")))
         return {self.ROOT: root_devs, self.EPHEMERAL: [x for x in nvmes_present if not self.is_in_root_devs(x, root_devs)]}
 
+    def _get_swap_dev(self):
+        if os.path.exists('/dev/disk/cloud/azure_resource'):
+            return os.path.realpath('/dev/disk/cloud/azure_resource')
+        else:
+            return None
+
     def _non_root_disks(self):
         """get list of disks from os, filter away if one of them is root"""
         disk_re = re.compile(r"/dev/sd[b-z]+$")
@@ -372,7 +380,12 @@ class azure_instance:
         root_devs = [x.device for x in root_dev_candidates]
 
         disks_present = list(filter(disk_re.match, glob.glob("/dev/sd*")))
-        return {self.PERSISTENT: [x.lstrip('/dev/') for x in disks_present if not self.is_in_root_devs(x.lstrip('/dev/'), root_devs)]}
+        swap_dev = self._get_swap_dev()
+        swap = []
+        if swap_dev:
+            swap.append(swap_dev.lstrip('/dev/'))
+        persistent = [x.lstrip('/dev/') for x in disks_present if not self.is_in_root_devs(x.lstrip('/dev/'), root_devs) and not x == swap_dev]
+        return {self.PERSISTENT: persistent, self.SWAP: swap}
 
     @property
     def os_disks(self):
@@ -395,6 +408,9 @@ class azure_instance:
     def getPersistentOsDisks(self):
         """return just persistent disks"""
         return self.os_disks[self.PERSISTENT]
+
+    def get_swap_disks(self):
+        return self.os_disks[self.SWAP]
 
     @property
     def nvmeDiskCount(self):
@@ -428,14 +444,14 @@ class azure_instance:
     def instancelocation(self):
         """return the location of this instance, e.g. eastus"""
         if self.__location is None:
-            self.__location = self.__instance_metadata("location")
+            self.__location = self.__instance_metadata("/compute/location")
         return self.__location
 
     @property
     def instancezone(self):
         """return the zone of this instance, e.g. 1"""
         if self.__zone is None:
-            self.__zone = self.__instance_metadata("zone")
+            self.__zone = self.__instance_metadata("/compute/zone")
         return self.__zone
 
     @property
@@ -467,10 +483,6 @@ class azure_instance:
         """Returns the purpose of the instance we are running in. i.e.: L8s"""
         return self.instancetype.split("_")[1]
 
-    def is_unsupported_instance_class(self):
-        """Returns if this instance type belongs to unsupported ones for nvmes"""
-        return False
-
     def is_supported_instance_class(self):
         """Returns if this instance type belongs to supported ones for nvmes"""
         if self.instance_class() in list(self.instanceToDiskCount.keys()):
@@ -479,12 +491,12 @@ class azure_instance:
 
     def is_recommended_instance_size(self):
         """if this instance has at least 2 cpus, it has a recommended size"""
-        if int(self.instance_size()) > 1:
+        if self.cpu > 1:
             return True
         return False
 
     def is_recommended_instance(self):
-        if self.is_unsupported_instance_class() and self.is_supported_instance_class():
+        if self.is_supported_instance_class():
             return True
         return False
 
@@ -498,6 +510,15 @@ class azure_instance:
     @staticmethod
     def io_setup():
         return run('/opt/scylladb/scylla-machine-image/scylla_cloud_io_setup', shell=True, check=True)
+
+    @property
+    def user_data(self):
+        encoded_user_data = self.__instance_metadata("/compute/userData")
+        if not encoded_user_data:
+            return ''
+        return base64.b64decode(encoded_user_data).decode()
+
+
 
 class aws_instance:
     """Describe several aspects of the current AWS instance"""
@@ -598,7 +619,7 @@ class aws_instance:
         return self._type.split(".")[0]
 
     def is_supported_instance_class(self):
-        if self.instance_class() in ['i2', 'i3', 'i3en', 'c5d', 'm5d', 'm5ad', 'r5d', 'z1d', 'c6gd', 'm6gd', 'r6gd', 'x2gd', 'im4gn', 'is4gen']:
+        if self.instance_class() in ['i2', 'i3', 'i3en', 'c5d', 'm5d', 'm5ad', 'r5d', 'z1d', 'c6gd', 'm6gd', 'r6gd', 'x2gd', 'im4gn', 'is4gen', 'i4i']:
             return True
         return False
 
@@ -607,7 +628,7 @@ class aws_instance:
         instance_size = self.instance_size()
         if instance_class in ['c3', 'c4', 'd2', 'i2', 'r3']:
             return 'ixgbevf'
-        if instance_class in ['a1', 'c5', 'c5a', 'c5d', 'c5n', 'c6g', 'c6gd', 'f1', 'g3', 'g4', 'h1', 'i3', 'i3en', 'inf1', 'm5', 'm5a', 'm5ad', 'm5d', 'm5dn', 'm5n', 'm6g', 'm6gd', 'p2', 'p3', 'r4', 'r5', 'r5a', 'r5ad', 'r5b', 'r5d', 'r5dn', 'r5n', 't3', 't3a', 'u-6tb1', 'u-9tb1', 'u-12tb1', 'u-18tn1', 'u-24tb1', 'x1', 'x1e', 'z1d', 'c6g', 'c6gd', 'm6g', 'm6gd', 't4g', 'r6g', 'r6gd', 'x2gd', 'im4gn', 'is4gen']:
+        if instance_class in ['a1', 'c5', 'c5a', 'c5d', 'c5n', 'c6g', 'c6gd', 'f1', 'g3', 'g4', 'h1', 'i3', 'i3en', 'inf1', 'm5', 'm5a', 'm5ad', 'm5d', 'm5dn', 'm5n', 'm6g', 'm6gd', 'p2', 'p3', 'r4', 'r5', 'r5a', 'r5ad', 'r5b', 'r5d', 'r5dn', 'r5n', 't3', 't3a', 'u-6tb1', 'u-9tb1', 'u-12tb1', 'u-18tn1', 'u-24tb1', 'x1', 'x1e', 'z1d', 'c6g', 'c6gd', 'm6g', 'm6gd', 't4g', 'r6g', 'r6gd', 'x2gd', 'im4gn', 'is4gen', 'i4i']:
             return 'ena'
         if instance_class == 'm4':
             if instance_size == '16xlarge':
