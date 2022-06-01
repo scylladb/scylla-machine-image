@@ -14,6 +14,8 @@ import unittest.mock
 from textwrap import dedent
 from unittest import TestCase
 from pathlib import Path
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
 
 sys.path.append('..')
 
@@ -75,6 +77,20 @@ class TestScyllaConfigurator(TestCase):
     def run_scylla_configure(self, user_data, private_ipv4):
         self.configurator._cloud_instance = DummyCloudInstance(user_data=user_data, private_ipv4=private_ipv4)
         self.configurator.configure_scylla_yaml()
+
+    @staticmethod
+    def multipart_user_data(scylla_data, data_type):
+        raw_user_data = json.dumps(scylla_data) if data_type == 'json' else yaml.safe_dump(scylla_data)
+
+        msg = MIMEMultipart()
+
+        filename = f"scylla_machine_image.{data_type}"
+        part = MIMEBase('x-scylla', data_type)
+        part.set_payload(raw_user_data)
+        part.add_header('Content-Disposition', 'attachment; filename="%s"' % filename)
+        msg.attach(part)
+
+        return msg
 
     def test_empty_user_data(self):
         self.run_scylla_configure(**self.default_instance_metadata())
@@ -161,6 +177,33 @@ class TestScyllaConfigurator(TestCase):
         self.run_scylla_configure(user_data=raw_user_data, private_ipv4=self.private_ip)
         with self.assertRaises(expected_exception=SystemExit):
             self.configurator.run_post_configuration_script()
+
+    def test_multipart_user_data_params_are_set(self):
+        ip_to_set = "172.16.16.84"
+
+        scylla_user_data = dict(
+                scylla_yaml=dict(
+                    cluster_name=self.test_cluster_name,
+                    listen_address=ip_to_set,
+                    broadcast_rpc_address=ip_to_set,
+                    seed_provider=[{
+                        "class_name": "org.apache.cassandra.locator.SimpleSeedProvider",
+                        "parameters": [{"seeds": ip_to_set}]}],
+                )
+            )
+        for data_type in ('json', 'yaml'):
+            msg = self.multipart_user_data(scylla_user_data, data_type)
+            self.run_scylla_configure(user_data=str(msg), private_ipv4=ip_to_set)
+            self.check_yaml_files_exist()
+            with self.configurator.scylla_yaml_path.open() as scylla_yaml_file:
+                scylla_yaml = yaml.load(scylla_yaml_file, Loader=yaml.SafeLoader)
+                assert scylla_yaml["cluster_name"] == self.test_cluster_name
+                assert scylla_yaml["listen_address"] == ip_to_set
+                assert scylla_yaml["broadcast_rpc_address"] == ip_to_set
+                assert scylla_yaml["seed_provider"][0]["parameters"][0]["seeds"] == ip_to_set
+                # check defaults
+                assert scylla_yaml["experimental"] is False
+                assert scylla_yaml["auto_bootstrap"] is True
 
     def test_do_not_start_on_first_boot(self):
         raw_user_data = json.dumps(

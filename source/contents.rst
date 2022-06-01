@@ -10,7 +10,7 @@ Welcome to scylla-machine-image's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   user_data_v2
+   user_data_v3
 
 Indices and tables
 ==================
