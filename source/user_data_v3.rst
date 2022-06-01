@@ -1,4 +1,4 @@
-Scylla AMI user-data Format v2
+Scylla AMI user-data Format v3
 ==============================
 
 Scylla AMI user-data should be passed as a json object, as described below 
@@ -50,7 +50,7 @@ https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-add-user-data.h
     :proptype experimental: boolean
     :options experimental: default='false'
 
-    :property auto_bootstrap: Enable auto bootstreap
+    :property auto_bootstrap: Enable auto bootstrap
     :proptype experimental: boolean
     :options experimental: default='true'
  
@@ -76,6 +76,8 @@ Example
 
 Spinning a new node connecting to "10.0.219.209" as a seed, and installing cloud-init-cfn package at first boot.
 
+using json
+++++++++++
 .. code-block:: json
 
    {
@@ -89,3 +91,94 @@ Spinning a new node connecting to "10.0.219.209" as a seed, and installing cloud
         "start_scylla_on_first_boot": true  
    }
 
+using yaml
+++++++++++
+.. code-block:: yaml
+
+    scylla_yaml:
+      cluster_name: test-cluster
+      experimental: true
+      seed_provider:
+        - class_name: org.apache.cassandra.locator.SimpleSeedProvider
+          parameters:
+            - seeds: 10.0.219.209
+      post_configuration_script: "#! /bin/bash\nyum install cloud-init-cfn"
+      start_scylla_on_first_boot: true
+
+using mimemultipart
+++++++++++++++++++++
+
+If other feature of cloud-init are needed, one can use mimemultipart, and pass
+a json/yaml with `x-scylla/yaml` or `x-scylla/json`
+
+more information on cloud-init multipart user-data:
+
+https://cloudinit.readthedocs.io/en/latest/topics/format.html#mime-multi-part-archive
+
+.. code-block:: mime
+
+    Content-Type: multipart/mixed; boundary="===============5438789820677534874=="
+    MIME-Version: 1.0
+
+    --===============5438789820677534874==
+    Content-Type: x-scylla/yaml
+    MIME-Version: 1.0
+    Content-Disposition: attachment; filename="scylla_machine_image.yaml"
+
+    scylla_yaml:
+      cluster_name: test-cluster
+      experimental: true
+      seed_provider:
+        - class_name: org.apache.cassandra.locator.SimpleSeedProvider
+          parameters:
+            - seeds: 10.0.219.209
+      post_configuration_script: "#! /bin/bash\nyum install cloud-init-cfn"
+      start_scylla_on_first_boot: true
+
+    --===============5438789820677534874==
+    Content-Type: text/cloud-config; charset="us-ascii"
+    MIME-Version: 1.0
+    Content-Transfer-Encoding: 7bit
+    Content-Disposition: attachment; filename="cloud-config.txt"
+
+    #cloud-config
+    cloud_final_modules:
+    - [scripts-user, always]
+
+    --===============5438789820677534874==--
+
+example of creating the multipart message by python code:
+
+.. code-block:: python
+    import json
+    from email.mime.base import MIMEBase
+    from email.mime.multipart import MIMEMultipart
+
+    msg = MIMEMultipart()
+
+    scylla_image_configuration = dict(
+        scylla_yaml=dict(
+            cluster_name="test_cluster",
+            listen_address="10.23.20.1",
+            broadcast_rpc_address="10.23.20.1",
+            seed_provider=[{
+                "class_name": "org.apache.cassandra.locator.SimpleSeedProvider",
+                "parameters": [{"seeds": "10.23.20.1"}]}],
+        )
+    )
+    part = MIMEBase('x-scylla', 'json')
+    part.set_payload(json.dumps(scylla_image_configuration, indent=4, sort_keys=True))
+    part.add_header('Content-Disposition', 'attachment; filename="scylla_machine_image.json"')
+    msg.attach(part)
+
+    cloud_config = """
+    #cloud-config
+    cloud_final_modules:
+    - [scripts-user, always]
+    """
+    part = MIMEBase('text', 'cloud-config')
+    part.set_payload(cloud_config)
+    part.add_header('Content-Disposition', 'attachment; filename="cloud-config.txt"')
+    msg.attach(part)
+
+    print(msg)
