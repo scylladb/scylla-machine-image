@@ -1,1 +1,0 @@
-../../packer/build_with_docker.sh
