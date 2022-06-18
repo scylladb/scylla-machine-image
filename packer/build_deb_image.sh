@@ -209,7 +209,7 @@ fi
 SSH_USERNAME=ubuntu
 
 if [ $LOCALDEB -eq 1 ]; then
-    INSTALL_ARGS="$INSTALL_ARGS --localrpm"
+    INSTALL_ARGS="$INSTALL_ARGS --localdeb"
 
     check_deb_exists "$DIR"/files
 

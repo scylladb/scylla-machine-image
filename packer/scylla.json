@@ -169,8 +169,6 @@
     {
       "inline": [
         "if [ {{build_name}} = aws ]; then sudo /usr/bin/cloud-init status --wait; fi",
-        "if [ -f /etc/debian_version ]; then sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.8 1; fi",
-        "if [ {{build_name}} = gce ] && [ -f /etc/redhat-release ]; then sudo alternatives --set python /usr/bin/python3; fi",
         "sudo /home/{{user `ssh_username`}}/scylla_install_image --target-cloud {{build_name}} --scylla-version {{user `scylla_version`}} {{user `install_args`}}"
       ],
       "type": "shell"
