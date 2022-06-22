@@ -80,7 +80,11 @@
           "arch": "{{user `arch`| clean_resource_name}}",
           "build_tag": "{{user `build_tag`| clean_resource_name}}"
       },
-      "ami_regions": "{{user `ami_regions`}}"
+      "ami_regions": "{{user `ami_regions`}}",
+      "aws_polling": {
+        "delay_seconds": "30",
+        "max_attempts": "100"
+      }
     },
     {
       "name": "gce",
