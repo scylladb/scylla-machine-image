@@ -83,7 +83,7 @@
       "ami_regions": "{{user `ami_regions`}}",
       "aws_polling": {
         "delay_seconds": "30",
-        "max_attempts": "50"
+        "max_attempts": "100"
       }
     },
     {
