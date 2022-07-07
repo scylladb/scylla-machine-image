@@ -39,6 +39,8 @@ if __name__ == '__main__':
     if os.getuid() > 0:
         print('Requires root permission.')
         sys.exit(1)
+
+    homedir = os.path.abspath(os.path.join(__file__, os.pardir))
     parser = argparse.ArgumentParser(description='Construct AMI')
     parser.add_argument('--localdeb', action='store_true', default=False,
                         help='deploy locally built rpms')
@@ -151,7 +153,7 @@ WantedBy=multi-user.target
         f.write(dot_mount)
     os.makedirs('/var/lib/scylla/coredump', exist_ok=True)
 
-    os.remove('/home/ubuntu/.ssh/authorized_keys')
+    os.remove('{}/.ssh/authorized_keys'.format(homedir))
     os.remove('/var/lib/scylla-housekeeping/housekeeping.uuid')
 
     with open('/etc/default/grub.d/50-cloudimg-settings.cfg') as f:
@@ -211,7 +213,7 @@ WantedBy=multi-user.target
     for d in deps:
         if re.match(r'^\w', d) and not re.match(r'.+:i386$', d) and d not in pkgs:
             pkgs.append(d)
-    with open(f'/home/ubuntu/{args.product}-packages-{args.scylla_version}-{arch()}.txt', 'w') as f:
+    with open('{}/{}-packages-{}-{}.txt'.format(homedir, args.product, args.scylla_version, arch()), 'w') as f:
         for pkg_name in pkgs:
             pkg_name_version = run(f"dpkg-query --showformat='${{Package}}=${{Version}}' --show {pkg_name}", capture_output=True, shell=True, check=True, encoding='utf-8').stdout
             f.write(f'{pkg_name_version}\n')
