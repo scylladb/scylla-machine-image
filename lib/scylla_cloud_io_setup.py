@@ -185,6 +185,47 @@ class aws_io_setup(cloud_io_setup):
             self.disk_properties["read_bandwidth"] = 1656354602 * nr_disks
             self.disk_properties["write_iops"] = 92233 * nr_disks
             self.disk_properties["write_bandwidth"] = 1028010325 * nr_disks
+        elif self.idata.instancetype == "i4i.large":
+            self.disk_properties["read_iops"] = 54987 * nr_disks
+            self.disk_properties["read_bandwidth"] = 378494048 * nr_disks
+            self.disk_properties["write_iops"] = 30459 * nr_disks
+            self.disk_properties["write_bandwidth"] = 279713216 * nr_disks
+        elif self.idata.instancetype == "i4i.xlarge":
+            self.disk_properties["read_iops"] = 109954 * nr_disks
+            self.disk_properties["read_bandwidth"] = 763580096 * nr_disks
+            self.disk_properties["write_iops"] = 61008 * nr_disks
+            self.disk_properties["write_bandwidth"] = 561926784 * nr_disks
+        elif self.idata.instancetype == "i4i.2xlarge":
+            self.disk_properties["read_iops"] = 218786 * nr_disks
+            self.disk_properties["read_bandwidth"] = 1542559872 * nr_disks
+            self.disk_properties["write_iops"] = 121499 * nr_disks
+            self.disk_properties["write_bandwidth"] = 1130867072 * nr_disks
+        elif self.idata.instancetype == "i4i.4xlarge":
+            self.disk_properties["read_iops"] = 385400 * nr_disks
+            self.disk_properties["read_bandwidth"] = 3087631104 * nr_disks
+            self.disk_properties["write_iops"] = 240628 * nr_disks
+            self.disk_properties["write_bandwidth"] = 2289281280 * nr_disks
+        elif self.idata.instancetype == "i4i.8xlarge":
+            self.disk_properties["read_iops"] = 384561 * nr_disks
+            self.disk_properties["read_bandwidth"] = 3115819008 * nr_disks
+            self.disk_properties["write_iops"] = 239980 * nr_disks
+            self.disk_properties["write_bandwidth"] = 2289285120 * nr_disks
+        elif self.idata.instancetype == "i4i.16xlarge":
+            self.disk_properties["read_iops"] = 374273 * nr_disks
+            self.disk_properties["read_bandwidth"] = 3088962816 * nr_disks
+            self.disk_properties["write_iops"] = 240185 * nr_disks
+            self.disk_properties["write_bandwidth"] = 2292813568 * nr_disks
+        elif self.idata.instancetype == "i4i.32xlarge":
+            self.disk_properties["read_iops"] = 374273 * nr_disks
+            self.disk_properties["read_bandwidth"] = 3095612416 * nr_disks
+            self.disk_properties["write_iops"] = 239413 * nr_disks
+            self.disk_properties["write_bandwidth"] = 2296702976 * nr_disks
+        elif self.idata.instancetype == "i4i.metal":
+            self.disk_properties["read_iops"] = 379565 * nr_disks
+            self.disk_properties["read_bandwidth"] = 3088599296 * nr_disks
+            self.disk_properties["write_iops"] = 239549 * nr_disks
+            self.disk_properties["write_bandwidth"] = 2302438912 * nr_disks
+
         if not "read_iops" in self.disk_properties:
             raise PresetNotFoundError()
 

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 #
 # Copyright 2020 ScyllaDB
@@ -13,34 +13,23 @@ import shutil
 import shlex
 import tarfile
 import argparse
-import subprocess
 import platform
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from io import StringIO
+from io import StringIO
+from subprocess import run, PIPE, STDOUT
 
 my_env = os.environ.copy()
 my_env['DEBIAN_FRONTEND']='noninteractive'
-def run(cmd, shell=False):
-    if not shell:
-        cmd = shlex.split(cmd)
-    return subprocess.check_call(cmd, shell=shell, env=my_env)
-
-def out(cmd, shell=False):
-    if not shell:
-        cmd = shlex.split(cmd)
-    return subprocess.check_output(cmd, shell=shell, env=my_env).decode('utf-8')
 
 def get_kver(pattern):
     for k in glob.glob(pattern):
         return re.sub(r'^/boot/vmlinuz-(.+)$', r'\1', k)
 
-def is_centos():
-    return os.path.exists('/etc/redhat-release')
-
 def arch():
     return platform.machine()
+
+def deb_arch():
+    darch={'x86_64': 'amd64', 'aarch64': 'arm64'}
+    return darch[arch()]
 
 def half_of_diskfree():
     disk = os.statvfs('/')
@@ -50,10 +39,10 @@ if __name__ == '__main__':
     if os.getuid() > 0:
         print('Requires root permission.')
         sys.exit(1)
-    distro = 'centos' if is_centos() else 'ubuntu'
+
     homedir = os.path.abspath(os.path.join(__file__, os.pardir))
     parser = argparse.ArgumentParser(description='Construct AMI')
-    parser.add_argument('--localrpm', action='store_true', default=False,
+    parser.add_argument('--localdeb', action='store_true', default=False,
                         help='deploy locally built rpms')
     parser.add_argument('--product',
                         help='name of the product', default='scylla')
@@ -71,83 +60,55 @@ if __name__ == '__main__':
     if args.repo:
         args.repo_for_install = args.repo_for_update = args.repo
 
-    if not args.localrpm and not args.repo_for_install:
-        print('Error: need to specify --localrpm or --repo/--repo-for-install')
+    if not args.localdeb and not args.repo_for_install:
+        print('Error: need to specify --localdeb or --repo/--repo-for-install')
         sys.exit(1)
 
-    if distro == 'centos':
-        run('yum update -y')
-
-        if args.repo_for_install:
-            run('curl -L -o /etc/yum.repos.d/scylla_install.repo {REPO_FOR_INSTALL}'.format(REPO_FOR_INSTALL=args.repo_for_install))
-
-        if args.localrpm:
-            rpms = glob.glob('{}/scylla*.*.rpm'.format(homedir))
-            run('yum install -y {}'.format(' '.join(rpms)))
-        else:
-            run('yum install -y {0}-machine-image {0}-debuginfo'.format(args.product))
-
-        if args.repo_for_install:
-            os.remove('/etc/yum.repos.d/scylla_install.repo')
-        if args.repo_for_update:
-            run('curl -L -o /etc/yum.repos.d/scylla.repo {REPO_FOR_UPDATE}'.format(REPO_FOR_UPDATE=args.repo_for_update))
+    run('apt-key adv --keyserver keyserver.ubuntu.com --recv-keys d0a112e067426ab2', shell=True, check=True)
+    if args.repo_for_install:
+        run(f'curl -L -o /etc/apt/sources.list.d/scylla_install.list {args.repo_for_install}', shell=True, check=True)
+    elif args.localdeb:
+        with open('/etc/apt/sources.list.d/scylla_install.list', 'w') as f:
+            f.write('deb file:/home/ubuntu ./')
     else:
-        run('apt-key adv --keyserver keyserver.ubuntu.com --recv-keys d0a112e067426ab2')
-        if args.repo_for_install:
-            run('curl -L -o /etc/apt/sources.list.d/scylla_install.list {REPO_FOR_INSTALL}'.format(REPO_FOR_INSTALL=args.repo_for_install))
-        elif args.localrpm:
-            with open('/etc/apt/sources.list.d/scylla_install.list', 'w') as f:
-                f.write('deb file:{} ./'.format(homedir))
-        else:
-            print('no scylla package found.')
-            sys.exit(1)
+        print('no scylla package found.')
+        sys.exit(1)
 
-        run('apt-get update --allow-insecure-repositories -y')
-        run('apt-get upgrade -y')
-        run('apt-get purge -y apport fuse')
-        run('apt-get install -y --allow-unauthenticated {0}-machine-image {0}-server-dbg systemd-coredump'.format(args.product))
+    run('apt-get update --allow-insecure-repositories -y', shell=True, check=True)
+    run('apt-get full-upgrade -y', shell=True, check=True)
+    run('apt-get purge -y apport fuse', shell=True, check=True)
+    run('apt-get install -y systemd-coredump', shell=True, check=True)
+    run(f'apt-get install -y --auto-remove --allow-unauthenticated {args.product}-machine-image {args.product}-server-dbg', shell=True, check=True)
 
-        os.remove('/etc/apt/sources.list.d/scylla_install.list')
-        if args.repo_for_update:
-            run('curl -L -o /etc/apt/sources.list.d/scylla.list {REPO_FOR_UPDATE}'.format(REPO_FOR_UPDATE=args.repo_for_update))
+    os.remove('/etc/apt/sources.list.d/scylla_install.list')
+    if args.repo_for_update:
+        run(f'curl -L -o /etc/apt/sources.list.d/scylla.list {args.repo_for_update}', shell=True, check=True)
 
-        # disable unattended-upgrades
-        run('apt-get purge -y unattended-upgrades update-notifier-common')
-        # remove snapd
-        run('apt-get purge -y snapd')
-        run('apt-get purge -y modemmanager')
-        # drop packages does not needed anymore
-        run('apt-get autoremove --purge -y')
+    # disable unattended-upgrades
+    run('apt-get purge -y unattended-upgrades update-notifier-common', shell=True, check=True)
+    # remove snapd
+    run('apt-get purge -y snapd', shell=True, check=True)
+    run('apt-get purge -y modemmanager', shell=True, check=True)
+    # drop packages does not needed anymore
+    run('apt-get autoremove --purge -y', shell=True, check=True)
 
     if args.target_cloud == 'aws':
         # use easy_install instead of pip, because easy_install requires
         # fewer dependencies, no need to install gcc, it makes our AMI smaller.
-        if distro == 'centos':
-            run('yum install -y epel-release')
-            run('yum install -y pystache python-daemon python-setuptools')
-            # Default install prefix on CentOS7 is /usr not /usr/local, but we need
-            # to align path for executable, so specify script-dir to /usr/local/bin
-            run('python -m easy_install --script-dir /usr/local/bin https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz')
-            pyver = ''
-        else:
-            # XXX: we want install dependencies from distro repo, but
-            # python-daemon-2.2 on Ubuntu 20.04 is too new for aws-cfn-bootstrap,
-            # so install python-daemon-2.1 from pypi
-            run('apt-get install -y python3-pystache python3-lockfile python3-setuptools')
-            run('python3 -m easy_install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz')
-            pyver = '3'
 
-            # install .deb version of ssm-agent since we dropped snapd version
-            if arch() == 'x86_64':
-                run('curl -L -o /tmp/amazon-ssm-agent.deb https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_amd64/amazon-ssm-agent.deb')
-            if arch() == 'aarch64':
-                run('curl -L -o /tmp/amazon-ssm-agent.deb https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_arm64/amazon-ssm-agent.deb')
+        # XXX: we want install dependencies from distro repo, but
+        # python-daemon-2.2 on Ubuntu 20.04 is too new for aws-cfn-bootstrap,
+        # so install python-daemon-2.1 from pypi
+        run('apt-get install -y python3-pystache python3-lockfile python3-setuptools', shell=True, check=True)
+        run('python3 -m easy_install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz', shell=True, check=True)
 
-            run('dpkg -i /tmp/amazon-ssm-agent.deb')
-            run('systemctl enable amazon-ssm-agent')
+        # install .deb version of ssm-agent since we dropped snapd version
+        run(f'curl -L -o /tmp/amazon-ssm-agent.deb https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_{deb_arch()}/amazon-ssm-agent.deb', shell=True, check=True)
+        run('dpkg -i /tmp/amazon-ssm-agent.deb', shell=True, check=True)
+        run('systemctl enable amazon-ssm-agent', shell=True, check=True)
 
-        cfnpath = out('python{} -c "import cfnbootstrap as _; print(_.__path__[0])"'.format(pyver))
-        initpath = os.path.abspath('{}/../init/{}/cfn-hup'.format(cfnpath, 'redhat' if distro == 'centos' else 'ubuntu'))
+        cfnpath = run('python3 -c "import cfnbootstrap as _; print(_.__path__[0])"', capture_output=True, shell=True, check=True, encoding='utf-8').stdout.strip()
+        initpath = os.path.abspath(f'{cfnpath}/../init/ubuntu/cfn-hup')
         shutil.copyfile(initpath, '/etc/init.d/cfn-hup')
         os.chmod('/etc/init.d/cfn-hup', 0o755)
 
@@ -160,24 +121,18 @@ if __name__ == '__main__':
         setup_opt = ''
         sysconfig_opt = '--disable-writeback-cache'
 
-    run('systemctl daemon-reload')
-    run('systemctl enable scylla-image-setup.service')
-    run('systemctl enable scylla-image-post-start.service')
-    run('/opt/scylladb/scripts/scylla_setup --no-coredump-setup --no-sysconfig-setup --no-raid-setup --no-io-setup --no-bootparam-setup --no-ec2-check --no-swap-setup --no-cpuscaling-setup')
+    run('systemctl daemon-reload', shell=True, check=True)
+    run('systemctl enable scylla-image-setup.service', shell=True, check=True)
+    run('systemctl enable scylla-image-post-start.service', shell=True, check=True)
+    run('/opt/scylladb/scripts/scylla_setup --no-coredump-setup --no-sysconfig-setup --no-raid-setup --no-io-setup --no-bootparam-setup --no-ec2-check --no-swap-setup --no-cpuscaling-setup', shell=True, check=True)
 
-    # The difference comes from two different services to configure CPU scaling.
-    # On CentOS 'cpupower' fails when CPU scaling is not supported, so we can't
-    # enable it here.
-    # On Ubuntu 'cpufrequtils' never fails even CPU scaling is not supported,
-    # so we want to enable it here.
-    if distro == 'centos':
-        run('yum install -y cpupowerutils')
-    else:
-        run('/opt/scylladb/scripts/scylla_cpuscaling_setup --force')
+    # On Ubuntu, 'cpufrequtils' never fails even CPU scaling is not supported,
+    # so we want to enable it here
+    run('/opt/scylladb/scripts/scylla_cpuscaling_setup --force', shell=True, check=True)
 
-    run('/opt/scylladb/scripts/scylla_sysconfig_setup --ami --set-clocksource {}'.format(sysconfig_opt))
-    run('/opt/scylladb/scripts/scylla_swap_setup --swap-size-bytes {}'.format(half_of_diskfree()))
-    run('/opt/scylladb/scripts/scylla_coredump_setup')
+    run(f'/opt/scylladb/scripts/scylla_sysconfig_setup --ami --set-clocksource {sysconfig_opt}', shell=True, check=True)
+    run(f'/opt/scylladb/scripts/scylla_swap_setup --swap-size-bytes {half_of_diskfree()}', shell=True, check=True)
+    run('/opt/scylladb/scripts/scylla_coredump_setup', shell=True, check=True)
     dot_mount = '''
 [Unit]
 Description=Save coredump to scylla data directory
@@ -202,25 +157,14 @@ WantedBy=multi-user.target
     os.remove('{}/.ssh/authorized_keys'.format(homedir))
     os.remove('/var/lib/scylla-housekeeping/housekeeping.uuid')
 
-    if distro == 'centos':
-        with open('/etc/default/grub') as f:
-            grub = f.read()
-        grub = re.sub(r'^GRUB_CMDLINE_LINUX="(.+)"$', r'GRUB_CMDLINE_LINUX="\1 net.ifnames=0 clocksource=tsc tsc=reliable"', grub, flags=re.MULTILINE)
-        with open('/etc/default/grub', 'w') as f:
-            f.write(grub)
-        run('grub2-mkconfig -o /boot/grub2/grub.cfg')
-    else:
-        with open('/etc/default/grub.d/50-cloudimg-settings.cfg') as f:
-            grub = f.read()
-        grub = re.sub(r'^GRUB_CMDLINE_LINUX_DEFAULT="(.+)"$', r'GRUB_CMDLINE_LINUX_DEFAULT="\1 net.ifnames=0 clocksource=tsc tsc=reliable"', grub, flags=re.MULTILINE)
-        with open('/etc/default/grub.d/50-cloudimg-settings.cfg', 'w') as f:
-            f.write(grub)
-        run('update-grub2')
+    with open('/etc/default/grub.d/50-cloudimg-settings.cfg') as f:
+        grub = f.read()
+    grub = re.sub(r'^GRUB_CMDLINE_LINUX_DEFAULT="(.+)"$', r'GRUB_CMDLINE_LINUX_DEFAULT="\1 net.ifnames=0 clocksource=tsc tsc=reliable"', grub, flags=re.MULTILINE)
+    with open('/etc/default/grub.d/50-cloudimg-settings.cfg', 'w') as f:
+        f.write(grub)
+    run('update-grub2', shell=True, check=True)
 
-    if distro == 'centos':
-        profile = '/etc/skel/.bash_profile'
-    else:
-        profile = '/etc/skel/.profile'
+    profile = '/etc/skel/.profile'
     with open(profile, 'a') as f:
         f.write('\n\n/opt/scylladb/scylla-machine-image/scylla_login\n')
 
@@ -241,66 +185,36 @@ WantedBy=multi-user.target
                 s.write(l)
         cfg = s.getvalue()
         s.close()
-        if distro == 'centos':
-            cfg = re.sub('^ssh_deletekeys:   0', 'ssh_deletekeys:   1', cfg, flags=re.MULTILINE)
-            cfg = re.sub('^    name: centos', '    name: scyllaadm', cfg, flags=re.MULTILINE)
-        else:
-            cfg = re.sub('^preserve_hostname: false', 'preserve_hostname: false\n\nssh_deletekeys: true', cfg, flags=re.MULTILINE)
-            cfg = re.sub('^     name: ubuntu', '     name: scyllaadm', cfg, flags=re.MULTILINE)
+        cfg = re.sub('^preserve_hostname: false', 'preserve_hostname: false\n\nssh_deletekeys: true', cfg, flags=re.MULTILINE)
+        cfg = re.sub('^     name: ubuntu', '     name: scyllaadm', cfg, flags=re.MULTILINE)
         with open('/etc/cloud/cloud.cfg', 'w') as f:
             f.write(cfg)
         # before deleting home directory, need to change current directory
         os.chdir('/tmp')
-        run('userdel -r -f {}'.format(distro))
-        run('cloud-init clean')
-        run('cloud-init init')
+        run('userdel -r -f ubuntu', shell=True, check=True)
+        run('cloud-init clean', shell=True, check=True)
+        run('cloud-init init', shell=True, check=True)
         for skel in glob.glob('/etc/skel/.*'):
             shutil.copy(skel, '/home/scyllaadm')
             os.chown(skel, 1000, 1000)
-        run('useradd -o -u 1000 -g scyllaadm -G {} -s /bin/bash -d /home/scyllaadm centos'.format(groups))
-        run('groupadd -o -g 1000 centos')
+        run(f'useradd -o -u 1000 -g scyllaadm -G {groups} -s /bin/bash -d /home/scyllaadm centos', shell=True, check=True)
+        run('groupadd -o -g 1000 centos', shell=True, check=True)
         os.symlink('/home/scyllaadm', '/home/centos')
-        if distro == 'ubuntu':
-            run('useradd -o -u 1000 -g scyllaadm -G {} -s /bin/bash -d /home/scyllaadm ubuntu'.format(groups))
-            run('groupadd -o -g 1000 ubuntu')
-            os.symlink('/home/scyllaadm', '/home/ubuntu')
+        run(f'useradd -o -u 1000 -g scyllaadm -G {groups} -s /bin/bash -d /home/scyllaadm ubuntu', shell=True, check=True)
+        run('groupadd -o -g 1000 ubuntu', shell=True, check=True)
+        os.symlink('/home/scyllaadm', '/home/ubuntu')
 
     if args.target_cloud == 'azure':
         with open('/etc/hosts', 'a') as f:
             f.write('\n\n169.254.169.254    metadata.azure.internal\n')
 
-    # GCP CentOS is 8, don't need to install LTS kernel
-    if args.target_cloud == 'aws' and distro == 'centos':
-        # We need to install LTS kernel for the AMI.
-        # However, elrepo-kernel only provides x86_64 package,
-        # and centos-kernel (altarch/7/kernel) only provides aarch64 package.
-        # So we have to use different kernel here.
-        if platform.machine() == 'x86_64':
-            run('yum -y install grubby')
-            run('rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org')
-            run('rpm -Uvh http://www.elrepo.org/elrepo-release-7.0-3.el7.elrepo.noarch.rpm')
-            run('yum -y --enablerepo=elrepo-kernel install kernel-ml')
-            mlkver = get_kver('/boot/vmlinuz-*el7.elrepo.x86_64')
-            run('dracut --add-drivers "xen-blkfront xen-netfront ixgbevf ena nvme" --force /boot/initramfs-{mlkver}.img {mlkver}'.format(mlkver=mlkver))
-            run('grubby --grub2 --set-default /boot/vmlinuz-{mlkver}'.format(mlkver=mlkver))
-            with open('/etc/yum.conf', 'a') as f:
-                f.write(u'exclude=kernel kernel-devel')
-        elif platform.machine() == 'aarch64':
-            run('yum -y --enablerepo=centos-kernel update kernel')
-
     # generate package manifest to scylla-packages.txt
-    if distro == 'centos':
-        run('yum install -y yum-utils')
-        packages = subprocess.check_output('repoquery --requires --resolve --recursive --installed {0}'.format(args.product), stderr=subprocess.STDOUT, shell=True)
-        with open('{}/{}-packages-{}-{}.txt'.format(homedir, args.product, args.scylla_version, arch()), 'w') as f:
-            f.write(packages)
-    else:
-        deps = subprocess.check_output('apt-cache depends --recurse --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances --installed {0}'.format(args.product), stderr=subprocess.STDOUT, shell=True, encoding='utf-8').splitlines()
-        pkgs=[]
-        for d in deps:
-            if re.match(r'^\w', d) and not re.match(r'.+:i386$', d) and d not in pkgs:
-                pkgs.append(d)
-        with open('{}/{}-packages-{}-{}.txt'.format(homedir, args.product, args.scylla_version, arch()), 'w') as f:
-            for pkg_name in pkgs:
-                pkg_name_version = subprocess.check_output("dpkg-query --showformat='${{Package}}=${{Version}}' --show {}".format(pkg_name), shell=True, encoding='utf-8')
-                f.write('{}\n'.format(pkg_name_version))
+    deps = run(f'apt-cache depends --recurse --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances --installed {args.product}', stdout=PIPE, stderr=STDOUT, shell=True, check=True, encoding='utf-8').stdout.splitlines()
+    pkgs=[]
+    for d in deps:
+        if re.match(r'^\w', d) and not re.match(r'.+:i386$', d) and d not in pkgs:
+            pkgs.append(d)
+    with open('{}/{}-packages-{}-{}.txt'.format(homedir, args.product, args.scylla_version, arch()), 'w') as f:
+        for pkg_name in pkgs:
+            pkg_name_version = run(f"dpkg-query --showformat='${{Package}}=${{Version}}' --show {pkg_name}", capture_output=True, shell=True, check=True, encoding='utf-8').stdout
+            f.write(f'{pkg_name_version}\n')

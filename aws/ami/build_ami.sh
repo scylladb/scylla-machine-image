@@ -1,1 +1,0 @@
-../../packer/build_image.sh

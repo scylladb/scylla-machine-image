@@ -17,16 +17,17 @@ import socket
 import glob
 import distro
 import base64
+import datetime
 from subprocess import run, DEVNULL
 from abc import ABCMeta, abstractmethod
 from lib.scylla_cloud_io_setup import aws_io_setup, gcp_io_setup, azure_io_setup
 
 # @param headers dict of k:v
-def curl(url, headers=None, byte=False, timeout=3, max_retries=5, retry_interval=5):
+def curl(url, headers=None, method=None, byte=False, timeout=3, max_retries=5, retry_interval=5):
     retries = 0
     while True:
         try:
-            req = urllib.request.Request(url, headers=headers or {})
+            req = urllib.request.Request(url, headers=headers or {}, method=method)
             with urllib.request.urlopen(req, timeout=timeout) as res:
                 if byte:
                     return res.read()
@@ -597,13 +598,25 @@ class aws_instance(cloud_instance):
     GETTING_STARTED_URL = "http://www.scylladb.com/doc/getting-started-amazon/"
     META_DATA_BASE_URL = "http://169.254.169.254/latest/"
     ENDPOINT_SNITCH = "Ec2Snitch"
+    METADATA_TOKEN_TTL = 21600
 
     def __disk_name(self, dev):
         name = re.compile(r"(?:/dev/)?(?P<devname>[a-zA-Z]+)\d*")
         return name.search(dev).group("devname")
 
+    def __refresh_metadata_token(self):
+        self._metadata_token_time = datetime.datetime.now()
+        self._metadata_token = curl(self.META_DATA_BASE_URL + "api/token", headers={"X-aws-ec2-metadata-token-ttl-seconds": self.METADATA_TOKEN_TTL}, method="PUT")
+
     def __instance_metadata(self, path):
-        return curl(self.META_DATA_BASE_URL + "meta-data/" + path)
+        if not self._metadata_token:
+            self.__refresh_metadata_token()
+        else:
+            time_diff = datetime.datetime.now() - self._metadata_token_time
+            time_diff_sec = int(time_diff.total_seconds())
+            if time_diff_sec >= self.METADATA_TOKEN_TTL - 120:
+                self.__refresh_metadata_token()
+        return curl(self.META_DATA_BASE_URL + "meta-data/" + path, headers={"X-aws-ec2-metadata-token": self._metadata_token})
 
     def __device_exists(self, dev):
         if dev[0:4] != "/dev":
@@ -666,6 +679,8 @@ class aws_instance(cloud_instance):
             return f.read().strip()
 
     def __init__(self):
+        self._metadata_token = None
+        self._metadata_token_time = None
         self._type = self.__instance_metadata("instance-type")
         self.__populate_disks()
 
@@ -681,7 +696,7 @@ class aws_instance(cloud_instance):
     def is_aws_instance(cls):
         """Check if it's AWS instance via query to metadata server."""
         try:
-            curl(cls.META_DATA_BASE_URL, max_retries=2, retry_interval=1)
+            curl(cls.META_DATA_BASE_URL + "api/token", headers={"X-aws-ec2-metadata-token-ttl-seconds": cls.METADATA_TOKEN_TTL}, method="PUT")
             return True
         except (urllib.error.URLError, urllib.error.HTTPError):
             return False
@@ -700,7 +715,7 @@ class aws_instance(cloud_instance):
         return self._type.split(".")[0]
 
     def is_supported_instance_class(self):
-        if self.instance_class() in ['i2', 'i3', 'i3en', 'c5d', 'm5d', 'm5ad', 'r5d', 'z1d', 'c6gd', 'm6gd', 'r6gd', 'x2gd', 'im4gn', 'is4gen']:
+        if self.instance_class() in ['i2', 'i3', 'i3en', 'c5d', 'm5d', 'm5ad', 'r5d', 'z1d', 'c6gd', 'm6gd', 'r6gd', 'x2gd', 'im4gn', 'is4gen', 'i4i']:
             return True
         return False
 
@@ -709,7 +724,7 @@ class aws_instance(cloud_instance):
         instance_size = self.instance_size()
         if instance_class in ['c3', 'c4', 'd2', 'i2', 'r3']:
             return 'ixgbevf'
-        if instance_class in ['a1', 'c5', 'c5a', 'c5d', 'c5n', 'c6g', 'c6gd', 'f1', 'g3', 'g4', 'h1', 'i3', 'i3en', 'inf1', 'm5', 'm5a', 'm5ad', 'm5d', 'm5dn', 'm5n', 'm6g', 'm6gd', 'p2', 'p3', 'r4', 'r5', 'r5a', 'r5ad', 'r5b', 'r5d', 'r5dn', 'r5n', 't3', 't3a', 'u-6tb1', 'u-9tb1', 'u-12tb1', 'u-18tn1', 'u-24tb1', 'x1', 'x1e', 'z1d', 'c6g', 'c6gd', 'm6g', 'm6gd', 't4g', 'r6g', 'r6gd', 'x2gd', 'im4gn', 'is4gen']:
+        if instance_class in ['a1', 'c5', 'c5a', 'c5d', 'c5n', 'c6g', 'c6gd', 'f1', 'g3', 'g4', 'h1', 'i3', 'i3en', 'inf1', 'm5', 'm5a', 'm5ad', 'm5d', 'm5dn', 'm5n', 'm6g', 'm6gd', 'p2', 'p3', 'r4', 'r5', 'r5a', 'r5ad', 'r5b', 'r5d', 'r5dn', 'r5n', 't3', 't3a', 'u-6tb1', 'u-9tb1', 'u-12tb1', 'u-18tn1', 'u-24tb1', 'x1', 'x1e', 'z1d', 'c6g', 'c6gd', 'm6g', 'm6gd', 't4g', 'r6g', 'r6gd', 'x2gd', 'im4gn', 'is4gen', 'i4i']:
             return 'ena'
         if instance_class == 'm4':
             if instance_size == '16xlarge':
