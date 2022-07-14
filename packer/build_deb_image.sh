@@ -307,7 +307,7 @@ if $DEBUG ; then
   PACKER_ARGS+=(-var image_prefix="debug-image-")
 fi
 
-if [ ! -f variables.json ]; then
+if [ ! -f $DIR/variables.json ]; then
     echo "'variables.json' not found. Please create it before start building Image."
     echo "See variables.json.example"
     exit 1
@@ -322,7 +322,7 @@ export PACKER_LOG_PATH
 set -x
 /usr/bin/packer ${PACKER_SUB_CMD} \
   -only="$TARGET" \
-  -var-file=variables.json \
+  -var-file="$DIR"/variables.json \
   -var install_args="$INSTALL_ARGS" \
   -var ssh_username="$SSH_USERNAME" \
   -var scylla_version="$SCYLLA_VERSION" \
