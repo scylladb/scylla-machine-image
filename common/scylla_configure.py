@@ -5,7 +5,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import base64
-import json
 import subprocess
 import yaml
 import time
@@ -13,13 +12,13 @@ import logging
 from textwrap import dedent
 from datetime import datetime
 from lib.log import setup_logging
+from lib.user_data import UserData
 from pathlib import Path
-from email import message_from_string
 
 LOGGER = logging.getLogger(__name__)
 
 
-class ScyllaMachineImageConfigurator:
+class ScyllaMachineImageConfigurator(UserData):
     CONF_DEFAULTS = {
         'scylla_yaml': {
             'cluster_name': "scylladb-cluster-%s" % int(time.time()),
@@ -53,15 +52,7 @@ class ScyllaMachineImageConfigurator:
         self.scylla_yaml_path = Path(scylla_yaml_path)
         self.scylla_yaml_example_path = Path(scylla_yaml_path + ".example")
         self._scylla_yaml = {}
-        self._instance_user_data = None
-        self._cloud_instance = None
-
-    @property
-    def cloud_instance(self):
-        if not self._cloud_instance:
-            from lib.scylla_cloud import get_cloud_instance
-            self._cloud_instance = get_cloud_instance()
-        return self._cloud_instance
+        super().__init__()
 
     @property
     def scylla_yaml(self):
@@ -79,33 +70,6 @@ class ScyllaMachineImageConfigurator:
                 # See '/etc/scylla/scylla.yaml.example' with the full list of supported configuration
                 # options and their descriptions.\n"""[1:]))
             return yaml.dump(data=self.scylla_yaml, stream=scylla_yaml_file)
-
-    @property
-    def instance_user_data(self):
-        if self._instance_user_data is None:
-            try:
-                raw_user_data = self.cloud_instance.user_data.strip()
-                LOGGER.info("Got user-data: %s", raw_user_data)
-
-                # Try reading mime multipart message, and extract
-                # scylla-machine-image configuration out of it
-                message = message_from_string(raw_user_data)
-                if message.is_multipart():
-                    for part in message.walk():
-                        if part.get_content_type() in ('x-scylla/json', 'x-scylla/yaml'):
-                            # we'll pick here the last seen json or yaml file,
-                            # if multiple of them exists the last one wins, we are not merging them together
-                            raw_user_data = part.get_payload()
-
-                # try parse yaml, and fallback to parsing json
-                self._instance_user_data = {}
-                if raw_user_data:
-                    self._instance_user_data = yaml.safe_load(raw_user_data)
-                LOGGER.debug("parsed user-data: %s", self._instance_user_data)
-            except Exception as e:
-                LOGGER.warning("Error getting user data: %s. Will use defaults!", e)
-                self._instance_user_data = {}
-        return self._instance_user_data
 
     def updated_ami_conf_defaults(self):
         private_ip = self.cloud_instance.private_ipv4()
