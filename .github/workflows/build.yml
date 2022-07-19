@@ -29,6 +29,7 @@ jobs:
             pip install distro
             cd ./tests
             python -m unittest test_scylla_configure.py
+            python -m unittest test_scylla_post_start.py
             python -m unittest test_aws_instance.py
             python -m unittest test_gcp_instance.py
             python -m unittest test_azure_instance.py
