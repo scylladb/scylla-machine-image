@@ -1,0 +1,7 @@
+{
+	"subnet_id": "subnet-ec4a72c4",
+	"security_group_id": "sg-c5e1f7a0",
+	"region": "us-east-1",
+	"associate_public_ip_address": "true",
+	"instance_type": "c4.xlarge"
+} 

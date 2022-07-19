@@ -17,7 +17,7 @@ fi
 
 docker build -f $REALDIR/Dockerfile_deb . -t scylladb/packer-builder-deb
 
-DOCKER_ID=$(docker run -e AWS_SECRET_ACCESS_KEY -e AWS_ACCESS_KEY_ID -d  -v $HOME/.aws:/root/.aws -v `pwd`/../..:/scylla-machine-image scylladb/packer-builder-deb /bin/bash -c "cd /scylla-machine-image/; ./packer/build_deb_image.sh --target $TARGET $*")
+DOCKER_ID=$(docker run -e AWS_SECRET_ACCESS_KEY -e AWS_ACCESS_KEY_ID -d  -v $HOME/.aws:/root/.aws -v `pwd`/../..:/scylla-machine-image scylladb/packer-builder-deb /bin/bash -c "cd /scylla-machine-image/; ./packer/build_image.sh --target $TARGET $*")
 
 kill_it() {
     if [[ -n "$DOCKER_ID" ]]; then
