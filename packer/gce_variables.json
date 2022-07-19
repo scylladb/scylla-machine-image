@@ -1,0 +1,7 @@
+{
+    "project_id": "scylla-images",
+    "region": "europe-west1",
+    "zone": "europe-west1-b",
+    "image_storage_location": "europe-west1",
+    "instance_type": "n2-standard-2"
+}
