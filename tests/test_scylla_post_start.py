@@ -10,7 +10,7 @@ import tempfile
 import base64
 import json
 
-sys.path.append('..')
+sys.path.append(str(Path(__file__).parent.parent))
 
 from lib.log import setup_logging
 from common.scylla_post_start import ScyllaMachineImagePostStart

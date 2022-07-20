@@ -23,16 +23,8 @@ jobs:
       - name: unittest
 
         run: |
-            pip install pyyaml==5.3
-            pip install httpretty
-            pip install psutil
-            pip install distro
-            cd ./tests
-            python -m unittest test_scylla_configure.py
-            python -m unittest test_scylla_post_start.py
-            python -m unittest test_aws_instance.py
-            python -m unittest test_gcp_instance.py
-            python -m unittest test_azure_instance.py
+            pip install -r test-requirements.txt
+            pytest ./tests
 
       - name: Build RPM (Centos:7)
         run: docker run -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm centos:7.2.1511 bash -c './dist/redhat/build_rpm.sh -t centos7'
