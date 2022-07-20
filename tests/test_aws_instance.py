@@ -2,11 +2,12 @@ import sys
 import logging
 import httpretty
 import unittest.mock
+from pathlib import Path
 from unittest import TestCase
 from subprocess import CalledProcessError
 from collections import namedtuple
 
-sys.path.append('..')
+sys.path.append(str(Path(__file__).parent.parent))
 from lib.scylla_cloud import aws_instance
 import lib.scylla_cloud
 

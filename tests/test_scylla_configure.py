@@ -17,7 +17,7 @@ from pathlib import Path
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 
-sys.path.append('..')
+sys.path.append(str(Path(__file__).parent.parent))
 
 from lib.log import setup_logging
 from common.scylla_configure import ScyllaMachineImageConfigurator
@@ -56,7 +56,7 @@ class TestScyllaConfigurator(TestCase):
         self.temp_dir_path = Path(self.temp_dir.name)
         setup_logging(log_level=logging.DEBUG, log_dir_path=str(self.temp_dir_path))
         LOGGER.info("Test dir: %s", self.temp_dir_path)
-        shutil.copyfile("tests-data/scylla.yaml", str(self.temp_dir_path / "scylla.yaml"))
+        shutil.copyfile(Path(__file__).parent / "tests-data/scylla.yaml", str(self.temp_dir_path / "scylla.yaml"))
         self.private_ip = "172.16.16.1"
         self.configurator = ScyllaMachineImageConfigurator(scylla_yaml_path=str(self.temp_dir_path / "scylla.yaml"))
         self.test_cluster_name = "test-cluster"

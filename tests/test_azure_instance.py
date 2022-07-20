@@ -9,8 +9,9 @@ from unittest import TestCase
 from subprocess import CalledProcessError
 from collections import namedtuple
 from socket import AddressFamily, SocketKind
+from pathlib import Path
 
-sys.path.append('..')
+sys.path.append(str(Path(__file__).parent.parent))
 from lib.scylla_cloud import azure_instance
 import lib.scylla_cloud
 
