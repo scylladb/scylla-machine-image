@@ -9,6 +9,7 @@ from collections import namedtuple
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).parent.parent))
+import lib.scylla_cloud
 from lib.scylla_cloud import azure_instance
 
 LOGGER = logging.getLogger(__name__)
@@ -101,7 +102,15 @@ network/
     # httpretty)
     def test_is_not_azure_instance(self):
         self.httpretty_no_azure_metadata()
-        assert not azure_instance.is_azure_instance()
+        real_curl = lib.scylla_cloud.curl
+
+        def mocked_curl(*args, **kwargs):
+            kwargs['timeout'] = 0.001
+            kwargs['retry_interval'] = 0.0001
+            return real_curl(*args, **kwargs)
+
+        with unittest.mock.patch('lib.scylla_cloud.curl', new=mocked_curl):
+            assert not azure_instance.is_azure_instance()
 
     def test_endpoint_snitch(self):
         self.httpretty_azure_metadata()
