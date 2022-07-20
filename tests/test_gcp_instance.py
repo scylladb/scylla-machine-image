@@ -9,6 +9,7 @@ from socket import AddressFamily, SocketKind
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).parent.parent))
+import lib.scylla_cloud
 from lib.scylla_cloud import gcp_instance
 
 LOGGER = logging.getLogger(__name__)
@@ -262,7 +263,15 @@ class TestGcpInstance(TestCase):
     def test_no_user_data(self):
         self.httpretty_gcp_metadata()
         ins = gcp_instance()
-        assert ins.user_data == ''
+        real_curl = lib.scylla_cloud.curl
+
+        def mocked_curl(*args, **kwargs):
+            kwargs['timeout'] = 0.001
+            kwargs['retry_interval'] = 0.0001
+            return real_curl(*args, **kwargs)
+
+        with unittest.mock.patch('lib.scylla_cloud.curl', new=mocked_curl):
+            assert ins.user_data == ''
 
     def test_non_root_nvmes_n2_standard_8_4ssd(self):
         self.httpretty_gcp_metadata()

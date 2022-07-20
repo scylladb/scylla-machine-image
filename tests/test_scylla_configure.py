@@ -155,7 +155,7 @@ class TestScyllaConfigurator(TestCase):
         raw_user_data = json.dumps(
             dict(
                 post_configuration_script=base64.b64encode(bytes(script, "utf-8")).decode("utf-8"),
-                post_configuration_script_timeout=script_timeout - 2,
+                post_configuration_script_timeout=script_timeout - 4.5,
             )
         )
 
