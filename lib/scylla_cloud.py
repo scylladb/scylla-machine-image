@@ -32,7 +32,7 @@ def curl(url, headers=None, method=None, byte=False, timeout=3, max_retries=5, r
                     return res.read()
                 else:
                     return res.read().decode('utf-8')
-        except urllib.error.URLError:
+        except (urllib.error.URLError, socket.timeout):
             time.sleep(retry_interval)
             retries += 1
             if retries >= max_retries:
@@ -683,7 +683,7 @@ class aws_instance(cloud_instance):
         try:
             curl(cls.META_DATA_BASE_URL + "api/token", headers={"X-aws-ec2-metadata-token-ttl-seconds": cls.METADATA_TOKEN_TTL}, method="PUT")
             return True
-        except (urllib.error.URLError, urllib.error.HTTPError):
+        except (urllib.error.URLError, urllib.error.HTTPError, socket.timeout):
             return False
 
     @property
