@@ -33,11 +33,11 @@ jobs:
             python -m unittest test_gcp_instance.py
             python -m unittest test_azure_instance.py
 
-      - name: Build Centos 7 RPM
+      - name: Build RPM (Centos:7)
         run: docker run -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm centos:7.2.1511 bash -c './dist/redhat/build_rpm.sh -t centos7'
 
-      - name: Build Centos 8 RPM
-        run: docker run -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm rockylinux bash -c './dist/redhat/build_rpm.sh -t centos8'
+      - name: Build RPM (Rockylinux:8)
+        run: docker run -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm rockylinux:8 bash -c './dist/redhat/build_rpm.sh -t centos8'
 
-      - name: Build Ubuntu DEB
+      - name: Build DEB (Ubuntu:20.04)
         run: docker run -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm ubuntu:20.04 bash -c 'apt update -y; apt install -y git ; git config --global --add safe.directory "*"; ./dist/debian/build_deb.sh'
