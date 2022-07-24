@@ -93,9 +93,9 @@ PACKAGE_NAME="$PRODUCT-machine-image"
 rm -rf "$BUILDDIR"
 mkdir -p "$BUILDDIR"/scylla-machine-image
 
-git archive --format=tar.gz HEAD -o "$BUILDDIR"/"$PACKAGE_NAME"_"$SCYLLA_VERSION-$SCYLLA_RELEASE".orig.tar.gz
+git archive --format=tar.gz HEAD -o "$BUILDDIR"/"$PACKAGE_NAME"_"$SCYLLA_VERSION"-"$SCYLLA_RELEASE".orig.tar.gz
 cd "$BUILDDIR"/scylla-machine-image
-tar -C ./ -xpf ../"$PACKAGE_NAME"_"$SCYLLA_VERSION-$SCYLLA_RELEASE".orig.tar.gz
+tar -C ./ -xpf ../"$PACKAGE_NAME"_"$SCYLLA_VERSION"-"$SCYLLA_RELEASE".orig.tar.gz
 cd -
 ./dist/debian/debian_files_gen.py
 cd "$BUILDDIR"/scylla-machine-image
