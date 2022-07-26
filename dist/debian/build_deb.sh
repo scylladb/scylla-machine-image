@@ -84,7 +84,7 @@ pkg_install python3-pip
 echo "Building in $PWD..."
 
 VERSION=$(./SCYLLA-VERSION-GEN)
-SCYLLA_VERSION=$(cat build/SCYLLA-VERSION-FILE)
+SCYLLA_VERSION=$(sed 's/-/~/' build/SCYLLA-VERSION-FILE)
 SCYLLA_RELEASE=$(cat build/SCYLLA-RELEASE-FILE)
 PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
 BUILDDIR=build/debian
@@ -93,9 +93,9 @@ PACKAGE_NAME="$PRODUCT-machine-image"
 rm -rf "$BUILDDIR"
 mkdir -p "$BUILDDIR"/scylla-machine-image
 
-git archive --format=tar.gz HEAD -o "$BUILDDIR"/"$PACKAGE_NAME"_"$VERSION".orig.tar.gz
+git archive --format=tar.gz HEAD -o "$BUILDDIR"/"$PACKAGE_NAME"_"$SCYLLA_VERSION"-"$SCYLLA_RELEASE".orig.tar.gz
 cd "$BUILDDIR"/scylla-machine-image
-tar -C ./ -xpf ../"$PACKAGE_NAME"_"$VERSION".orig.tar.gz
+tar -C ./ -xpf ../"$PACKAGE_NAME"_"$SCYLLA_VERSION"-"$SCYLLA_RELEASE".orig.tar.gz
 cd -
 ./dist/debian/debian_files_gen.py
 cd "$BUILDDIR"/scylla-machine-image

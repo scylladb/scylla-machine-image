@@ -75,7 +75,7 @@ cd -
 echo "Building in $PWD..."
 
 VERSION=$(./SCYLLA-VERSION-GEN)
-SCYLLA_VERSION=$(cat build/SCYLLA-VERSION-FILE)
+SCYLLA_VERSION=$(sed 's/-/~/' build/SCYLLA-VERSION-FILE)
 SCYLLA_RELEASE=$(cat build/SCYLLA-RELEASE-FILE)
 PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
 
@@ -84,7 +84,7 @@ PACKAGE_NAME="$PRODUCT-machine-image"
 RPMBUILD=$(readlink -f build/)
 mkdir -pv ${RPMBUILD}/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
 
-git archive --format=tar --prefix=$PACKAGE_NAME-$SCYLLA_VERSION/ HEAD -o $RPMBUILD/SOURCES/$PACKAGE_NAME-$VERSION.tar
+git archive --format=tar --prefix=$PACKAGE_NAME-$SCYLLA_VERSION/ HEAD -o $RPMBUILD/SOURCES/$PACKAGE_NAME-$SCYLLA_VERSION-$SCYLLA_RELEASE.tar
 cp dist/redhat/scylla-machine-image.spec $RPMBUILD/SPECS/$PACKAGE_NAME.spec
 
 parameters=(
