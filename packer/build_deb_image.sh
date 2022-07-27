@@ -327,7 +327,7 @@ set -x
   -var install_args="$INSTALL_ARGS" \
   -var ssh_username="$SSH_USERNAME" \
   -var scylla_full_version="$SCYLLA_FULL_VERSION" \
-  -var scylla_version="$VERSION" \
+  -var version="$VERSION" \
   -var scylla_machine_image_version="$SCYLLA_MACHINE_IMAGE_VERSION" \
   -var scylla_jmx_version="$SCYLLA_JMX_VERSION" \
   -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" \
