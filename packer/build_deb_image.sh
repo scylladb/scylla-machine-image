@@ -160,20 +160,21 @@ done
 if [ -z "$PRODUCT" ]; then
     PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
 fi
+VERSION=$(cat build/SCYLLA-VERSION-FILE)
 INSTALL_ARGS="$INSTALL_ARGS --product $PRODUCT"
 
 echo "INSTALL_ARGS: |$INSTALL_ARGS|"
 
 get_version_from_local_deb () {
     DEB=$1
-    VERSION=$(dpkg -f "$DEB" version)
-    echo "$VERSION"
+    FULL_VERSION=$(dpkg -f "$DEB" version)
+    echo "$FULL_VERSION"
 }
 
 get_version_from_remote_deb () {
     DEB=$1
-    VERSION=$(sudo apt-cache madison "$DEB"|head -n1|awk '{print $3}')
-    echo "$VERSION"
+    FULL_VERSION=$(sudo apt-cache madison "$DEB"|head -n1|awk '{print $3}')
+    echo "$FULL_VERSION"
 }
 
 deb_arch() {
@@ -213,7 +214,7 @@ if [ $LOCALDEB -eq 1 ]; then
 
     check_deb_exists "$DIR"/files
 
-    SCYLLA_VERSION=$(get_version_from_local_deb "$DIR"/files/"$PRODUCT"-server*_$(deb_arch).deb)
+    SCYLLA_FULL_VERSION=$(get_version_from_local_deb "$DIR"/files/"$PRODUCT"-server*_$(deb_arch).deb)
     SCYLLA_MACHINE_IMAGE_VERSION=$(get_version_from_local_deb "$DIR"/files/"$PRODUCT"-machine-image*_all.deb)
     SCYLLA_JMX_VERSION=$(get_version_from_local_deb "$DIR"/files/"$PRODUCT"-jmx*_all.deb)
     SCYLLA_TOOLS_VERSION=$(get_version_from_local_deb "$DIR"/files/"$PRODUCT"-tools-*_all.deb)
@@ -244,7 +245,7 @@ else
 
     import_gpg_key
 
-    SCYLLA_VERSION=$(get_version_from_remote_deb $PRODUCT-server)
+    SCYLLA_FULL_VERSION=$(get_version_from_remote_deb $PRODUCT-server)
     SCYLLA_MACHINE_IMAGE_VERSION=$(get_version_from_remote_deb $PRODUCT-machine-image)
     SCYLLA_JMX_VERSION=$(get_version_from_remote_deb $PRODUCT-jmx)
     SCYLLA_TOOLS_VERSION=$(get_version_from_remote_deb $PRODUCT-tools)
@@ -274,7 +275,7 @@ if [ "$TARGET" = "aws" ]; then
         exit 1
     esac
 
-    SCYLLA_AMI_DESCRIPTION="scylla-$SCYLLA_VERSION scylla-machine-image-$SCYLLA_MACHINE_IMAGE_VERSION scylla-jmx-$SCYLLA_JMX_VERSION scylla-tools-$SCYLLA_TOOLS_VERSION scylla-python3-$SCYLLA_PYTHON3_VERSION"
+    SCYLLA_AMI_DESCRIPTION="scylla-$SCYLLA_FULL_VERSION scylla-machine-image-$SCYLLA_MACHINE_IMAGE_VERSION scylla-jmx-$SCYLLA_JMX_VERSION scylla-tools-$SCYLLA_TOOLS_VERSION scylla-python3-$SCYLLA_PYTHON3_VERSION"
 
     PACKER_ARGS+=(-var region="$REGION")
     PACKER_ARGS+=(-var instance_type="$INSTANCE_TYPE")
@@ -289,7 +290,7 @@ elif [ "$TARGET" = "gce" ]; then
 elif [ "$TARGET" = "azure" ]; then
     REGION="EAST US"
     SSH_USERNAME=azureuser
-    SCYLLA_IMAGE_DESCRIPTION="scylla-$SCYLLA_VERSION scylla-machine-image-$SCYLLA_MACHINE_IMAGE_VERSION scylla-jmx-$SCYLLA_JMX_VERSION scylla-tools-$SCYLLA_TOOLS_VERSION scylla-python3-$SCYLLA_PYTHON3_VERSION"
+    SCYLLA_IMAGE_DESCRIPTION="scylla-$SCYLLA_FULL_VERSION scylla-machine-image-$SCYLLA_MACHINE_IMAGE_VERSION scylla-jmx-$SCYLLA_JMX_VERSION scylla-tools-$SCYLLA_TOOLS_VERSION scylla-python3-$SCYLLA_PYTHON3_VERSION"
 
     PACKER_ARGS+=(-var scylla_image_description="${SCYLLA_IMAGE_DESCRIPTION:0:255}")
     PACKER_ARGS+=(-var client_id="$AZURE_CLIENT_ID")
@@ -299,7 +300,7 @@ elif [ "$TARGET" = "azure" ]; then
 fi
 
 if $DEBUG ; then
-  PACKER_ARGS+=(-var image_prefix="debug-image-")
+  PACKER_ARGS+=(-var image_prefix="debug-")
 fi
 
 if [ ! -f $DIR/variables.json ]; then
@@ -320,7 +321,8 @@ set -x
   -var-file="$DIR"/variables.json \
   -var install_args="$INSTALL_ARGS" \
   -var ssh_username="$SSH_USERNAME" \
-  -var scylla_version="$SCYLLA_VERSION" \
+  -var scylla_full_version="$SCYLLA_FULL_VERSION" \
+  -var version="$VERSION" \
   -var scylla_machine_image_version="$SCYLLA_MACHINE_IMAGE_VERSION" \
   -var scylla_jmx_version="$SCYLLA_JMX_VERSION" \
   -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" \
