@@ -357,9 +357,6 @@ class gcp_instance(cloud_instance):
             io.generate()
         except UnsupportedInstanceClassError:
             logging.error('This is not a recommended Google Cloud instance setup for auto local disk tuning.')
-        except PresetNotFoundError:
-            logging.error('Did not detect number of disks in Google Cloud instance setup for auto local disk tuning.')
-        io.save()
 
     @property
     def user_data(self):
@@ -581,9 +578,6 @@ class azure_instance(cloud_instance):
             io.generate()
         except UnsupportedInstanceClassError:
             logging.error('This is not a recommended Azure Cloud instance setup for auto local disk tuning.')
-        except PresetNotFoundError:
-            logging.error('Did not detect number of disks in Azure Cloud instance setup for auto local disk tuning.')
-        io.save()
 
     @property
     def user_data(self):
@@ -790,9 +784,6 @@ class aws_instance(cloud_instance):
             io.generate()
         except UnsupportedInstanceClassError:
             logging.error('This is not a recommended EC2 instance setup for auto local disk tuning.')
-        except PresetNotFoundError:
-            logging.error('This is a supported AWS instance type but there are no preconfigured IO scheduler parameters for it.')
-        io.save()
 
     @property
     def user_data(self):

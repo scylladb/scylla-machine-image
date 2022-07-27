@@ -6,16 +6,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import subprocess
 import yaml
 import logging
 import sys
 from abc import ABCMeta, abstractmethod
 
+
 def UnsupportedInstanceClassError(Exception):
     pass
 
-def PresetNotFoundError(Exception):
-    pass
 
 class cloud_io_setup(metaclass=ABCMeta):
     @abstractmethod
@@ -226,8 +226,11 @@ class aws_io_setup(cloud_io_setup):
             self.disk_properties["write_iops"] = 239549 * nr_disks
             self.disk_properties["write_bandwidth"] = 2302438912 * nr_disks
 
-        if not "read_iops" in self.disk_properties:
-            raise PresetNotFoundError()
+        if "read_iops" in self.disk_properties:
+            self.save()
+        else:
+            logging.warning("This is a supported instance but with no pre-configured io, scylla_io_setup will be run")
+            subprocess.run('scylla_io_setup', shell=True, check=True, capture_output=True, timeout=300)
 
 
 class gcp_io_setup(cloud_io_setup):
@@ -274,8 +277,11 @@ class gcp_io_setup(cloud_io_setup):
             #below is google, above is our measured
             #self.disk_properties["write_bandwidth"] = 4680 * mbs
 
-        if not "read_iops" in self.disk_properties:
-            raise PresetNotFoundError()
+        if "read_iops" in self.disk_properties:
+            self.save()
+        else:
+            logging.warning("This is a supported instance but with no pre-configured io, scylla_io_setup will be run")
+            subprocess.run('scylla_io_setup', shell=True, check=True, capture_output=True, timeout=300)
 
 
 class azure_io_setup(cloud_io_setup):
@@ -324,5 +330,9 @@ class azure_io_setup(cloud_io_setup):
             self.disk_properties["read_bandwidth"] = 20000 * mbs
             self.disk_properties["write_iops"] = 2546511
             self.disk_properties["write_bandwidth"] = 11998 * mbs
-        if not "read_iops" in self.disk_properties:
-            raise PresetNotFoundError()
+
+        if "read_iops" in self.disk_properties:
+            self.save()
+        else:
+            logging.warning("This is a supported instance but with no pre-configured io, scylla_io_setup will be run")
+            subprocess.run('scylla_io_setup', shell=True, check=True, capture_output=True, timeout=300)

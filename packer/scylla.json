@@ -132,7 +132,7 @@
       "tenant_id": "{{user `tenant_id`}}",
       "subscription_id": "{{user `subscription_id`}}",
       "managed_image_resource_group_name": "scylla-images",
-      "managed_image_name": "{{user `image_prefix`}}ScyllaDB-{{user `scylla_version`}}-build-{{user `scylla_build_id`| clean_resource_name}}",
+      "managed_image_name": "{{user `image_prefix`}}ScyllaDB-{{user `scylla_version` | clean_resource_name}}-build-{{user `scylla_build_id`| clean_resource_name}}",
       "os_type": "Linux",
       "image_publisher": "Canonical",
       "image_offer": "0001-com-ubuntu-server-focal",
