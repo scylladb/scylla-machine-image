@@ -38,7 +38,7 @@
           "virtual_name": "ephemeral7"
         }
       ],
-      "ami_name": "{{user `image_prefix`}}{{user `product` | clean_resource_name}}-{{user `version` | clean_resource_name}}-{{user `arch`| clean_resource_name}}-{{isotime | clean_resource_name}}",
+      "ami_name": "{{user `image_prefix`}}{{user `product` | clean_resource_name}}-{{user `scylla_version` | clean_resource_name}}-{{user `arch`| clean_resource_name}}-{{isotime | clean_resource_name}}",
       "associate_public_ip_address": "{{user `associate_public_ip_address`}}",
       "sriov_support": true,
       "ena_support": true,
@@ -67,7 +67,7 @@
       "user_data_file": "user_data.txt",
       "ami_description": "{{user `scylla_ami_description`}}",
       "tags": {
-          "Name": "{{user `image_prefix`}}{{user `product` | clean_resource_name}}-{{user `version` | clean_resource_name}}-{{user `arch`| clean_resource_name}}-{{isotime | clean_resource_name}}",
+          "Name": "{{user `image_prefix`}}{{user `product` | clean_resource_name}}-{{user `scylla_version` | clean_resource_name}}-{{user `arch`| clean_resource_name}}-{{isotime | clean_resource_name}}",
           "scylla_version": "{{user `scylla_full_version`}}",
           "scylla_machine_image_version": "{{user `scylla_machine_image_version`}}",
           "scylla_jmx_version": "{{user `scylla_jmx_version`}}",
@@ -99,8 +99,8 @@
       "machine_type": "{{user `instance_type`}}",
       "metadata": {"block-project-ssh-keys": "TRUE"},
       "image_family": "scylla",
-      "image_name": "{{user `image_prefix`}}{{user `product` | clean_resource_name}}-{{user `version` | clean_resource_name}}-{{user `arch`| clean_resource_name}}-{{isotime | clean_resource_name}}",
-      "image_description": "Official ScyllaDB image v-{{user `version`| clean_resource_name}}",
+      "image_name": "{{user `image_prefix`}}{{user `product` | clean_resource_name}}-{{user `scylla_version` | clean_resource_name}}-{{user `arch`| clean_resource_name}}-{{isotime | clean_resource_name}}",
+      "image_description": "Official ScyllaDB image v-{{user `scylla_version`| clean_resource_name}}",
       "use_internal_ip": false,
       "preemptible": true,
       "omit_external_ip": false,
@@ -133,7 +133,7 @@
       "tenant_id": "{{user `tenant_id`}}",
       "subscription_id": "{{user `subscription_id`}}",
       "managed_image_resource_group_name": "scylla-images",
-      "managed_image_name": "{{user `image_prefix`}}{{user `product` | clean_resource_name}}-{{user `version` | clean_resource_name}}-{{user `arch`| clean_resource_name}}-{{isotime | clean_resource_name}}",
+      "managed_image_name": "{{user `image_prefix`}}{{user `product` | clean_resource_name}}-{{user `scylla_version` | clean_resource_name}}-{{user `arch`| clean_resource_name}}-{{isotime | clean_resource_name}}",
       "os_type": "Linux",
       "image_publisher": "Canonical",
       "image_offer": "0001-com-ubuntu-server-focal",
