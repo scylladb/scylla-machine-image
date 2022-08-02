@@ -75,8 +75,8 @@ scylla_yaml:
     - class_name: org.apache.cassandra.locator.SimpleSeedProvider
       parameters:
         - seeds: 10.0.219.209
-  post_configuration_script: "#! /bin/bash\nyum install cloud-init-cfn"
-  start_scylla_on_first_boot: true
+post_configuration_script: "#! /bin/bash\nyum install cloud-init-cfn"
+start_scylla_on_first_boot: true
 ```
 
 #### using mimemultipart
@@ -104,8 +104,8 @@ scylla_yaml:
     - class_name: org.apache.cassandra.locator.SimpleSeedProvider
       parameters:
         - seeds: 10.0.219.209
-  post_configuration_script: "#! /bin/bash\nyum install cloud-init-cfn"
-  start_scylla_on_first_boot: true
+post_configuration_script: "#! /bin/bash\nyum install cloud-init-cfn"
+start_scylla_on_first_boot: true
 
 --===============5438789820677534874==
 Content-Type: text/cloud-config; charset="us-ascii"
