@@ -19,6 +19,7 @@ from subprocess import run, PIPE, STDOUT
 
 my_env = os.environ.copy()
 my_env['DEBIAN_FRONTEND']='noninteractive'
+apt_keys_dir = '/etc/apt/keyrings'
 
 def get_kver(pattern):
     for k in glob.glob(pattern):
@@ -65,6 +66,9 @@ if __name__ == '__main__':
         sys.exit(1)
 
     run('apt-key adv --keyserver keyserver.ubuntu.com --recv-keys d0a112e067426ab2', shell=True, check=True)
+    run(f'mkdir -p {apt_keys_dir}; gpg --homedir /tmp --no-default-keyring --keyring {apt_keys_dir}/scylladb.gpg '
+        f'--keyserver hkp://keyserver.ubuntu.com:80 --recv-keys d0a112e067426ab2', shell=True, check=True)
+
     if args.repo_for_install:
         run(f'curl -L -o /etc/apt/sources.list.d/scylla_install.list {args.repo_for_install}', shell=True, check=True)
     elif args.localdeb:

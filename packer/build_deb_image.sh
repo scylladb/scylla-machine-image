@@ -15,6 +15,8 @@ EXIT_STATUS=0
 DRY_RUN=false
 DEBUG=false
 TARGET=
+APT_KEYS_DIR='/etc/apt/keyrings'
+APT_KEY='d0a112e067426ab2'
 
 if [ -L "$0" ]; then
     if [ "$PDIRNAME" = "aws" ] || [ "$PDIRNAME" = "gce" ] || [ "$PDIRNAME" = "azure" ]; then
@@ -196,10 +198,13 @@ check_deb_exists () {
 }
 
 import_gpg_key () {
+  echo "Importing apt key ($APT_KEY)"
   TMPREPO=$(mktemp -u -p /etc/apt/sources.list.d/ --suffix .list)
-  sudo curl -o $TMPREPO $REPO_FOR_INSTALL
-  sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys d0a112e067426ab2
-  sudo apt-get update --allow-insecure-repositories -y
+  sudo curl -sSo $TMPREPO $REPO_FOR_INSTALL
+  sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys $APT_KEY
+  sudo mkdir -p $APT_KEYS_DIR
+  sudo gpg --homedir /tmp --no-default-keyring --keyring $APT_KEYS_DIR/scylladb.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys $APT_KEY
+  sudo apt-get update -y
 }
 
 if [ -z "$TARGET" ]; then
