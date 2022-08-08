@@ -11,6 +11,7 @@ import yaml
 import logging
 import sys
 from abc import ABCMeta, abstractmethod
+from lib.scylla_cloud import get_cloud_instance, is_ec2, is_gce, is_azure
 
 
 def UnsupportedInstanceClassError(Exception):
@@ -39,6 +40,7 @@ class aws_io_setup(cloud_io_setup):
 
     def generate(self):
         if not self.idata.is_supported_instance_class():
+            logging.error('This is not a recommended EC2 instance setup for auto local disk tuning.')
             raise UnsupportedInstanceClassError()
         self.disk_properties["mountpoint"] = '/var/lib/scylla'
         nr_disks = len(self.idata.get_local_disks())
@@ -240,6 +242,7 @@ class gcp_io_setup(cloud_io_setup):
 
     def generate(self):
         if not self.idata.is_supported_instance_class():
+            logging.error('This is not a recommended Google Cloud instance setup for auto local disk tuning.')
             raise UnsupportedInstanceClassError()
         self.disk_properties = {}
         self.disk_properties["mountpoint"] = '/var/lib/scylla'
@@ -291,6 +294,7 @@ class azure_io_setup(cloud_io_setup):
 
     def generate(self):
         if not self.idata.is_supported_instance_class():
+            logging.error('This is not a recommended Azure Cloud instance setup for auto local disk tuning.')
             raise UnsupportedInstanceClassError()
 
         self.disk_properties = {}
@@ -336,3 +340,21 @@ class azure_io_setup(cloud_io_setup):
         else:
             logging.warning("This is a supported instance but with no pre-configured io, scylla_io_setup will be run")
             subprocess.run('scylla_io_setup', shell=True, check=True, capture_output=True, timeout=300)
+
+
+if __name__ == '__main__':
+    if not os.path.ismount('/var/lib/scylla'):
+       logging.error('RAID volume not mounted')
+       sys.exit(1)
+    cloud_instance = get_cloud_instance()
+    if is_ec2():
+        io = aws_io_setup(cloud_instance)
+    elif is_gce():
+        io = gcp_io_setup(cloud_instance)
+    elif is_azure():
+        io = azure_io_setup(cloud_instance)
+    try:
+        io.generate()
+        io.save()
+    except UnsupportedInstanceClassError as e:
+        sys.exit(1)
