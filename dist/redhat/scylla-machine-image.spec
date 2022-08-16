@@ -33,7 +33,7 @@ install -m644 common/scylla-image-setup.service common/scylla-image-post-start.s
 install -d -m755 $RPM_BUILD_ROOT/opt/scylladb
 install -d -m755 $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image
 install -d -m755 $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/lib
-install -m644 lib/log.py lib/scylla_cloud.py lib/scylla_cloud_io_setup.py $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/lib
+install -m644 lib/log.py lib/scylla_cloud.py $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/lib
 install -m755 common/scylla_configure.py common/scylla_post_start.py common/scylla_create_devices \
         $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/
 ./tools/relocate_python_scripts.py \
@@ -41,7 +41,7 @@ install -m755 common/scylla_configure.py common/scylla_post_start.py common/scyl
     --with-python3 ${RPM_BUILD_ROOT}/opt/scylladb/python3/bin/python3 \
     common/scylla_image_setup common/scylla_login common/scylla_configure.py \
     common/scylla_create_devices common/scylla_post_start.py \
-    common/scylla_ec2_check
+    common/scylla_cloud_io_setup common/scylla_ec2_check
 
 %pre
 /usr/sbin/groupadd scylla 2> /dev/null || :
