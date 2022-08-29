@@ -2,13 +2,14 @@ import sys
 import logging
 import httpretty
 import unittest.mock
+from pathlib import Path
 from unittest import TestCase
 from subprocess import CalledProcessError
 from collections import namedtuple
 
-sys.path.append('..')
-from lib.scylla_cloud import aws_instance
+sys.path.append(str(Path(__file__).parent.parent))
 import lib.scylla_cloud
+from lib.scylla_cloud import aws_instance
 
 LOGGER = logging.getLogger(__name__)
 
@@ -210,7 +211,15 @@ vpc-ipv6-cidr-blocks
 
     def test_is_not_aws_instance(self):
         httpretty.disable()
-        assert not aws_instance.is_aws_instance()
+        real_curl = lib.scylla_cloud.curl
+
+        def mocked_curl(*args, **kwargs):
+            kwargs['timeout'] = 0.1
+            kwargs['retry_interval'] = 0.001
+            return real_curl(*args, **kwargs)
+
+        with unittest.mock.patch('lib.scylla_cloud.curl', new=mocked_curl):
+            assert not aws_instance.is_aws_instance()
 
     def test_endpoint_snitch(self):
         self.httpretty_aws_metadata()
