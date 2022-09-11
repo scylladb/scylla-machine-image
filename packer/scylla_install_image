@@ -81,6 +81,7 @@ if __name__ == '__main__':
     run('apt-get update --allow-insecure-repositories -y', shell=True, check=True)
     run('apt-get full-upgrade -y', shell=True, check=True)
     run('apt-get purge -y apport fuse', shell=True, check=True)
+    run('apt-get install -y python2', shell=True, check=True)
     run('apt-get install -y systemd-coredump', shell=True, check=True)
     run(f'apt-get install -y --auto-remove --allow-unauthenticated {args.product}-machine-image {args.product}-server-dbg', shell=True, check=True)
 
