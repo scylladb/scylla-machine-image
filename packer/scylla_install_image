@@ -122,17 +122,14 @@ if __name__ == '__main__':
         with open('/etc/chrony/sources.d/ntp-pool.sources', 'w') as f:
             f.write('pool time.aws.com iburst\n')
 
-        sysconfig_opt = ''
         kernel_opt = ''
         grub_variable = 'GRUB_CMDLINE_LINUX_DEFAULT'
     elif args.target_cloud == 'gce':
         # align with other clouds image
         run('apt-get purge -y rsyslog', shell=True, check=True)
-        sysconfig_opt = '--disable-writeback-cache'
         kernel_opt = ''
         grub_variable = 'GRUB_CMDLINE_LINUX_DEFAULT'
     elif args.target_cloud == 'azure':
-        sysconfig_opt = '--disable-writeback-cache'
         kernel_opt = ' rootdelay=300'
         grub_variable = 'GRUB_CMDLINE_LINUX'
 
@@ -146,7 +143,7 @@ if __name__ == '__main__':
     # so we want to enable it here
     run('/opt/scylladb/scripts/scylla_cpuscaling_setup --force', shell=True, check=True)
 
-    run(f'/opt/scylladb/scripts/scylla_sysconfig_setup --set-clocksource {sysconfig_opt}', shell=True, check=True)
+    run(f'/opt/scylladb/scripts/scylla_sysconfig_setup --set-clocksource', shell=True, check=True)
     if args.target_cloud == 'aws' or args.target_cloud == 'gce':
         run(f'/opt/scylladb/scripts/scylla_swap_setup --swap-size-bytes {half_of_diskfree()} --swap-directory /', shell=True, check=True)
     run('/opt/scylladb/scripts/scylla_coredump_setup', shell=True, check=True)
