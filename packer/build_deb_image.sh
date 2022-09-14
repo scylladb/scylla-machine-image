@@ -54,6 +54,7 @@ print_usage() {
     echo "  [--debug]               Build debug image with special prefix for image name. Default: false."
     echo "  [--log-file]            Path for log. Default build/ami.log on current dir. Default: build/packer.log"
     echo "  --target                Target cloud (aws/gce/azure), mandatory when using this script directly, and not by soft links"
+    echo "  --arch                  Set the image build architecture. Valid options: x86_64 | aarch64 . if use didn't pass this parameter it will use local node architecture"
     exit 1
 }
 LOCALDEB=0
@@ -160,6 +161,10 @@ while [ $# -gt 0 ]; do
                 print_usage
                 ;;
             esac
+            ;;
+        "--arch")
+            ARCH="$2"
+            shift 2
             ;;
         *)
             echo "ERROR: Illegal option: $1"
@@ -276,7 +281,7 @@ if [ "$TARGET" = "aws" ]; then
     SOURCE_AMI_OWNER=099720109477
     REGION=us-east-1
 
-    arch="$(uname -m)"
+    arch="$ARCH"
     case "$arch" in
       "x86_64")
         SOURCE_AMI_FILTER="ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64*"
