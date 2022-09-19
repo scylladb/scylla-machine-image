@@ -103,23 +103,13 @@ if __name__ == '__main__':
     run('apt-get autoremove --purge -y', shell=True, check=True)
 
     if args.target_cloud == 'aws':
-        # use easy_install instead of pip, because easy_install requires
-        # fewer dependencies, no need to install gcc, it makes our AMI smaller.
-        # XXX: we want install dependencies from distro repo, but
-        # python-daemon-2.2 on Ubuntu 20.04 is too new for aws-cfn-bootstrap,
-        # so install python-daemon-2.1 from pypi
-        run('apt-get install -y python3-pystache python3-lockfile python3-setuptools', shell=True, check=True)
-        run('python3 -m easy_install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz', shell=True, check=True)
+        run('apt-get install -y pip', shell=True, check=True)
+        run('pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-2.0-18.tar.gz', shell=True, check=True)
 
         # install .deb version of ssm-agent since we dropped snapd version
         run(f'curl -L -o /tmp/amazon-ssm-agent.deb https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_{deb_arch()}/amazon-ssm-agent.deb', shell=True, check=True)
         run('dpkg -i /tmp/amazon-ssm-agent.deb', shell=True, check=True)
         run('systemctl enable amazon-ssm-agent', shell=True, check=True)
-
-        cfnpath = run('python3 -c "import cfnbootstrap as _; print(_.__path__[0])"', capture_output=True, shell=True, check=True, encoding='utf-8').stdout.strip()
-        initpath = os.path.abspath(f'{cfnpath}/../init/ubuntu/cfn-hup')
-        shutil.copyfile(initpath, '/etc/init.d/cfn-hup')
-        os.chmod('/etc/init.d/cfn-hup', 0o755)
 
         setup_opt = '--ntp-domain amazon'
         sysconfig_opt = ''
