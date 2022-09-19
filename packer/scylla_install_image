@@ -123,12 +123,15 @@ if __name__ == '__main__':
 
         setup_opt = '--ntp-domain amazon'
         sysconfig_opt = ''
+        swap_opt = '--swap-directory /'
     elif args.target_cloud == 'gce':
         setup_opt = ''
         sysconfig_opt = '--disable-writeback-cache'
+        swap_opt = '--swap-directory /'
     elif args.target_cloud == 'azure':
         setup_opt = ''
         sysconfig_opt = '--disable-writeback-cache'
+        swap_opt = '--swap-directory /mnt'
 
     run('systemctl daemon-reload', shell=True, check=True)
     run('systemctl enable scylla-image-setup.service', shell=True, check=True)
@@ -140,7 +143,7 @@ if __name__ == '__main__':
     run('/opt/scylladb/scripts/scylla_cpuscaling_setup --force', shell=True, check=True)
 
     run(f'/opt/scylladb/scripts/scylla_sysconfig_setup --ami --set-clocksource {sysconfig_opt}', shell=True, check=True)
-    run(f'/opt/scylladb/scripts/scylla_swap_setup --swap-size-bytes {half_of_diskfree()}', shell=True, check=True)
+    run(f'/opt/scylladb/scripts/scylla_swap_setup --swap-size-bytes {half_of_diskfree()} {swap_opt}', shell=True, check=True)
     run('/opt/scylladb/scripts/scylla_coredump_setup', shell=True, check=True)
     dot_mount = '''
 [Unit]
