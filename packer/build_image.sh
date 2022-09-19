@@ -8,7 +8,7 @@ DIR=$(dirname $(readlink -f "$0"))
 source "$DIR"/../SCYLLA-VERSION-GEN
 
 BUILD_ID=$(date -u '+%FT%H-%M-%S')
-OPERATING_SYSTEM="ubuntu20.04"
+OPERATING_SYSTEM="ubuntu22.04"
 EXIT_STATUS=0
 DRY_RUN=false
 DEBUG=false
@@ -28,7 +28,6 @@ print_usage() {
     echo "  [--scylla-build-sha-id] Scylla build SHA id form metadata file"
     echo "  [--branch]              Set the release branch for GCE label. Default: master"
     echo "  [--ami-regions]         Set regions to copy the AMI when done building it (including permissions and tags)"
-    echo "  [--operating-system]    Set the base OS for the image. Default: ubuntu20.04"
     echo "  [--build-tag]           Jenkins Build tag"
     echo "  --download-no-server    Download all deb needed excluding scylla from repo-for-install"
     echo "  [--debug]               Build debug image with special prefix for image name. Default: false."
@@ -95,11 +94,6 @@ while [ $# -gt 0 ]; do
         "--ami-regions"):
             AMI_REGIONS=$2
             echo "--ami-regions prameter: AMI_REGIONS |$AMI_REGIONS|"
-            shift 2
-            ;;
-        "--operating-system")
-            OPERATING_SYSTEM=$2
-            echo "--operating-system parameter: OPERATING_SYSTEM |$OPERATING_SYSTEM|"
             shift 2
             ;;
         "--log-file")
@@ -263,11 +257,11 @@ if [ "$TARGET" = "aws" ]; then
     arch="$ARCH"
     case "$arch" in
       "x86_64")
-        SOURCE_AMI_FILTER="ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64*"
+        SOURCE_AMI_FILTER="ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64*"
         INSTANCE_TYPE="c4.xlarge"
         ;;
       "aarch64")
-        SOURCE_AMI_FILTER="ubuntu/images/hvm-ssd/ubuntu-focal-20.04-arm64*"
+        SOURCE_AMI_FILTER="ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-arm64*"
         INSTANCE_TYPE="a1.xlarge"
         ;;
       *)
@@ -284,7 +278,7 @@ if [ "$TARGET" = "aws" ]; then
     PACKER_ARGS+=(-var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}")
 elif [ "$TARGET" = "gce" ]; then
     SSH_USERNAME=ubuntu
-    SOURCE_IMAGE_FAMILY="ubuntu-2004-lts"
+    SOURCE_IMAGE_FAMILY="ubuntu-2204-lts"
 
     PACKER_ARGS+=(-var source_image_family="$SOURCE_IMAGE_FAMILY")
 elif [ "$TARGET" = "azure" ]; then
