@@ -179,6 +179,12 @@
       "destination": "build/",
       "direction": "download",
       "type": "file"
+    },
+    {
+      "source": "/home/{{user `ssh_username`}}/{{user `product`}}-kernel-{{user `scylla_full_version`}}-{{user `arch`}}.txt",
+      "destination": "build/",
+      "direction": "download",
+      "type": "file"
     }
   ],
   "variables": {
