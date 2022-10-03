@@ -230,3 +230,9 @@ WantedBy=multi-user.target
         for pkg_name in pkgs:
             pkg_name_version = run(f"dpkg-query --showformat='${{Package}}=${{Version}}' --show {pkg_name}", capture_output=True, shell=True, check=True, encoding='utf-8').stdout
             f.write(f'{pkg_name_version}\n')
+    print('{}/{}-packages-{}-{}.txt generated.'.format(homedir, args.product, args.scylla_version, arch()))
+
+    kver = run('uname -r', shell=True, check=True, capture_output=True, encoding='utf-8').stdout.strip()
+    with open('{}/{}-kernel-{}-{}.txt'.format(homedir, args.product, args.scylla_version, arch()), 'w') as f:
+            f.write(f'kernel-version: {kver}\n')
+    print('{}/{}-kernel-{}-{}.txt generated.'.format(homedir, args.product, args.scylla_version, arch()))
