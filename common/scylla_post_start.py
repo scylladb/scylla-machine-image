@@ -8,9 +8,11 @@ import base64
 import logging
 import pathlib
 import subprocess
+import sys
 
 from lib.log import setup_logging
 from lib.user_data import UserData
+from lib.scylla_cloud import scylla_excepthook
 
 LOGGER = logging.getLogger(__name__)
 DISABLE_FILE_PATH = '/etc/scylla/machine_image_post_start_configured'
@@ -26,6 +28,7 @@ class ScyllaMachineImagePostStart(UserData):
                 subprocess.run(decoded_script, check=True, shell=True, timeout=600)
                 return True
             except Exception as e:
+                scylla_excepthook(*sys.exc_info())
                 LOGGER.error(f"Post start script failed: {e}")
 
 

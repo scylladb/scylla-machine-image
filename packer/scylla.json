@@ -164,7 +164,7 @@
     },
     {
       "destination": "/home/{{user `ssh_username`}}/",
-      "source": "../../packer/scylla_install_image",
+      "source": "scylla_install_image",
       "type": "file"
     },
     {

@@ -4,29 +4,17 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-REALDIR=$(dirname $(readlink -f "$0"))
-source "$REALDIR"/../SCYLLA-VERSION-GEN
+DIR=$(dirname $(readlink -f "$0"))
+source "$DIR"/../SCYLLA-VERSION-GEN
 
 BUILD_ID=$(date -u '+%FT%H-%M-%S')
 OPERATING_SYSTEM="ubuntu20.04"
-DIR=$(dirname $(realpath -se $0))
-PDIRNAME=$(basename $(realpath -se $DIR/..))
 EXIT_STATUS=0
 DRY_RUN=false
 DEBUG=false
 TARGET=
-ARCH="$(uname -m)"
 APT_KEYS_DIR='/etc/apt/keyrings'
 APT_KEY='d0a112e067426ab2'
-
-if [ -L "$0" ]; then
-    if [ "$PDIRNAME" = "aws" ] || [ "$PDIRNAME" = "gce" ] || [ "$PDIRNAME" = "azure" ]; then
-        TARGET="$PDIRNAME"
-    else
-        echo "no target detected"
-        exit 1
-    fi
-fi
 
 print_usage() {
     echo "$0 --localdeb --repo [URL] --target [distribution]"
@@ -141,13 +129,13 @@ while [ $# -gt 0 ]; do
             echo "--target parameter TARGET: |$TARGET|"
             case "$TARGET" in
               "aws")
-                DIR="$REALDIR/../$TARGET/ami"
+                JSON_FILE="ami_variables.json"
                 ;;
               "gce")
-                DIR="$REALDIR/../$TARGET/image"
+                JSON_FILE="gce_variables.json"
                 ;;
               "azure")
-                DIR="$REALDIR/../$TARGET/azure"
+                JSON_FILE="azure_variables.json"
                 ;;
               *)
                 print_usage
@@ -267,6 +255,7 @@ else
 fi
 
 if [ "$TARGET" = "aws" ]; then
+
     SSH_USERNAME=ubuntu
     SOURCE_AMI_OWNER=099720109477
     REGION=us-east-1
@@ -314,13 +303,12 @@ if $DEBUG ; then
   PACKER_ARGS+=(-var image_prefix="debug-")
 fi
 
-if [ ! -f $DIR/variables.json ]; then
-    echo "'variables.json' not found. Please create it before start building Image."
+if [ ! -f $JSON_FILE ]; then
+    echo "'$JSON_FILE not found. Please create it before start building Image."
     echo "See variables.json.example"
     exit 1
 fi
 
-cd $DIR
 mkdir -p build
 
 export PACKER_LOG=1
@@ -329,7 +317,7 @@ export PACKER_LOG_PATH
 set -x
 /usr/bin/packer ${PACKER_SUB_CMD} \
   -only="$TARGET" \
-  -var-file="$DIR"/variables.json \
+  -var-file="$JSON_FILE" \
   -var install_args="$INSTALL_ARGS" \
   -var ssh_username="$SSH_USERNAME" \
   -var scylla_full_version="$SCYLLA_FULL_VERSION" \
@@ -347,7 +335,7 @@ set -x
   -var arch="$ARCH" \
   -var product="$PRODUCT" \
   "${PACKER_ARGS[@]}" \
-  "$REALDIR"/scylla.json
+  "$DIR"/scylla.json
 set +x
 # For some errors packer gives a success status even if fails.
 # Search log for errors

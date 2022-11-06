@@ -63,14 +63,6 @@ fi
 pkg_install rpm-build
 pkg_install git
 pkg_install python3
-pkg_install python3-devel
-pkg_install python3-pip
-
-echo "Running unit tests"
-cd tests
-sudo pip3 install pyyaml==5.3
-python3 -m unittest test_scylla_configure.py
-cd -
 
 echo "Building in $PWD..."
 
