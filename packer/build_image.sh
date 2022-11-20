@@ -294,7 +294,6 @@ elif [ "$TARGET" = "azure" ]; then
 fi
 
 IMAGE_NAME="$PRODUCT-$VERSION-$ARCH-$(date '+%FT%T')"
-if [ "$BUILD_MODE" = "debug" ]; then
 if $DEBUG ; then
   IMAGE_NAME="debug-$IMAGE_NAME"
 fi
