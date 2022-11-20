@@ -293,8 +293,10 @@ elif [ "$TARGET" = "azure" ]; then
     PACKER_ARGS+=(-var subscription_id="$AZURE_SUBSCRIPTION_ID")
 fi
 
+IMAGE_NAME="$PRODUCT-$VERSION-$ARCH-$(date '+%FT%T')"
+if [ "$BUILD_MODE" = "debug" ]; then
 if $DEBUG ; then
-  PACKER_ARGS+=(-var image_prefix="debug-")
+  IMAGE_NAME="debug-$IMAGE_NAME"
 fi
 
 if [ ! -f $JSON_FILE ]; then
@@ -328,6 +330,7 @@ set -x
   -var ami_regions="$AMI_REGIONS" \
   -var arch="$ARCH" \
   -var product="$PRODUCT" \
+  -var image_name="$IMAGE_NAME" \
   "${PACKER_ARGS[@]}" \
   "$DIR"/scylla.json
 set +x
