@@ -17,7 +17,7 @@ if __name__ == '__main__':
     cloud_instance = get_cloud_instance()
     run('/opt/scylladb/scylla-machine-image/scylla_configure.py', shell=True, check=True)
 
-    run('/opt/scylladb/scripts/scylla_sysconfig_setup --nic eth0 --setup-nic --ami', shell=True, check=True)
+    run('/opt/scylladb/scripts/scylla_sysconfig_setup --nic eth0 --setup-nic', shell=True, check=True)
     if os.path.ismount('/var/lib/scylla'):
         if cloud_instance.is_supported_instance_class():
             # We run io_setup only when ehpemeral disks are available
