@@ -263,11 +263,11 @@ if [ "$TARGET" = "aws" ]; then
     arch="$ARCH"
     case "$arch" in
       "x86_64")
-        SOURCE_AMI_FILTER="ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64*"
+        SOURCE_AMI_FILTER="ubuntu-minimal/images/hvm-ssd/ubuntu-jammy-22.04-amd64*"
         INSTANCE_TYPE="c4.xlarge"
         ;;
       "aarch64")
-        SOURCE_AMI_FILTER="ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-arm64*"
+        SOURCE_AMI_FILTER="ubuntu-minimal/images/hvm-ssd/ubuntu-jammy-22.04-arm64*"
         INSTANCE_TYPE="a1.xlarge"
         ;;
       *)
