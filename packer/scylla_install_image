@@ -94,6 +94,7 @@ if __name__ == '__main__':
     run('apt-get purge -y snapd', shell=True, check=True)
     run('apt-get purge -y modemmanager', shell=True, check=True)
     run('apt-get purge -y accountsservice', shell=True, check=True)
+    run('apt-get purge -y acpid motd-news-config fwupd-signed', shell=True, check=True)
     run('apt-get purge -y udisks2', shell=True, check=True)
     # cannot remove policykit since add-apt-repository depends on that,
     # so just disable the service
@@ -123,6 +124,7 @@ if __name__ == '__main__':
         sysconfig_opt = '--disable-writeback-cache'
         swap_opt = '--swap-directory /mnt'
 
+    run('systemctl disable --now apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer motd-news.timer', shell=True, check=True)
     run('systemctl daemon-reload', shell=True, check=True)
     run('systemctl enable scylla-image-setup.service', shell=True, check=True)
     run('systemctl enable scylla-image-post-start.service', shell=True, check=True)
