@@ -65,6 +65,7 @@ if __name__ == '__main__':
         print('Error: need to specify --localdeb or --repo/--repo-for-install')
         sys.exit(1)
 
+    run('locale-gen', shell=True, check=True)
     run('apt-key adv --keyserver keyserver.ubuntu.com --recv-keys d0a112e067426ab2', shell=True, check=True)
     run(f'mkdir -p {apt_keys_dir}; gpg --homedir /tmp --no-default-keyring --keyring {apt_keys_dir}/scylladb.gpg '
         f'--keyserver hkp://keyserver.ubuntu.com:80 --recv-keys d0a112e067426ab2', shell=True, check=True)
