@@ -206,7 +206,6 @@ import_gpg_key () {
   echo "Importing apt key ($APT_KEY)"
   TMPREPO=$(mktemp -u -p /etc/apt/sources.list.d/ --suffix .list)
   sudo curl -sSo $TMPREPO $REPO_FOR_INSTALL
-  sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys $APT_KEY
   sudo mkdir -p $APT_KEYS_DIR
   sudo gpg --homedir /tmp --no-default-keyring --keyring $APT_KEYS_DIR/scylladb.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys $APT_KEY
   sudo apt-get update -y
