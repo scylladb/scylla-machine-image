@@ -94,6 +94,7 @@ if __name__ == '__main__':
     run('apt-get purge -y snapd', shell=True, check=True)
     run('apt-get purge -y modemmanager', shell=True, check=True)
     run('apt-get purge -y accountsservice', shell=True, check=True)
+    run('apt-get purge -y acpid motd-news-config fwupd-signed', shell=True, check=True)
     run('apt-get purge -y udisks2', shell=True, check=True)
     # cannot remove policykit since add-apt-repository depends on that,
     # so just disable the service
@@ -123,16 +124,17 @@ if __name__ == '__main__':
         sysconfig_opt = '--disable-writeback-cache'
         swap_opt = '--swap-directory /mnt'
 
+    run('systemctl disable apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer motd-news.timer', shell=True, check=True)
     run('systemctl daemon-reload', shell=True, check=True)
     run('systemctl enable scylla-image-setup.service', shell=True, check=True)
     run('systemctl enable scylla-image-post-start.service', shell=True, check=True)
-    run('/opt/scylladb/scripts/scylla_setup --no-coredump-setup --no-sysconfig-setup --no-raid-setup --no-io-setup --no-bootparam-setup --no-ec2-check --no-swap-setup --no-cpuscaling-setup', shell=True, check=True)
+    run('/opt/scylladb/scripts/scylla_setup --no-coredump-setup --no-sysconfig-setup --no-raid-setup --no-io-setup --no-ec2-check --no-swap-setup --no-cpuscaling-setup', shell=True, check=True)
 
     # On Ubuntu, 'cpufrequtils' never fails even CPU scaling is not supported,
     # so we want to enable it here
     run('/opt/scylladb/scripts/scylla_cpuscaling_setup --force', shell=True, check=True)
 
-    run(f'/opt/scylladb/scripts/scylla_sysconfig_setup --ami --set-clocksource {sysconfig_opt}', shell=True, check=True)
+    run(f'/opt/scylladb/scripts/scylla_sysconfig_setup --set-clocksource {sysconfig_opt}', shell=True, check=True)
     run(f'/opt/scylladb/scripts/scylla_swap_setup --swap-size-bytes {half_of_diskfree()} {swap_opt}', shell=True, check=True)
     run('/opt/scylladb/scripts/scylla_coredump_setup', shell=True, check=True)
     dot_mount = '''

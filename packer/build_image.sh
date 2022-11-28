@@ -12,6 +12,7 @@ OPERATING_SYSTEM="ubuntu22.04"
 EXIT_STATUS=0
 DRY_RUN=false
 DEBUG=false
+BUILD_MODE='release'
 TARGET=
 APT_KEYS_DIR='/etc/apt/keyrings'
 APT_KEY='d0a112e067426ab2'
@@ -30,6 +31,7 @@ print_usage() {
     echo "  [--ami-regions]         Set regions to copy the AMI when done building it (including permissions and tags)"
     echo "  [--build-tag]           Jenkins Build tag"
     echo "  --download-no-server    Download all deb needed excluding scylla from repo-for-install"
+    echo "  [--build-mode]          Choose which build mode to use for Scylla installation. Default: release. Valid options: release|debug"
     echo "  [--debug]               Build debug image with special prefix for image name. Default: false."
     echo "  [--log-file]            Path for log. Default build/ami.log on current dir. Default: build/packer.log"
     echo "  --target                Target cloud (aws/gce/azure), mandatory when using this script directly, and not by soft links"
@@ -105,6 +107,10 @@ while [ $# -gt 0 ]; do
             DOWNLOAD_ONLY=1
             echo "--download-no-server parameter: DOWNLOAD_ONLY |$DOWNLOAD_ONLY|"
             shift 1
+            ;;
+        "--build-mode")
+            BUILD_MODE=$2
+            shift 2
             ;;
         "--debug")
             echo "!!! Building image for debug !!!"
@@ -257,11 +263,11 @@ if [ "$TARGET" = "aws" ]; then
     arch="$ARCH"
     case "$arch" in
       "x86_64")
-        SOURCE_AMI_FILTER="ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64*"
+        SOURCE_AMI_FILTER="ubuntu-minimal/images/hvm-ssd/ubuntu-jammy-22.04-amd64*"
         INSTANCE_TYPE="c4.xlarge"
         ;;
       "aarch64")
-        SOURCE_AMI_FILTER="ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-arm64*"
+        SOURCE_AMI_FILTER="ubuntu-minimal/images/hvm-ssd/ubuntu-jammy-22.04-arm64*"
         INSTANCE_TYPE="a1.xlarge"
         ;;
       *)
@@ -272,6 +278,7 @@ if [ "$TARGET" = "aws" ]; then
     SCYLLA_AMI_DESCRIPTION="scylla-$SCYLLA_FULL_VERSION scylla-machine-image-$SCYLLA_MACHINE_IMAGE_VERSION scylla-jmx-$SCYLLA_JMX_VERSION scylla-tools-$SCYLLA_TOOLS_VERSION scylla-python3-$SCYLLA_PYTHON3_VERSION"
 
     PACKER_ARGS+=(-var region="$REGION")
+    PACKER_ARGS+=(-var buildMode="$BUILD_MODE")
     PACKER_ARGS+=(-var instance_type="$INSTANCE_TYPE")
     PACKER_ARGS+=(-var source_ami_filter="$SOURCE_AMI_FILTER")
     PACKER_ARGS+=(-var source_ami_owner="$SOURCE_AMI_OWNER")
@@ -294,6 +301,9 @@ elif [ "$TARGET" = "azure" ]; then
 fi
 
 IMAGE_NAME="$PRODUCT-$VERSION-$ARCH-$(date '+%FT%T')"
+if [ "$BUILD_MODE" = "debug" ]; then
+  IMAGE_NAME="$PRODUCT-debug-$VERSION-$ARCH-$(date '+%FT%T')"
+fi
 if $DEBUG ; then
   IMAGE_NAME="debug-$IMAGE_NAME"
 fi
@@ -329,6 +339,7 @@ set -x
   -var ami_regions="$AMI_REGIONS" \
   -var arch="$ARCH" \
   -var product="$PRODUCT" \
+  -var build_mode="$BUILD_MODE" \
   -var image_name="$IMAGE_NAME" \
   "${PACKER_ARGS[@]}" \
   "$DIR"/scylla.json
