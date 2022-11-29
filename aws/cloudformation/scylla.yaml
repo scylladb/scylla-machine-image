@@ -7,6 +7,10 @@ Description: >-
   Use `SGAdmin` security group to enable access from outside to this cluster
   By default only SSH port is out to the outside world.
 
+  The deployment should take a couple of minutes, usually less than 10 minutes.
+
+  You do not need AWS account root user for this deployment and you should avoid using it for such.
+
   Caution: password authentication isn't enabled by default
 
 Metadata:
