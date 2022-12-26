@@ -362,7 +362,7 @@ class gcp_instance(cloud_instance):
                 if diskCount >= 16 and self.cpu < 32:
                     logging.warning(
                         "This machine doesn't have enough CPUs for allocated number of NVMEs (at least 32 cpus for >=16 disks). Performance will suffer.")
-                    return False
+                    return True
                 if diskCount < 1:
                     logging.warning("No ephemeral disks were found.")
                     return False

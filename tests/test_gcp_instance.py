@@ -412,8 +412,6 @@ class TestGcpInstance(TestCase):
         with unittest.mock.patch('psutil.cpu_count', return_value=8),\
                 unittest.mock.patch('psutil.virtual_memory', return_value=svmem(33663647744)),\
                 unittest.mock.patch('psutil.disk_partitions', return_value=mock_disk_partitions),\
-                unittest.mock.patch('os.listdir', return_value=mock_listdevdir_n2_standard_8_24ssd),\
-                unittest.mock.patch('glob.glob', return_value=mock_glob_glob_dev_n2_standard_8_24ssd),\
                 unittest.mock.patch('lib.scylla_cloud.gcp_instance.get_file_size_by_seek', return_value=402653184000):
             ins = gcp_instance()
             # Requires more CPUs to use this number of SSDs
