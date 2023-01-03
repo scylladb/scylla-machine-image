@@ -53,6 +53,8 @@ if __name__ == '__main__':
                         help='repository for install, specify .repo/.list file URL')
     parser.add_argument('--repo-for-update',
                         help='repository for update, specify .repo/.list file URL')
+    parser.add_argument('--scylla-manager-repo', default='https://downloads.scylladb.com/deb/ubuntu/scylladb-manager-3.0.list',
+                        help='repository for scylla manager')
     parser.add_argument('--target-cloud', choices=['aws', 'gce', 'azure'], help='specify target cloud')
     parser.add_argument('--scylla-version',
                         help='Scylla version to be added to manifest file')
@@ -78,11 +80,14 @@ if __name__ == '__main__':
         print('no scylla package found.')
         sys.exit(1)
 
+    run(f'wget -O /etc/apt/sources.list.d/scylla-manager.list {args.scylla_manager_repo}', shell=True, check=True)
+
     run('apt-get update --allow-insecure-repositories -y', shell=True, check=True)
     run('apt-get full-upgrade -y', shell=True, check=True)
     run('apt-get purge -y apport python3-apport fuse', shell=True, check=True)
     run('apt-get install -y systemd-coredump', shell=True, check=True)
     run(f'apt-get install -y --auto-remove --allow-unauthenticated {args.product}-machine-image {args.product}-server-dbg', shell=True, check=True)
+    run(f'apt-get install -y scylla-manager-agent', shell=True, check=True)
 
     os.remove('/etc/apt/sources.list.d/scylla_install.list')
     if args.repo_for_update:
@@ -127,6 +132,7 @@ if __name__ == '__main__':
     run('systemctl disable apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer motd-news.timer', shell=True, check=True)
     run('systemctl daemon-reload', shell=True, check=True)
     run('systemctl enable scylla-image-setup.service', shell=True, check=True)
+    run('systemctl enable scylla-manager-agent', shell=True, check=True)
     run('systemctl enable scylla-image-post-start.service', shell=True, check=True)
     run('/opt/scylladb/scripts/scylla_setup --no-coredump-setup --no-sysconfig-setup --no-raid-setup --no-io-setup --no-ec2-check --no-swap-setup --no-cpuscaling-setup', shell=True, check=True)
 
