@@ -115,14 +115,17 @@ if __name__ == '__main__':
         setup_opt = '--ntp-domain amazon'
         sysconfig_opt = ''
         swap_opt = '--swap-directory /'
+        kernel_opt = ''
     elif args.target_cloud == 'gce':
         setup_opt = ''
         sysconfig_opt = '--disable-writeback-cache'
         swap_opt = '--swap-directory /'
+        kernel_opt = ''
     elif args.target_cloud == 'azure':
         setup_opt = ''
         sysconfig_opt = '--disable-writeback-cache'
         swap_opt = '--swap-directory /mnt'
+        kernel_opt = ' rootdelay=300'
 
     run('systemctl disable apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer motd-news.timer', shell=True, check=True)
     run('systemctl daemon-reload', shell=True, check=True)
@@ -163,7 +166,9 @@ WantedBy=multi-user.target
 
     with open('/etc/default/grub.d/50-cloudimg-settings.cfg') as f:
         grub = f.read()
-    grub = re.sub(r'^GRUB_CMDLINE_LINUX_DEFAULT="(.+)"$', r'GRUB_CMDLINE_LINUX_DEFAULT="\1 net.ifnames=0 clocksource=tsc tsc=reliable"', grub, flags=re.MULTILINE)
+    grub = re.sub(r'^GRUB_CMDLINE_LINUX="(.+)"$',
+                  fr'GRUB_CMDLINE_LINUX="\1 net.ifnames=0 clocksource=tsc tsc=reliable {kernel_opt}"', grub,
+                  flags=re.MULTILINE)
     with open('/etc/default/grub.d/50-cloudimg-settings.cfg', 'w') as f:
         f.write(grub)
     run('update-grub2', shell=True, check=True)
@@ -211,6 +216,8 @@ WantedBy=multi-user.target
     if args.target_cloud == 'azure':
         with open('/etc/hosts', 'a') as f:
             f.write('\n\n169.254.169.254    metadata.azure.internal\n')
+        with open('/etc/ssh/sshd_config.d/50-cloudimg-settings.conf', 'w') as f:
+            f.write('ClientAliveInterval 180 \nHostKeyAlgorithms +ssh-rsa \nPubkeyAcceptedKeyTypes +ssh-rsa')
 
     # generate package manifest to scylla-packages.txt
     deps = run(f'apt-cache depends --recurse --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances --installed {args.product}', stdout=PIPE, stderr=STDOUT, shell=True, check=True, encoding='utf-8').stdout.splitlines()
