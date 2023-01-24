@@ -168,7 +168,7 @@ WantedBy=multi-user.target
     with open('/etc/default/grub.d/50-cloudimg-settings.cfg') as f:
         grub = f.read()
     grub = re.sub(fr'^{grub_variable}="(.+)"$',
-                  fr'{grub_variable}="\1 net.ifnames=0 clocksource=tsc tsc=reliable {kernel_opt}"', grub,
+                  fr'{grub_variable}="\1 net.ifnames=0 clocksource=tsc tsc=reliable intel_idle.max_cstate=1 processor.max_cstate=1 {kernel_opt}"', grub,
                   flags=re.MULTILINE)
     with open('/etc/default/grub.d/50-cloudimg-settings.cfg', 'w') as f:
         f.write(grub)
