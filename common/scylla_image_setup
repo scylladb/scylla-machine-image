@@ -6,33 +6,38 @@
 
 import os
 import sys
-import pathlib
-from lib.scylla_cloud import get_cloud_instance, is_gce, is_redhat_variant
+from pathlib import Path
+from lib.scylla_cloud import get_cloud_instance, is_gce, is_azure, is_redhat_variant
 from subprocess import run
 
 if __name__ == '__main__':
-    # On Ubuntu, we configure CPU scaling while AMI building time
-    if is_redhat_variant():
-        run('/opt/scylladb/scripts/scylla_cpuscaling_setup', shell=True, check=True)
-    cloud_instance = get_cloud_instance()
-    run('/opt/scylladb/scylla-machine-image/scylla_configure.py', shell=True, check=True)
+    if is_azure() and not Path('/mnt/swapfile').exists():
+        Path('/etc/systemd/system/mnt-swapfile.swap').unlink(missing_ok=True)
+        run('/opt/scylladb/scripts/scylla_swap_setup --swap-directory /mnt', shell=True, check=True)
+    machine_image_configured = Path('/etc/scylla/machine_image_configured')
+    if not machine_image_configured.exists():
+        # On Ubuntu, we configure CPU scaling while AMI building time
+        if is_redhat_variant():
+            run('/opt/scylladb/scripts/scylla_cpuscaling_setup', shell=True, check=True)
+        cloud_instance = get_cloud_instance()
+        run('/opt/scylladb/scylla-machine-image/scylla_configure.py', shell=True, check=True)
 
-    run('/opt/scylladb/scripts/scylla_sysconfig_setup --nic eth0 --setup-nic', shell=True, check=True)
-    if os.path.ismount('/var/lib/scylla'):
-        if cloud_instance.is_supported_instance_class():
-            # We run io_setup only when ehpemeral disks are available
-            if is_gce():
-                nr_disks = cloud_instance.nvme_disk_count
-                if nr_disks > 0:
+        run('/opt/scylladb/scripts/scylla_sysconfig_setup --nic eth0 --setup-nic', shell=True, check=True)
+        if os.path.ismount('/var/lib/scylla'):
+            if cloud_instance.is_supported_instance_class():
+                # We run io_setup only when ehpemeral disks are available
+                if is_gce():
+                    nr_disks = cloud_instance.nvme_disk_count
+                    if nr_disks > 0:
+                        cloud_instance.io_setup()
+                else:
                     cloud_instance.io_setup()
-            else:
-                cloud_instance.io_setup()
-            run('systemctl daemon-reload', shell=True, check=True)
-            run('systemctl enable var-lib-systemd-coredump.mount', shell=True, check=True)
-            run('systemctl start var-lib-systemd-coredump.mount', shell=True, check=True)
-            # some distro has fstrim enabled by default, since we are using XFS with online discard, we don't need fstrim
-            run('systemctl is-active -q fstrim.timer && systemctl disable fstrim.timer', shell=True, check=True)
+                run('systemctl daemon-reload', shell=True, check=True)
+                run('systemctl enable var-lib-systemd-coredump.mount', shell=True, check=True)
+                run('systemctl start var-lib-systemd-coredump.mount', shell=True, check=True)
+                # some distro has fstrim enabled by default, since we are using XFS with online discard, we don't need fstrim
+                run('systemctl is-active -q fstrim.timer && systemctl disable fstrim.timer', shell=True, check=True)
 
-    if not os.path.ismount('/var/lib/scylla'):
-        print('Failed to initialize RAID volume!')
-    pathlib.Path('/etc/scylla/machine_image_configured').touch()
+        if not os.path.ismount('/var/lib/scylla'):
+            print('Failed to initialize RAID volume!')
+        machine_image_configured.touch()

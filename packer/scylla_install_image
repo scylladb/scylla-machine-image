@@ -114,19 +114,16 @@ if __name__ == '__main__':
 
         setup_opt = '--ntp-domain amazon'
         sysconfig_opt = ''
-        swap_opt = '--swap-directory /'
         kernel_opt = ''
         grub_variable = 'GRUB_CMDLINE_LINUX_DEFAULT'
     elif args.target_cloud == 'gce':
         setup_opt = ''
         sysconfig_opt = '--disable-writeback-cache'
-        swap_opt = '--swap-directory /'
         kernel_opt = ''
         grub_variable = 'GRUB_CMDLINE_LINUX_DEFAULT'
     elif args.target_cloud == 'azure':
         setup_opt = ''
         sysconfig_opt = '--disable-writeback-cache'
-        swap_opt = '--swap-directory /mnt'
         kernel_opt = ' rootdelay=300'
         grub_variable = 'GRUB_CMDLINE_LINUX'
 
@@ -141,7 +138,8 @@ if __name__ == '__main__':
     run('/opt/scylladb/scripts/scylla_cpuscaling_setup --force', shell=True, check=True)
 
     run(f'/opt/scylladb/scripts/scylla_sysconfig_setup --set-clocksource {sysconfig_opt}', shell=True, check=True)
-    run(f'/opt/scylladb/scripts/scylla_swap_setup --swap-size-bytes {half_of_diskfree()} {swap_opt}', shell=True, check=True)
+    if args.target_cloud == 'aws' or args.target_cloud == 'gce':
+        run(f'/opt/scylladb/scripts/scylla_swap_setup --swap-size-bytes {half_of_diskfree()} --swap-directory /', shell=True, check=True)
     run('/opt/scylladb/scripts/scylla_coredump_setup', shell=True, check=True)
     dot_mount = '''
 [Unit]
