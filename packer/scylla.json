@@ -192,6 +192,12 @@
       "destination": "build/",
       "direction": "download",
       "type": "file"
+    },
+    {
+        "inline": [
+            "if [ {{build_name}} = gce -o {{build_name}} = azure ]; then sudo userdel -r -f {{user `ssh_username`}}; fi"
+        ],
+        "type": "shell"
     }
   ],
   "variables": {
