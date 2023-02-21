@@ -529,7 +529,13 @@ class azure_instance(cloud_instance):
         "L32s": 4,
         "L48s": 6,
         "L64s": 8,
-        "L80s": 10
+        "L80s": 10,
+        "L8as": 1,
+        "L16as": 2,
+        "L32as": 4,
+        "L48as": 6,
+        "L64as": 8,
+        "L80as": 10
     }
 
     def __get_nvme_disks_count_from_metadata(self):
