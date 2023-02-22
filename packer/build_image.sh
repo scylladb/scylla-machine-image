@@ -285,7 +285,7 @@ if [ "$TARGET" = "aws" ]; then
     PACKER_ARGS+=(-var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}")
 elif [ "$TARGET" = "gce" ]; then
     SSH_USERNAME=ubuntu
-    SOURCE_IMAGE_FAMILY="ubuntu-2204-lts"
+    SOURCE_IMAGE_FAMILY="ubuntu-minimal-2204-lts"
 
     PACKER_ARGS+=(-var source_image_family="$SOURCE_IMAGE_FAMILY")
 elif [ "$TARGET" = "azure" ]; then
