@@ -156,8 +156,11 @@
         "build_tag": "{{user `build_tag`| clean_resource_name}}",
         "build_mode": "{{user `build_mode`| clean_resource_name}}"
       },
-      "location": "{{user `region`}}",
-      "vm_size": "{{user `vm_size`}}"
+      "vm_size": "{{user `vm_size`}}",
+      "build_resource_group_name": "scylla-images",
+      "keep_os_disk": true,
+      "virtual_network_name": "scylla-images",
+      "private_virtual_network_with_public_ip": true
     }
   ],
   "provisioners": [
@@ -189,6 +192,12 @@
       "destination": "build/",
       "direction": "download",
       "type": "file"
+    },
+    {
+        "inline": [
+            "if [ {{build_name}} = gce -o {{build_name}} = azure ]; then sudo userdel -r -f {{user `ssh_username`}}; fi"
+        ],
+        "type": "shell"
     }
   ],
   "variables": {
