@@ -111,18 +111,24 @@ if __name__ == '__main__':
         run(f'curl -L -o /tmp/amazon-ssm-agent.deb https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_{deb_arch()}/amazon-ssm-agent.deb', shell=True, check=True)
         run('dpkg -i /tmp/amazon-ssm-agent.deb', shell=True, check=True)
         run('systemctl enable amazon-ssm-agent', shell=True, check=True)
+        with open('/etc/chrony/chrony.conf') as f:
+            chrony_conf = f.read()
 
-        setup_opt = '--ntp-domain amazon'
+        chrony_conf = re.sub(r'^(pool .*$)', '# \\1', chrony_conf, flags=re.MULTILINE)
+        with open('/etc/chrony/chrony.conf', 'w') as f:
+            f.write(chrony_conf)
+
+        with open('/etc/chrony/sources.d/ntp-pool.sources', 'w') as f:
+            f.write('pool time.aws.com iburst\n')
+
         sysconfig_opt = ''
         kernel_opt = ''
         grub_variable = 'GRUB_CMDLINE_LINUX_DEFAULT'
     elif args.target_cloud == 'gce':
-        setup_opt = ''
         sysconfig_opt = '--disable-writeback-cache'
         kernel_opt = ''
         grub_variable = 'GRUB_CMDLINE_LINUX_DEFAULT'
     elif args.target_cloud == 'azure':
-        setup_opt = ''
         sysconfig_opt = '--disable-writeback-cache'
         kernel_opt = ' rootdelay=300'
         grub_variable = 'GRUB_CMDLINE_LINUX'
@@ -131,7 +137,7 @@ if __name__ == '__main__':
     run('systemctl daemon-reload', shell=True, check=True)
     run('systemctl enable scylla-image-setup.service', shell=True, check=True)
     run('systemctl enable scylla-image-post-start.service', shell=True, check=True)
-    run('/opt/scylladb/scripts/scylla_setup --no-coredump-setup --no-sysconfig-setup --no-raid-setup --no-io-setup --no-ec2-check --no-swap-setup --no-cpuscaling-setup', shell=True, check=True)
+    run('/opt/scylladb/scripts/scylla_setup --no-coredump-setup --no-sysconfig-setup --no-raid-setup --no-io-setup --no-ec2-check --no-swap-setup --no-cpuscaling-setup --no-ntp-setup', shell=True, check=True)
 
     # On Ubuntu, 'cpufrequtils' never fails even CPU scaling is not supported,
     # so we want to enable it here
