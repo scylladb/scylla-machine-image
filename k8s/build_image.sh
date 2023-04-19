@@ -7,7 +7,7 @@
 CLOUD_PROVIDER=
 
 print_usage() {
-    echo "build_image.sh -c [aws|gce|azure]"
+    echo "build_image.sh -c [aws]"
     echo "  -c cloud provider"
     exit 1
 }
@@ -27,7 +27,7 @@ fi
 
 echo "Building in $PWD..."
 
-VERSION=$(./SCYLLA-VERSION-GEN)
-PACKAGE_NAME="scylladb/scylla-machine-image-k8s-$CLOUD_PROVIDER:$VERSION"
+VERSION="k8s-${CLOUD_PROVIDER}-node-setup-0.0.2"
+IMAGE_REF="scylladb/scylla-machine-image:${VERSION}"
 
-docker build . -f k8s/Dockerfile --build-arg cloud_provider=$CLOUD_PROVIDER -t $PACKAGE_NAME
+docker build -f k8s/Dockerfile --build-arg "cloud_provider=${CLOUD_PROVIDER}" -t "${IMAGE_REF}" .
