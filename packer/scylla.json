@@ -139,8 +139,8 @@
       "managed_image_name": "{{user `image_name`| clean_resource_name}}",
       "os_type": "Linux",
       "image_publisher": "Canonical",
-      "image_offer": "0001-com-ubuntu-server-jammy",
-      "image_sku": "22_04-lts-gen2",
+      "image_offer": "0001-com-ubuntu-minimal-jammy",
+      "image_sku": "minimal-22_04-lts-gen2",
       "azure_tags": {
         "scylla_version": "{{user `scylla_full_version`}}",
         "scylla_machine_image_version": "{{user `scylla_machine_image_version`}}",
@@ -164,6 +164,13 @@
     }
   ],
   "provisioners": [
+    {
+      "type": "shell",
+      "inline": [
+        "if [ {{build_name}} = aws -o {{build_name}} = azure ]; then sudo apt-get update; sudo DEBIAN_FRONTEND=noninteractive apt purge -y linux-aws* linux-headers-{{build_name}}* linux-image*{{build_name}}* linux-modules*-{{build_name}}*; sudo DEBIAN_FRONTEND=noninteractive apt-get install -y linux-{{build_name}}-lts-22.04; sudo reboot ; fi"
+      ],
+      "expect_disconnect": true
+    },
     {
       "destination": "/home/{{user `ssh_username`}}/",
       "source": "files/",
@@ -192,6 +199,12 @@
       "destination": "build/",
       "direction": "download",
       "type": "file"
+    },
+    {
+        "inline": [
+            "if [ {{build_name}} = gce -o {{build_name}} = azure ]; then sudo userdel -r -f {{user `ssh_username`}}; fi"
+        ],
+        "type": "shell"
     }
   ],
   "variables": {
