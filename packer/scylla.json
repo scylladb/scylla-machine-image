@@ -167,7 +167,10 @@
     {
       "type": "shell",
       "inline": [
-        "if [ {{build_name}} = aws -o {{build_name}} = azure ]; then sudo apt-get update; sudo DEBIAN_FRONTEND=noninteractive apt purge -y linux-aws* linux-headers-{{build_name}}* linux-image*{{build_name}}* linux-modules*-{{build_name}}*; sudo DEBIAN_FRONTEND=noninteractive apt-get install -y linux-{{build_name}}-lts-22.04; sudo reboot ; fi"
+        "sudo apt-get update",
+        "sudo DEBIAN_FRONTEND=noninteractive apt purge -y linux-{{build_name}}* linux-headers-{{build_name}}* linux-image*{{build_name}}* linux-modules*-{{build_name}}*",
+        "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y linux-{{build_name}}-lts-22.04",
+        "sudo reboot"
       ],
       "expect_disconnect": true
     },
