@@ -18,6 +18,7 @@ import glob
 import distro
 import base64
 import datetime
+import random
 from subprocess import run, CalledProcessError
 from abc import ABCMeta, abstractmethod
 
@@ -69,8 +70,10 @@ def curl(url, headers=None, method=None, byte=False, timeout=3, max_retries=5, r
                     return res.read()
                 else:
                     return res.read().decode('utf-8')
-        except (urllib.error.URLError, socket.timeout):
-            time.sleep(retry_interval)
+        except (urllib.error.URLError, socket.timeout) as e:
+            exp_retry_interval = (retry_interval ** retries) + random.random()
+            logging.error(f'Failed to access {url}: {e.reason}, retrying in {exp_retry_interval}')
+            time.sleep(exp_retry_interval)
             retries += 1
             if retries >= max_retries:
                 raise
