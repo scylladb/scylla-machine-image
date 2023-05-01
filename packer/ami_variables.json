@@ -1,5 +1,5 @@
 {
-	"security_group_id": "sg-c5e1f7a0",
+	"security_group_id": "sg-088128b2712c264d1",
 	"region": "us-east-1",
 	"associate_public_ip_address": "true",
 	"instance_type": "c4.xlarge"
