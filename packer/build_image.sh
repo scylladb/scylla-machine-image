@@ -300,7 +300,15 @@ elif [ "$TARGET" = "azure" ]; then
     PACKER_ARGS+=(-var subscription_id="$AZURE_SUBSCRIPTION_ID")
 fi
 
-IMAGE_NAME="$PRODUCT-$VERSION-$ARCH-$(date '+%FT%T')"
+if [ "$TARGET" = "azure" ]; then
+  if [ "$BUILD_MODE" = "debug" ]; then
+    IMAGE_NAME="scylla-debug-$VERSION-$ARCH-$(date '+%FT%T')"
+  else
+    IMAGE_NAME="scylla-$VERSION-$ARCH-$(date '+%FT%T')"
+  fi
+else
+  IMAGE_NAME="$PRODUCT-$VERSION-$ARCH-$(date '+%FT%T')"
+fi
 if [ "$BUILD_MODE" = "debug" ]; then
   IMAGE_NAME="$PRODUCT-debug-$VERSION-$ARCH-$(date '+%FT%T')"
 fi
