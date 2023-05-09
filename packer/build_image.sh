@@ -222,7 +222,7 @@ if [ "$TARGET" = "aws" ]; then
         ;;
       "aarch64")
         SOURCE_AMI_FILTER="CentOS 7.* aarch64"
-        INSTANCE_TYPE="a1.xlarge"
+        INSTANCE_TYPE="im4gn.xlarge"
         ;;
       *)
         echo "Unsupported architecture: $arch"
