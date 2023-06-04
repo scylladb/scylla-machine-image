@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Setup python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v3
         with:
           python-version: 3.8                         
           architecture: x64
@@ -30,7 +30,7 @@ jobs:
         run: docker run -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm centos:7.2.1511 bash -c './dist/redhat/build_rpm.sh -t centos7'
 
       - name: Build RPM (Rockylinux:8)
-        run: docker run -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm rockylinux:8 bash -c './dist/redhat/build_rpm.sh -t centos8'
+        run: docker run -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm rockylinux:8 bash -c 'dnf update -y; dnf install -y git ; git config --global --add safe.directory "*"; ./dist/redhat/build_rpm.sh -t centos8'
 
-      - name: Build DEB (Ubuntu:20.04)
-        run: docker run -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm ubuntu:20.04 bash -c 'apt update -y; apt install -y git ; git config --global --add safe.directory "*"; ./dist/debian/build_deb.sh'
+      - name: Build DEB (Ubuntu:22.04)
+        run: docker run -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm ubuntu:22.04 bash -c 'apt update -y; apt install -y git ; git config --global --add safe.directory "*"; ./dist/debian/build_deb.sh'
