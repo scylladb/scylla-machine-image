@@ -172,6 +172,13 @@
       "expect_disconnect": true
     },
     {
+      "type": "shell",
+      "inline": [
+        "if [ {{build_name}} = gce ]; then sudo apt-get update; sudo DEBIAN_FRONTEND=noninteractive apt purge -y linux-gcp* linux-headers-gcp* linux-image*gcp* linux-modules*-gcp*; sudo DEBIAN_FRONTEND=noninteractive apt-get install -y linux-gcp-lts-22.04; sudo reboot ; fi"
+      ],
+      "expect_disconnect": true
+    },
+    {
       "destination": "/home/{{user `ssh_username`}}/",
       "source": "files/",
       "type": "file"
