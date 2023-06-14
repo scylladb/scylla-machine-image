@@ -186,7 +186,8 @@
     {
       "destination": "/home/{{user `ssh_username`}}/",
       "source": "files/",
-      "type": "file"
+      "type": "file",
+      "pause_before": "10s"
     },
     {
       "destination": "/home/{{user `ssh_username`}}/",
