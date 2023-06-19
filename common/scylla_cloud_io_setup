@@ -293,6 +293,31 @@ class aws_io_setup(cloud_io_setup):
                 self.disk_properties["read_bandwidth"] = 2527296683 * nr_disks
                 self.disk_properties["write_iops"] = 156326 * nr_disks
                 self.disk_properties["write_bandwidth"] = 1063657088 * nr_disks
+        elif self.idata.instancetype == "i4g.large":
+            self.disk_properties["read_iops"] = 34035
+            self.disk_properties["read_bandwidth"] = 288471904
+            self.disk_properties["write_iops"] = 27943
+            self.disk_properties["write_bandwidth"] = 126763269
+        elif self.idata.instancetype == "i4g.xlarge":
+            self.disk_properties["read_iops"] = 68111
+            self.disk_properties["read_bandwidth"] = 571766890
+            self.disk_properties["write_iops"] = 47622
+            self.disk_properties["write_bandwidth"] = 254230192
+        elif self.idata.instancetype == "i4g.2xlarge":
+            self.disk_properties["read_iops"] = 136352
+            self.disk_properties["read_bandwidth"] = 1148509696
+            self.disk_properties["write_iops"] = 82746
+            self.disk_properties["write_bandwidth"] = 508828810
+        elif self.idata.instancetype == "i4g.8xlarge":
+            self.disk_properties["read_iops"] = 271495 * nr_disks
+            self.disk_properties["read_bandwidth"] = 2293024938 * nr_disks
+            self.disk_properties["write_iops"] = 93653 * nr_disks
+            self.disk_properties["write_bandwidth"] = 1031956586 * nr_disks
+        elif self.idata.instancetype == "i4g.16xlarge":
+            self.disk_properties["read_iops"] = 250489 * nr_disks
+            self.disk_properties["read_bandwidth"] = 2286635861 * nr_disks
+            self.disk_properties["write_iops"] = 93737 * nr_disks
+            self.disk_properties["write_bandwidth"] = 1034256042 * nr_disks
         elif self.idata.instancetype == "im4gn.large":
             self.disk_properties["read_iops"] = 33943
             self.disk_properties["read_bandwidth"] = 288433525
