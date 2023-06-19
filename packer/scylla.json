@@ -89,6 +89,7 @@
           "build_mode": "{{user `build_mode`| clean_resource_name}}"
       },
       "ami_regions": "{{user `ami_regions`}}",
+      "ami_users": "{{user `ami_users`}}",
       "aws_polling": {
         "delay_seconds": "30",
         "max_attempts": "100"
