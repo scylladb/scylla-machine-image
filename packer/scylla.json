@@ -61,9 +61,15 @@
           "most_recent": true
       },
       "ssh_timeout": "5m",
+      "ssh_read_write_timeout": "5m",
       "ssh_username": "{{user `ssh_username`}}",
       "ssh_clear_authorized_keys": true,
-      "subnet_id": "{{user `subnet_id`}}",
+      "subnet_filter": {
+          "filters": {
+              "tag:Name": "image-build-subnet*"
+          },
+          "random": true
+      },
       "user_data_file": "user_data.txt",
       "ami_description": "{{user `scylla_ami_description`}}",
       "tags": {
@@ -95,6 +101,7 @@
       "source_image_family": "{{user `source_image_family`}}",
       "ssh_username": "{{user `ssh_username`}}",
       "ssh_timeout": "6m",
+      "ssh_read_write_timeout": "5m",
       "project_id": "{{user `project_id`}}",
       "zone": "{{user `zone`}}",
       "image_storage_locations": ["{{user `image_storage_location`}}"],
@@ -131,6 +138,8 @@
       "name": "azure",
       "type": "azure-arm",
       "ssh_username": "{{user `ssh_username`}}",
+      "ssh_timeout": "5m",
+      "ssh_read_write_timeout": "5m",
       "client_id": "{{user `client_id`}}",
       "client_secret": "{{user `client_secret`}}",
       "tenant_id": "{{user `tenant_id`}}",
@@ -181,7 +190,8 @@
     {
       "destination": "/home/{{user `ssh_username`}}/",
       "source": "files/",
-      "type": "file"
+      "type": "file",
+      "pause_before": "20s"
     },
     {
       "destination": "/home/{{user `ssh_username`}}/",
