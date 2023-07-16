@@ -158,6 +158,7 @@ if __name__ == '__main__':
     run('systemctl enable scylla-image-post-start.service')
     os.remove('{}/.ssh/authorized_keys'.format(homedir))
     os.remove('/var/lib/scylla-housekeeping/housekeeping.uuid')
+    os.remove('/var/cache/debconf/config.dat')
 
     with open('/etc/default/grub') as f:
         grub = f.read()
