@@ -163,6 +163,7 @@ WantedBy=multi-user.target
 
     os.remove('{}/.ssh/authorized_keys'.format(homedir))
     os.remove('/var/lib/scylla-housekeeping/housekeeping.uuid')
+    os.remove('/var/cache/debconf/config.dat')
 
     with open('/etc/default/grub.d/50-cloudimg-settings.cfg') as f:
         grub = f.read()
