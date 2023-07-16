@@ -61,6 +61,7 @@
           "most_recent": true
       },
       "ssh_timeout": "5m",
+      "ssh_read_write_timeout": "5m",
       "ssh_username": "{{user `ssh_username`}}",
       "ssh_clear_authorized_keys": true,
       "subnet_filter": {
@@ -88,6 +89,7 @@
           "build_mode": "{{user `build_mode`| clean_resource_name}}"
       },
       "ami_regions": "{{user `ami_regions`}}",
+      "ami_users": "{{user `ami_users`}}",
       "aws_polling": {
         "delay_seconds": "30",
         "max_attempts": "100"
@@ -100,6 +102,7 @@
       "source_image_family": "{{user `source_image_family`}}",
       "ssh_username": "{{user `ssh_username`}}",
       "ssh_timeout": "6m",
+      "ssh_read_write_timeout": "5m",
       "project_id": "{{user `project_id`}}",
       "zone": "{{user `zone`}}",
       "image_storage_locations": ["{{user `image_storage_location`}}"],
@@ -136,6 +139,8 @@
       "name": "azure",
       "type": "azure-arm",
       "ssh_username": "{{user `ssh_username`}}",
+      "ssh_timeout": "5m",
+      "ssh_read_write_timeout": "5m",
       "client_id": "{{user `client_id`}}",
       "client_secret": "{{user `client_secret`}}",
       "tenant_id": "{{user `tenant_id`}}",
@@ -172,14 +177,14 @@
     {
       "type": "shell",
       "inline": [
-        "if [ {{build_name}} = aws -o {{build_name}} = azure ]; then sudo apt-get update; sudo DEBIAN_FRONTEND=noninteractive apt purge -y linux-{{build_name}}* linux-headers-{{build_name}}* linux-image*{{build_name}}* linux-modules*-{{build_name}}*; sudo DEBIAN_FRONTEND=noninteractive apt-get install -y linux-{{build_name}}-lts-22.04; sudo reboot ; fi"
+        "if [ {{build_name}} = aws -o {{build_name}} = azure ]; then sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt purge -y linux-{{build_name}}* linux-headers-{{build_name}}* linux-image*{{build_name}}* linux-modules*-{{build_name}}* && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y linux-{{build_name}}-lts-22.04 && sudo reboot; fi"
       ],
       "expect_disconnect": true
     },
     {
       "type": "shell",
       "inline": [
-        "if [ {{build_name}} = gce ]; then sudo apt-get update; sudo DEBIAN_FRONTEND=noninteractive apt purge -y linux-gcp* linux-headers-gcp* linux-image*gcp* linux-modules*-gcp*; sudo DEBIAN_FRONTEND=noninteractive apt-get install -y linux-gcp-lts-22.04; sudo reboot ; fi"
+        "if [ {{build_name}} = gce ]; then sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt purge -y linux-gcp* linux-headers-gcp* linux-image*gcp* linux-modules*-gcp* && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y linux-gcp-lts-22.04 && sudo reboot; fi"
       ],
       "expect_disconnect": true
     },
@@ -187,7 +192,7 @@
       "destination": "/home/{{user `ssh_username`}}/",
       "source": "files/",
       "type": "file",
-      "pause_before": "10s"
+      "pause_before": "20s"
     },
     {
       "destination": "/home/{{user `ssh_username`}}/",
