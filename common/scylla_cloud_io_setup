@@ -308,6 +308,11 @@ class aws_io_setup(cloud_io_setup):
             self.disk_properties["read_bandwidth"] = 1148509696
             self.disk_properties["write_iops"] = 82746
             self.disk_properties["write_bandwidth"] = 508828810
+        elif self.idata.instancetype == "i4g.4xlarge":
+            self.disk_properties["read_iops"] = 272704
+            self.disk_properties["read_bandwidth"] = 2297019392
+            self.disk_properties["write_iops"] = 165492
+            self.disk_properties["write_bandwidth"] = 1017657620
         elif self.idata.instancetype == "i4g.8xlarge":
             self.disk_properties["read_iops"] = 271495 * nr_disks
             self.disk_properties["read_bandwidth"] = 2293024938 * nr_disks
