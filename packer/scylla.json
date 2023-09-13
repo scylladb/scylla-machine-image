@@ -168,6 +168,7 @@
       },
       "vm_size": "{{user `vm_size`}}",
       "build_resource_group_name": "scylla-images",
+      "async_resourcegroup_delete": true,
       "keep_os_disk": true,
       "virtual_network_name": "scylla-images",
       "private_virtual_network_with_public_ip": true
