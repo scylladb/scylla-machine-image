@@ -106,7 +106,7 @@ class ScyllaMachineImageConfigurator(UserData):
 
     def set_developer_mode(self):
         default_developer_mode = self.CONF_DEFAULTS["developer_mode"]
-        if self.instance_user_data.get("developer_mode", default_developer_mode):
+        if self.instance_user_data.get("developer_mode", default_developer_mode) or self.cloud_instance.is_dev_instance_type():
             LOGGER.info("Setting up developer mode")
             subprocess.run(['/usr/sbin/scylla_dev_mode_setup', '--developer-mode', '1'], timeout=60, check=True)
 
