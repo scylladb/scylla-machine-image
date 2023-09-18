@@ -126,10 +126,6 @@ class cloud_instance(metaclass=ABCMeta):
     def endpoint_snitch(self):
         pass
 
-    @property
-    @abstractmethod
-    def getting_started_url(self):
-        pass
 
 
 class gcp_instance(cloud_instance):
@@ -138,7 +134,6 @@ class gcp_instance(cloud_instance):
     EPHEMERAL = "ephemeral"
     PERSISTENT = "persistent"
     ROOT = "root"
-    GETTING_STARTED_URL = "http://www.scylladb.com/doc/getting-started-google/"
     META_DATA_BASE_URL = "http://metadata.google.internal/computeMetadata/v1/instance/"
     ENDPOINT_SNITCH = "GoogleCloudSnitch"
 
@@ -154,9 +149,6 @@ class gcp_instance(cloud_instance):
     def endpoint_snitch(self):
         return self.ENDPOINT_SNITCH
 
-    @property
-    def getting_started_url(self):
-        return self.GETTING_STARTED_URL
 
     @staticmethod
     def is_gce_instance():
@@ -413,7 +405,6 @@ class azure_instance(cloud_instance):
     PERSISTENT = "persistent"
     SWAP = "swap"
     ROOT = "root"
-    GETTING_STARTED_URL = "http://www.scylladb.com/doc/getting-started-azure/"
     ENDPOINT_SNITCH = "AzureSnitch"
     META_DATA_BASE_URL = "http://169.254.169.254/metadata/instance"
 
@@ -430,10 +421,6 @@ class azure_instance(cloud_instance):
     @property
     def endpoint_snitch(self):
         return self.ENDPOINT_SNITCH
-
-    @property
-    def getting_started_url(self):
-        return self.GETTING_STARTED_URL
 
     @classmethod
     def is_azure_instance(cls):
@@ -634,7 +621,6 @@ class azure_instance(cloud_instance):
 
 class aws_instance(cloud_instance):
     """Describe several aspects of the current AWS instance"""
-    GETTING_STARTED_URL = "http://www.scylladb.com/doc/getting-started-amazon/"
     META_DATA_BASE_URL = "http://169.254.169.254/latest/"
     ENDPOINT_SNITCH = "Ec2Snitch"
     METADATA_TOKEN_TTL = 21600
@@ -727,9 +713,6 @@ class aws_instance(cloud_instance):
     def endpoint_snitch(self):
         return self.ENDPOINT_SNITCH
 
-    @property
-    def getting_started_url(self):
-        return self.GETTING_STARTED_URL
 
     @classmethod
     def is_aws_instance(cls):
