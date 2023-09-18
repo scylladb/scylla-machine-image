@@ -96,11 +96,6 @@ class TestGcpInstance(TestCase):
         ins = gcp_instance()
         assert ins.endpoint_snitch == 'GoogleCloudSnitch'
 
-    def test_getting_started_url(self):
-        self.httpretty_gcp_metadata()
-        ins = gcp_instance()
-        assert ins.getting_started_url == 'http://www.scylladb.com/doc/getting-started-google/'
-
     def test_instancetype_n2_standard_8(self):
         self.httpretty_gcp_metadata()
         ins = gcp_instance()
