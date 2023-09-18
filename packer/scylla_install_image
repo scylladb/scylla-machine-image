@@ -125,6 +125,8 @@ if __name__ == '__main__':
         kernel_opt = ''
         grub_variable = 'GRUB_CMDLINE_LINUX_DEFAULT'
     elif args.target_cloud == 'gce':
+        # align with other clouds image
+        run('apt-get purge -y rsyslog', shell=True, check=True)
         sysconfig_opt = '--disable-writeback-cache'
         kernel_opt = ''
         grub_variable = 'GRUB_CMDLINE_LINUX_DEFAULT'
@@ -170,6 +172,7 @@ WantedBy=multi-user.target
 
     os.remove('{}/.ssh/authorized_keys'.format(homedir))
     os.remove('/var/lib/scylla-housekeeping/housekeeping.uuid')
+    os.remove('/var/cache/debconf/config.dat')
 
     with open('/etc/default/grub.d/50-cloudimg-settings.cfg') as f:
         grub = f.read()

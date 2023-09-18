@@ -89,6 +89,7 @@
           "build_mode": "{{user `build_mode`| clean_resource_name}}"
       },
       "ami_regions": "{{user `ami_regions`}}",
+      "ami_users": "{{user `ami_users`}}",
       "aws_polling": {
         "delay_seconds": "30",
         "max_attempts": "100"
@@ -176,14 +177,14 @@
     {
       "type": "shell",
       "inline": [
-        "if [ {{build_name}} = aws -o {{build_name}} = azure ]; then sudo apt-get update; sudo DEBIAN_FRONTEND=noninteractive apt purge -y linux-{{build_name}}* linux-headers-{{build_name}}* linux-image*{{build_name}}* linux-modules*-{{build_name}}*; sudo DEBIAN_FRONTEND=noninteractive apt-get install -y linux-{{build_name}}-lts-22.04; sudo reboot ; fi"
+        "if [ {{build_name}} = aws -o {{build_name}} = azure ]; then sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt purge -y linux-{{build_name}}* linux-headers-{{build_name}}* linux-image*{{build_name}}* linux-modules*-{{build_name}}* && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y linux-{{build_name}}-lts-22.04 && sudo reboot; fi"
       ],
       "expect_disconnect": true
     },
     {
       "type": "shell",
       "inline": [
-        "if [ {{build_name}} = gce ]; then sudo apt-get update; sudo DEBIAN_FRONTEND=noninteractive apt purge -y linux-gcp* linux-headers-gcp* linux-image*gcp* linux-modules*-gcp*; sudo DEBIAN_FRONTEND=noninteractive apt-get install -y linux-gcp-lts-22.04; sudo reboot ; fi"
+        "if [ {{build_name}} = gce ]; then sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt purge -y linux-gcp* linux-headers-gcp* linux-image*gcp* linux-modules*-gcp* && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y linux-gcp-lts-22.04 && sudo reboot; fi"
       ],
       "expect_disconnect": true
     },
