@@ -742,6 +742,8 @@ class aws_instance(cloud_instance):
         return False
 
     def is_dev_instance_type(self):
+        if self.instancetype in ['t3.micro']:
+            return True
         return False
 
     def get_en_interface_type(self):
