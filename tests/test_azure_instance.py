@@ -117,11 +117,6 @@ network/
         ins = azure_instance()
         assert ins.endpoint_snitch == 'AzureSnitch'
 
-    def test_getting_started_url(self):
-        self.httpretty_azure_metadata()
-        ins = azure_instance()
-        assert ins.getting_started_url == 'http://www.scylladb.com/doc/getting-started-azure/'
-
     def test_instancelocation_standard_l16s_v2(self):
         self.httpretty_azure_metadata()
         ins = azure_instance()

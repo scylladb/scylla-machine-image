@@ -81,6 +81,172 @@ class aws_io_setup(cloud_io_setup):
             self.disk_properties["read_bandwidth"] = 507338935 * nr_disks
             self.disk_properties["write_iops"] = 57100 * nr_disks
             self.disk_properties["write_bandwidth"] = 483141731 * nr_disks
+        elif self.idata.instance_class() in ("m5d", "r5d"):
+            if self.idata.instance_size() == "large":
+                self.disk_properties["read_iops"] = 33271
+                self.disk_properties["read_bandwidth"] = 158538149
+                self.disk_properties["write_iops"] = 16820
+                self.disk_properties["write_bandwidth"] = 70219810
+            elif self.idata.instance_size() == "xlarge":
+                self.disk_properties["read_iops"] = 65979
+                self.disk_properties["read_bandwidth"] = 260654293
+                self.disk_properties["write_iops"] = 32534
+                self.disk_properties["write_bandwidth"] = 135897424
+            elif self.idata.instance_size() == "2xlarge":
+                self.disk_properties["read_iops"] = 130095
+                self.disk_properties["read_bandwidth"] = 621758272
+                self.disk_properties["write_iops"] = 63644
+                self.disk_properties["write_bandwidth"] = 267667525
+            elif self.idata.instance_size() == "4xlarge":
+                self.disk_properties["read_iops"] = 129822 * nr_disks
+                self.disk_properties["read_bandwidth"] = 620878826 * nr_disks
+                self.disk_properties["write_iops"] = 63212 * nr_disks
+                self.disk_properties["write_bandwidth"] = 267703397 * nr_disks
+            elif self.idata.instance_size() == "8xlarge":
+                self.disk_properties["read_iops"] = 257069 * nr_disks
+                self.disk_properties["read_bandwidth"] = 1250134869 * nr_disks
+                self.disk_properties["write_iops"] = 115433 * nr_disks
+                self.disk_properties["write_bandwidth"] = 532868032 * nr_disks
+            elif self.idata.instance_size() == "12xlarge":
+                self.disk_properties["read_iops"] = 381626 * nr_disks
+                self.disk_properties["read_bandwidth"] = 1865794816 * nr_disks
+                self.disk_properties["write_iops"] = 115333 * nr_disks
+                self.disk_properties["write_bandwidth"] = 795884800 * nr_disks
+            elif self.idata.instance_size() == "16xlarge":
+                self.disk_properties["read_iops"] = 257054 * nr_disks
+                self.disk_properties["read_bandwidth"] = 1254133802 * nr_disks
+                self.disk_properties["write_iops"] = 108163 * nr_disks
+                self.disk_properties["write_bandwidth"] = 532996277 * nr_disks
+            elif self.idata.instance_size() == "24xlarge":
+                self.disk_properties["read_iops"] = 374737 * nr_disks
+                self.disk_properties["read_bandwidth"] = 1855833386 * nr_disks
+                self.disk_properties["write_iops"] = 125214 * nr_disks
+                self.disk_properties["write_bandwidth"] = 796082133 * nr_disks
+            elif self.idata.instance_size() == "metal":
+                self.disk_properties["read_iops"] = 381441 * nr_disks
+                self.disk_properties["read_bandwidth"] = 1874585429 * nr_disks
+                self.disk_properties["write_iops"] = 108789 * nr_disks
+                self.disk_properties["write_bandwidth"] = 796443221 * nr_disks
+        elif self.idata.instancetype == "m5ad.large":
+            self.disk_properties["read_iops"] = 33306
+            self.disk_properties["read_bandwidth"] = 158338864
+            self.disk_properties["write_iops"] = 16817
+            self.disk_properties["write_bandwidth"] = 70194288
+        elif self.idata.instancetype == "m5ad.xlarge":
+            self.disk_properties["read_iops"] = 66127
+            self.disk_properties["read_bandwidth"] = 260377466
+            self.disk_properties["write_iops"] = 32893
+            self.disk_properties["write_bandwidth"] = 135897696
+        elif self.idata.instancetype == "m5ad.2xlarge":
+            self.disk_properties["read_iops"] = 129977
+            self.disk_properties["read_bandwidth"] = 621997248
+            self.disk_properties["write_iops"] = 63442
+            self.disk_properties["write_bandwidth"] = 267648736
+        elif self.idata.instancetype == "m5ad.4xlarge":
+            self.disk_properties["read_iops"] = 129937 * nr_disks
+            self.disk_properties["read_bandwidth"] = 620231082 * nr_disks
+            self.disk_properties["write_iops"] = 62666 * nr_disks
+            self.disk_properties["write_bandwidth"] = 267639125 * nr_disks
+        elif self.idata.instancetype == "m5ad.8xlarge":
+            self.disk_properties["read_iops"] = 257095 * nr_disks
+            self.disk_properties["read_bandwidth"] = 1249927637 * nr_disks
+            self.disk_properties["write_iops"] = 114446 * nr_disks
+            self.disk_properties["write_bandwidth"] = 532821760 * nr_disks
+        elif self.idata.instancetype == "m5ad.12xlarge":
+            self.disk_properties["read_iops"] = 376431 * nr_disks
+            self.disk_properties["read_bandwidth"] = 1865866709 * nr_disks
+            self.disk_properties["write_iops"] = 115985 * nr_disks
+            self.disk_properties["write_bandwidth"] = 796003477 * nr_disks
+        elif self.idata.instancetype == "m5ad.16xlarge":
+            self.disk_properties["read_iops"] = 256358 * nr_disks
+            self.disk_properties["read_bandwidth"] = 1250889770 * nr_disks
+            self.disk_properties["write_iops"] = 114707 * nr_disks
+            self.disk_properties["write_bandwidth"] = 532998506 * nr_disks
+        elif self.idata.instancetype == "m5ad.24xlarge":
+            self.disk_properties["read_iops"] = 258951 * nr_disks
+            self.disk_properties["read_bandwidth"] = 1865871317 * nr_disks
+            self.disk_properties["write_iops"] = 116030 * nr_disks
+            self.disk_properties["write_bandwidth"] = 796217706 * nr_disks
+        elif self.idata.instancetype == "c5d.large":
+            self.disk_properties["read_iops"] = 22095
+            self.disk_properties["read_bandwidth"] = 104797834
+            self.disk_properties["write_iops"] = 10125
+            self.disk_properties["write_bandwidth"] = 41982906
+        elif self.idata.instancetype == "c5d.xlarge":
+            self.disk_properties["read_iops"] = 44355
+            self.disk_properties["read_bandwidth"] = 212593018
+            self.disk_properties["write_iops"] = 20025
+            self.disk_properties["write_bandwidth"] = 84213472
+        elif self.idata.instancetype == "c5d.2xlarge":
+            self.disk_properties["read_iops"] = 89036
+            self.disk_properties["read_bandwidth"] = 426821429
+            self.disk_properties["write_iops"] = 41697
+            self.disk_properties["write_bandwidth"] = 173730709
+        elif self.idata.instancetype == "c5d.4xlarge":
+            self.disk_properties["read_iops"] = 193970
+            self.disk_properties["read_bandwidth"] = 928278314
+            self.disk_properties["write_iops"] = 83058
+            self.disk_properties["write_bandwidth"] = 351839733
+        elif self.idata.instancetype == "c5d.9xlarge":
+            self.disk_properties["read_iops"] = 381800
+            self.disk_properties["read_bandwidth"] = 1865831893
+            self.disk_properties["write_iops"] = 112264
+            self.disk_properties["write_bandwidth"] = 795731264
+        elif self.idata.instancetype == "c5d.12xlarge":
+            self.disk_properties["read_iops"] = 381775 * nr_disks
+            self.disk_properties["read_bandwidth"] = 1866481792 * nr_disks
+            self.disk_properties["write_iops"] = 114302 * nr_disks
+            self.disk_properties["write_bandwidth"] = 795607616 * nr_disks
+        elif self.idata.instancetype == "c5d.18xlarge":
+            self.disk_properties["read_iops"] = 381270 * nr_disks
+            self.disk_properties["read_bandwidth"] = 1856972330 * nr_disks
+            self.disk_properties["write_iops"] = 125638 * nr_disks
+            self.disk_properties["write_bandwidth"] = 795813866 * nr_disks
+        elif self.idata.instancetype == "c5d.24xlarge":
+            self.disk_properties["read_iops"] = 381355 * nr_disks
+            self.disk_properties["read_bandwidth"] = 1876056704 * nr_disks
+            self.disk_properties["write_iops"] = 104946 * nr_disks
+            self.disk_properties["write_bandwidth"] = 795901013 * nr_disks
+        elif self.idata.instancetype == "c5d.metal":
+            self.disk_properties["read_iops"] = 381330 * nr_disks
+            self.disk_properties["read_bandwidth"] = 1865216426 * nr_disks
+            self.disk_properties["write_iops"] = 115484 * nr_disks
+            self.disk_properties["write_bandwidth"] = 796109546 * nr_disks
+        elif self.idata.instancetype == "z1d.large":
+            self.disk_properties["read_iops"] = 33286
+            self.disk_properties["read_bandwidth"] = 158206858
+            self.disk_properties["write_iops"] = 16956
+            self.disk_properties["write_bandwidth"] = 70226280
+        elif self.idata.instancetype == "z1d.xlarge":
+            self.disk_properties["read_iops"] = 66076
+            self.disk_properties["read_bandwidth"] = 260565488
+            self.disk_properties["write_iops"] = 32769
+            self.disk_properties["write_bandwidth"] = 135891989
+        elif self.idata.instancetype == "z1d.2xlarge":
+            self.disk_properties["read_iops"] = 130235
+            self.disk_properties["read_bandwidth"] = 622297194
+            self.disk_properties["write_iops"] = 63891
+            self.disk_properties["write_bandwidth"] = 267679509
+        elif self.idata.instancetype == "z1d.3xlarge":
+            self.disk_properties["read_iops"] = 193840
+            self.disk_properties["read_bandwidth"] = 927493696
+            self.disk_properties["write_iops"] = 82864
+            self.disk_properties["write_bandwidth"] = 351608480
+        elif self.idata.instancetype == "z1d.6xlarge":
+            self.disk_properties["read_iops"] = 381902
+            self.disk_properties["read_bandwidth"] = 1865543381
+            self.disk_properties["write_iops"] = 117874
+            self.disk_properties["write_bandwidth"] = 795786901
+        elif self.idata.instancetype == "z1d.12xlarge":
+            self.disk_properties["read_iops"] = 381648 * nr_disks
+            self.disk_properties["read_bandwidth"] = 1865706538 * nr_disks
+            self.disk_properties["write_iops"] = 115834 * nr_disks
+            self.disk_properties["write_bandwidth"] = 795876778 * nr_disks
+        elif self.idata.instancetype == "z1d.metal":
+            self.disk_properties["read_iops"] = 381378 * nr_disks
+            self.disk_properties["read_bandwidth"] = 1857873109 * nr_disks
+            self.disk_properties["write_iops"] = 122453 * nr_disks
+            self.disk_properties["write_bandwidth"] = 795593024 * nr_disks
         elif self.idata.instance_class() in ("c6gd", "m6gd", "r6gd", "x2gd"):
             if self.idata.instance_size() == "medium":
                 self.disk_properties["read_iops"] = 14808
@@ -127,6 +293,36 @@ class aws_io_setup(cloud_io_setup):
                 self.disk_properties["read_bandwidth"] = 2527296683 * nr_disks
                 self.disk_properties["write_iops"] = 156326 * nr_disks
                 self.disk_properties["write_bandwidth"] = 1063657088 * nr_disks
+        elif self.idata.instancetype == "i4g.large":
+            self.disk_properties["read_iops"] = 34035
+            self.disk_properties["read_bandwidth"] = 288471904
+            self.disk_properties["write_iops"] = 27943
+            self.disk_properties["write_bandwidth"] = 126763269
+        elif self.idata.instancetype == "i4g.xlarge":
+            self.disk_properties["read_iops"] = 68111
+            self.disk_properties["read_bandwidth"] = 571766890
+            self.disk_properties["write_iops"] = 47622
+            self.disk_properties["write_bandwidth"] = 254230192
+        elif self.idata.instancetype == "i4g.2xlarge":
+            self.disk_properties["read_iops"] = 136352
+            self.disk_properties["read_bandwidth"] = 1148509696
+            self.disk_properties["write_iops"] = 82746
+            self.disk_properties["write_bandwidth"] = 508828810
+        elif self.idata.instancetype == "i4g.4xlarge":
+            self.disk_properties["read_iops"] = 272704
+            self.disk_properties["read_bandwidth"] = 2297019392
+            self.disk_properties["write_iops"] = 165492
+            self.disk_properties["write_bandwidth"] = 1017657620
+        elif self.idata.instancetype == "i4g.8xlarge":
+            self.disk_properties["read_iops"] = 271495 * nr_disks
+            self.disk_properties["read_bandwidth"] = 2293024938 * nr_disks
+            self.disk_properties["write_iops"] = 93653 * nr_disks
+            self.disk_properties["write_bandwidth"] = 1031956586 * nr_disks
+        elif self.idata.instancetype == "i4g.16xlarge":
+            self.disk_properties["read_iops"] = 250489 * nr_disks
+            self.disk_properties["read_bandwidth"] = 2286635861 * nr_disks
+            self.disk_properties["write_iops"] = 93737 * nr_disks
+            self.disk_properties["write_bandwidth"] = 1034256042 * nr_disks
         elif self.idata.instancetype == "im4gn.large":
             self.disk_properties["read_iops"] = 33943
             self.disk_properties["read_bandwidth"] = 288433525
