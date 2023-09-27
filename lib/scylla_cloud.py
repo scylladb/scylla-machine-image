@@ -93,6 +93,10 @@ class cloud_instance(metaclass=ABCMeta):
     def is_supported_instance_class(self):
         pass
 
+    @abstractmethod
+    def is_dev_instance_type(self):
+        pass
+
     @property
     @abstractmethod
     def instancetype(self):
@@ -122,10 +126,6 @@ class cloud_instance(metaclass=ABCMeta):
     def endpoint_snitch(self):
         pass
 
-    @property
-    @abstractmethod
-    def getting_started_url(self):
-        pass
 
 
 class gcp_instance(cloud_instance):
@@ -134,7 +134,6 @@ class gcp_instance(cloud_instance):
     EPHEMERAL = "ephemeral"
     PERSISTENT = "persistent"
     ROOT = "root"
-    GETTING_STARTED_URL = "http://www.scylladb.com/doc/getting-started-google/"
     META_DATA_BASE_URL = "http://metadata.google.internal/computeMetadata/v1/instance/"
     ENDPOINT_SNITCH = "GoogleCloudSnitch"
 
@@ -150,9 +149,6 @@ class gcp_instance(cloud_instance):
     def endpoint_snitch(self):
         return self.ENDPOINT_SNITCH
 
-    @property
-    def getting_started_url(self):
-        return self.GETTING_STARTED_URL
 
     @staticmethod
     def is_gce_instance():
@@ -321,6 +317,11 @@ class gcp_instance(cloud_instance):
             return True
         return False
 
+    def is_dev_instance_type(self):
+        if self.instancetype in ['e2-micro', 'e2-small', 'e2-medium']:
+            return True
+        return False
+
     @staticmethod
     def get_file_size_by_seek(filename):
         "Get the file size by seeking at end"
@@ -404,7 +405,6 @@ class azure_instance(cloud_instance):
     PERSISTENT = "persistent"
     SWAP = "swap"
     ROOT = "root"
-    GETTING_STARTED_URL = "http://www.scylladb.com/doc/getting-started-azure/"
     ENDPOINT_SNITCH = "AzureSnitch"
     META_DATA_BASE_URL = "http://169.254.169.254/metadata/instance"
 
@@ -421,10 +421,6 @@ class azure_instance(cloud_instance):
     @property
     def endpoint_snitch(self):
         return self.ENDPOINT_SNITCH
-
-    @property
-    def getting_started_url(self):
-        return self.GETTING_STARTED_URL
 
     @classmethod
     def is_azure_instance(cls):
@@ -602,6 +598,9 @@ class azure_instance(cloud_instance):
             return True
         return False
 
+    def is_dev_instance_type(self):
+        return False
+
     def private_ipv4(self):
         return self.__instance_metadata("/network/interface/0/ipv4/ipAddress/0/privateIpAddress")
 
@@ -622,7 +621,6 @@ class azure_instance(cloud_instance):
 
 class aws_instance(cloud_instance):
     """Describe several aspects of the current AWS instance"""
-    GETTING_STARTED_URL = "http://www.scylladb.com/doc/getting-started-amazon/"
     META_DATA_BASE_URL = "http://169.254.169.254/latest/"
     ENDPOINT_SNITCH = "Ec2Snitch"
     METADATA_TOKEN_TTL = 21600
@@ -715,9 +713,6 @@ class aws_instance(cloud_instance):
     def endpoint_snitch(self):
         return self.ENDPOINT_SNITCH
 
-    @property
-    def getting_started_url(self):
-        return self.GETTING_STARTED_URL
 
     @classmethod
     def is_aws_instance(cls):
@@ -743,6 +738,11 @@ class aws_instance(cloud_instance):
 
     def is_supported_instance_class(self):
         if self.instance_class() in ['i2', 'i3', 'i3en', 'c5d', 'm5d', 'm5ad', 'r5d', 'z1d', 'c6gd', 'm6gd', 'r6gd', 'x2gd', 'im4gn', 'is4gen', 'i4i']:
+            return True
+        return False
+
+    def is_dev_instance_type(self):
+        if self.instancetype in ['t3.micro']:
             return True
         return False
 
@@ -844,7 +844,7 @@ def get_cloud_instance():
         raise Exception("Unknown cloud provider! Only AWS/GCP/Azure supported.")
 
 
-CONCOLORS = {'green': '\033[1;32m', 'red': '\033[1;31m', 'nocolor': '\033[0m'}
+CONCOLORS = {'green': '\033[1;32m', 'red': '\033[1;31m', 'yellow': '\033[1;33m', 'nocolor': '\033[0m'}
 
 
 def colorprint(msg, **kwargs):

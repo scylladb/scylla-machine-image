@@ -226,11 +226,6 @@ vpc-ipv6-cidr-blocks
         ins = aws_instance()
         assert ins.endpoint_snitch == 'Ec2Snitch'
 
-    def test_getting_started_url(self):
-        self.httpretty_aws_metadata()
-        ins = aws_instance()
-        assert ins.getting_started_url == 'http://www.scylladb.com/doc/getting-started-amazon/'
-
     def test_instancetype_i3en_2xlarge(self):
         self.httpretty_aws_metadata()
         ins = aws_instance()
