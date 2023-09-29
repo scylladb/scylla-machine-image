@@ -3,7 +3,7 @@ import logging
 import httpretty
 import unittest.mock
 import json
-from unittest import TestCase
+from unittest import TestCase, IsolatedAsyncioTestCase
 from collections import namedtuple
 from socket import AddressFamily, SocketKind
 from pathlib import Path
@@ -35,14 +35,20 @@ mock_glob_glob_dev_n2_standard_8_24ssd = mock_glob_glob_dev_n2_standard_8
 mock_glob_glob_dev_n2_highcpu_8_4ssd = mock_glob_glob_dev_n2_standard_8
 mock_glob_glob_dev_n2_standard_8_4ssd_2persistent = ['/dev/sdc', '/dev/sdb', '/dev/sda15', '/dev/sda14', '/dev/sda1', '/dev/sda']
 
-class TestGcpInstance(TestCase):
-    def setUp(self):
-        httpretty.enable(verbose=True, allow_net_connect=False)
+def _mock_multi_open(files, filename, *args, **kwargs):
+    if filename in files:
+        return unittest.mock.mock_open(read_data=files[filename]).return_value
+    else:
+        raise FileNotFoundError(f'Unable to open {filename}')
 
-    def tearDown(self):
-        httpretty.disable()
-        httpretty.reset()
+def mock_multi_open_n2(filename, *args, **kwargs):
+    files = {
+        '/sys/class/dmi/id/product_name': 'Google Compute Engine'
+    }
+    return _mock_multi_open(files, filename, *args, **kwargs)
 
+
+class GcpMetadata:
     def httpretty_gcp_metadata(self, instance_type='n2-standard-8', project_number='431729375847', instance_name='testcase_1', num_local_disks=4, num_remote_disks=0, with_userdata=False):
         httpretty.register_uri(
             httpretty.GET,
@@ -82,14 +88,33 @@ class TestGcpInstance(TestCase):
                 '{"scylla_yaml": {"cluster_name": "test-cluster"}}'
             )
 
+class TestAsyncGcpInstance(IsolatedAsyncioTestCase, GcpMetadata):
+    def setUp(self):
+        httpretty.enable(verbose=True, allow_net_connect=False)
 
-    def test_is_gce_instance(self):
+    def tearDown(self):
+        httpretty.disable()
+        httpretty.reset()
+
+    async def test_identify_metadata(self):
         self.httpretty_gcp_metadata()
         with unittest.mock.patch('socket.getaddrinfo', return_value=[(AddressFamily.AF_INET, SocketKind.SOCK_STREAM, 6, '', ('169.254.169.254', 80))]):
-            assert gcp_instance.is_gce_instance()
+            assert await gcp_instance.identify_metadata()
 
-    def test_is_not_gce_instance(self):
-        assert not gcp_instance.is_gce_instance()
+    async def test_not_identify_metadata(self):
+        assert not await gcp_instance.identify_metadata()
+
+class TestGcpInstance(TestCase, GcpMetadata):
+    def setUp(self):
+        httpretty.enable(verbose=True, allow_net_connect=False)
+
+    def tearDown(self):
+        httpretty.disable()
+        httpretty.reset()
+
+    def test_identify_dmi(self):
+        with unittest.mock.patch('builtins.open', unittest.mock.MagicMock(side_effect=mock_multi_open_n2)):
+            assert gcp_instance.identify_dmi()
 
     def test_endpoint_snitch(self):
         self.httpretty_gcp_metadata()

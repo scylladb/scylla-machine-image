@@ -18,6 +18,7 @@ import glob
 import distro
 import base64
 import datetime
+import asyncio
 from subprocess import run, CalledProcessError
 from abc import ABCMeta, abstractmethod
 
@@ -58,23 +59,43 @@ def scylla_excepthook(etype, value, tb):
 sys.excepthook = scylla_excepthook
 
 
+def _curl_one(url, headers=None, method=None, byte=False, timeout=3):
+    req = urllib.request.Request(url, headers=headers or {}, method=method)
+    with urllib.request.urlopen(req, timeout=timeout) as res:
+        if byte:
+            return res.read()
+        else:
+            return res.read().decode('utf-8')
+
 # @param headers dict of k:v
 def curl(url, headers=None, method=None, byte=False, timeout=3, max_retries=5, retry_interval=5):
     retries = 0
     while True:
         try:
-            req = urllib.request.Request(url, headers=headers or {}, method=method)
-            with urllib.request.urlopen(req, timeout=timeout) as res:
-                if byte:
-                    return res.read()
-                else:
-                    return res.read().decode('utf-8')
+            return _curl_one(url, headers, method, byte, timeout)
         except (urllib.error.URLError, socket.timeout):
             time.sleep(retry_interval)
             retries += 1
             if retries >= max_retries:
                 raise
 
+async def aiocurl(url, headers=None, method=None, byte=False, timeout=3, max_retries=5, retry_interval=5):
+    retries = 0
+    while True:
+        try:
+            return _curl_one(url, headers, method, byte, timeout)
+        except (urllib.error.URLError, socket.timeout):
+            await asyncio.sleep(retry_interval)
+            retries += 1
+            if retries >= max_retries:
+                raise
+
+def read_one_line(filename):
+    try:
+        with open(filename) as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return ''
 
 class cloud_instance(metaclass=ABCMeta):
     @abstractmethod
@@ -126,6 +147,20 @@ class cloud_instance(metaclass=ABCMeta):
     def endpoint_snitch(self):
         pass
 
+    @classmethod
+    @abstractmethod
+    def identify_dmi(cls):
+        pass
+
+    @classmethod
+    @abstractmethod
+    async def identify_metadata(cls):
+        pass
+
+    @classmethod
+    async def identify(cls):
+        return cls.identify_dmi() or await cls.identify_metadata()
+
 
 
 class gcp_instance(cloud_instance):
@@ -150,13 +185,20 @@ class gcp_instance(cloud_instance):
         return self.ENDPOINT_SNITCH
 
 
-    @staticmethod
-    def is_gce_instance():
+    @classmethod
+    def identify_dmi(cls):
+        product_name = read_one_line('/sys/class/dmi/id/product_name')
+        if product_name == "Google Compute Engine":
+            return cls
+        return None
+
+    @classmethod
+    async def identify_metadata(cls):
         """Check if it's GCE instance via DNS lookup to metadata server."""
         try:
             addrlist = socket.getaddrinfo('metadata.google.internal', 80)
         except socket.gaierror:
-            return False
+            return None
         for res in addrlist:
             af, socktype, proto, canonname, sa = res
             if af == socket.AF_INET:
@@ -164,11 +206,13 @@ class gcp_instance(cloud_instance):
                 if addr == "169.254.169.254":
                     # Make sure it is not on GKE
                     try:
-                        gcp_instance().__instance_metadata("machine-type")
+                        await aiocurl(cls.META_DATA_BASE_URL + "machine-type?recursive=false",
+                    headers={"Metadata-Flavor": "Google"})
                     except urllib.error.HTTPError:
-                        return False
-                    return True
-        return False
+                        return None
+                    return cls
+        return None
+
 
     def __instance_metadata(self, path, recursive=False):
         return curl(self.META_DATA_BASE_URL + path + "?recursive=%s" % str(recursive).lower(),
@@ -423,16 +467,27 @@ class azure_instance(cloud_instance):
         return self.ENDPOINT_SNITCH
 
     @classmethod
-    def is_azure_instance(cls):
+    def identify_dmi(cls):
+        # On Azure, we cannot discriminate between Azure and baremetal Hyper-V
+        # from DMI.
+        # But only Azure has waagent, so we can use it for Azure detection.
+        sys_vendor = read_one_line('/sys/class/dmi/id/sys_vendor')
+        if sys_vendor == "Microsoft Corporation" and os.path.exists('/etc/waagent.conf'):
+            return cls
+        return None
+
+    @classmethod
+    async def identify_metadata(cls):
         """Check if it's Azure instance via query to metadata server."""
         try:
-            curl(cls.META_DATA_BASE_URL + cls.API_VERSION + "&format=text", headers = { "Metadata": "True" }, max_retries=2, retry_interval=1)
-            return True
+            await aiocurl(cls.META_DATA_BASE_URL + cls.API_VERSION + "&format=text", headers = { "Metadata": "True" })
+            return cls
         except (urllib.error.URLError, urllib.error.HTTPError):
-            return False
+            return None
 
 # as per https://docs.microsoft.com/en-us/azure/virtual-machines/windows/instance-metadata-service?tabs=windows#supported-api-versions
     API_VERSION = "?api-version=2021-01-01"
+
 
     def __instance_metadata(self, path):
         """query Azure metadata server"""
@@ -715,13 +770,26 @@ class aws_instance(cloud_instance):
 
 
     @classmethod
-    def is_aws_instance(cls):
+    def identify_dmi(cls):
+        product_version = read_one_line('/sys/class/dmi/id/product_version')
+        bios_vendor = read_one_line('/sys/class/dmi/id/bios_vendor')
+        # On Xen instance, product_version is like "4.11.amazon"
+        if product_version.endswith('.amazon'):
+            return cls
+        # On Nitro instance / Baremetal instance, bios_vendor is "Amazon EC2"
+        if bios_vendor == 'Amazon EC2':
+            return cls
+        return None
+
+    @classmethod
+    async def identify_metadata(cls):
         """Check if it's AWS instance via query to metadata server."""
         try:
-            curl(cls.META_DATA_BASE_URL + "api/token", headers={"X-aws-ec2-metadata-token-ttl-seconds": cls.METADATA_TOKEN_TTL}, method="PUT")
-            return True
+            res = await aiocurl(cls.META_DATA_BASE_URL + "api/token", headers={"X-aws-ec2-metadata-token-ttl-seconds": cls.METADATA_TOKEN_TTL}, method="PUT")
+            print(f'aws_instance: {res}')
+            return cls
         except (urllib.error.URLError, urllib.error.HTTPError, socket.timeout):
-            return False
+            return None
 
     @property
     def instancetype(self):
@@ -823,25 +891,44 @@ class aws_instance(cloud_instance):
             return ''
 
 
+async def identify_cloud_async():
+    tasks = [
+        asyncio.create_task(aws_instance.identify()),
+        asyncio.create_task(gcp_instance.identify()),
+        asyncio.create_task(azure_instance.identify())
+    ]
+    result = None
+    for task in asyncio.as_completed(tasks):
+        result = await task
+        if result:
+            for other_task in tasks:
+                other_task.cancel()
+            break
+    return result
+
+_identify_cloud_result = None
+def identify_cloud():
+    global _identify_cloud_result
+    if _identify_cloud_result:
+        return _identify_cloud_result
+    time_start = datetime.datetime.now()
+    result = asyncio.run(identify_cloud_async())
+    time_end = datetime.datetime.now()
+    _identify_cloud_result = result
+    return result
 
 def is_ec2():
-    return aws_instance.is_aws_instance()
+    return identify_cloud() == aws_instance
 
 def is_gce():
-    return gcp_instance.is_gce_instance()
+    return identify_cloud() == gcp_instance
 
 def is_azure():
-    return azure_instance.is_azure_instance()
+    return identify_cloud() == azure_instance
 
 def get_cloud_instance():
-    if is_ec2():
-        return aws_instance()
-    elif is_gce():
-        return gcp_instance()
-    elif is_azure():
-        return azure_instance()
-    else:
-        raise Exception("Unknown cloud provider! Only AWS/GCP/Azure supported.")
+    cls = identify_cloud()
+    return cls()
 
 
 CONCOLORS = {'green': '\033[1;32m', 'red': '\033[1;31m', 'yellow': '\033[1;33m', 'nocolor': '\033[0m'}
