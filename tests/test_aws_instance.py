@@ -3,7 +3,7 @@ import logging
 import httpretty
 import unittest.mock
 from pathlib import Path
-from unittest import TestCase
+from unittest import TestCase, IsolatedAsyncioTestCase
 from subprocess import CalledProcessError
 from collections import namedtuple
 
@@ -23,6 +23,8 @@ proc_filesystems = '	xfs\n'
 
 def mock_multi_open_i3en_2xlarge(filename, *args, **kwargs):
     files = {
+        '/sys/class/dmi/id/product_version': '',
+        '/sys/class/dmi/id/bios_vendor': 'Amazon EC2',
         '/sys/class/net/eth0/address': '00:00:5e:00:53:00\n',
         '/sys/class/nvme/nvme0/model': 'Amazon Elastic Block Store\n',
         '/sys/class/nvme/nvme1/model': 'Amazon EC2 NVMe Instance Storage\n',
@@ -33,6 +35,8 @@ def mock_multi_open_i3en_2xlarge(filename, *args, **kwargs):
 
 def mock_multi_open_i3en_2xlarge_with_ebs(filename, *args, **kwargs):
     files = {
+        '/sys/class/dmi/id/product_version': '',
+        '/sys/class/dmi/id/bios_vendor': 'Amazon EC2',
         '/sys/class/net/eth0/address': '00:00:5e:00:53:00\n',
         '/sys/class/nvme/nvme0/model': 'Amazon Elastic Block Store\n',
         '/sys/class/nvme/nvme1/model': 'Amazon Elastic Block Store\n',
@@ -46,6 +50,8 @@ def mock_multi_open_i3en_2xlarge_with_ebs(filename, *args, **kwargs):
 
 def mock_multi_open_i3_2xlarge(filename, *args, **kwargs):
     files = {
+        '/sys/class/dmi/id/product_version': '4.11.amazon',
+        '/sys/class/dmi/id/bios_vendor': 'Xen',
         '/sys/class/net/eth0/address': '00:00:5e:00:53:00\n',
         '/sys/class/nvme/nvme0/model': 'Amazon EC2 NVMe Instance Storage\n',
         '/sys/class/nvme/nvme1/model': 'Amazon EC2 NVMe Instance Storage\n',
@@ -86,14 +92,7 @@ mock_listdevdir_i3en_2xlarge_with_ebs = ['md0', 'root', 'nvme0n1p1', 'nvme0n1', 
 mock_listdevdir_i3_2xlarge = ['md0', 'root', 'nvme0n1', 'nvme1n1', 'xvda1', 'xvda', 'nvme1', 'nvme0', 'zero', 'null']
 
 
-class TestAwsInstance(TestCase):
-    def setUp(self):
-        httpretty.enable(verbose=True, allow_net_connect=False)
-
-    def tearDown(self):
-        httpretty.disable()
-        httpretty.reset()
-
+class AwsMetadata:
     def httpretty_aws_metadata(self, instance_type='i3en.2xlarge', with_ebs=False, with_userdata=False):
         if not with_userdata:
             httpretty.register_uri(
@@ -205,21 +204,37 @@ vpc-ipv6-cidr-blocks
             )
 
 
-    def test_is_aws_instance(self):
-        self.httpretty_aws_metadata()
-        assert aws_instance.is_aws_instance()
+class TestAsyncAwsInstance(IsolatedAsyncioTestCase, AwsMetadata):
+    def setUp(self):
+        httpretty.enable(verbose=True, allow_net_connect=False)
 
-    def test_is_not_aws_instance(self):
+    def tearDown(self):
         httpretty.disable()
-        real_curl = lib.scylla_cloud.curl
+        httpretty.reset()
 
-        def mocked_curl(*args, **kwargs):
+    async def test_identify_metadata(self):
+        self.httpretty_aws_metadata()
+        assert await aws_instance.identify_metadata()
+
+    async def test_not_identify_metadata(self):
+        httpretty.disable()
+        real_curl = lib.scylla_cloud.aiocurl
+
+        async def mocked_curl(*args, **kwargs):
             kwargs['timeout'] = 0.1
             kwargs['retry_interval'] = 0.001
-            return real_curl(*args, **kwargs)
+            return await real_curl(*args, **kwargs)
 
-        with unittest.mock.patch('lib.scylla_cloud.curl', new=mocked_curl):
-            assert not aws_instance.is_aws_instance()
+        with unittest.mock.patch('lib.scylla_cloud.aiocurl', new=mocked_curl):
+            assert not await aws_instance.identify_metadata()
+
+class TestAwsInstance(TestCase, AwsMetadata):
+    def setUp(self):
+        httpretty.enable(verbose=True, allow_net_connect=False)
+
+    def tearDown(self):
+        httpretty.disable()
+        httpretty.reset()
 
     def test_endpoint_snitch(self):
         self.httpretty_aws_metadata()
@@ -305,6 +320,11 @@ vpc-ipv6-cidr-blocks
         ins = aws_instance()
         assert not ins.user_data
 
+
+    def test_identify_dmi_i3en_2xlarge(self):
+        self.httpretty_aws_metadata()
+        with unittest.mock.patch('builtins.open', unittest.mock.MagicMock(side_effect=mock_multi_open_i3en_2xlarge)):
+            assert aws_instance.identify_dmi()
 
     def test_non_root_nvmes_i3en_2xlarge(self):
         self.httpretty_aws_metadata()
@@ -446,6 +466,11 @@ vpc-ipv6-cidr-blocks
             ins = aws_instance()
             assert ins.get_remote_disks() == ['nvme2n1', 'nvme1n1']
 
+
+    def test_identify_dmi_i3_2xlarge(self):
+        self.httpretty_aws_metadata()
+        with unittest.mock.patch('builtins.open', unittest.mock.MagicMock(side_effect=mock_multi_open_i3_2xlarge)):
+            assert aws_instance.identify_dmi()
 
     def test_non_root_nvmes_i3_2xlarge(self):
         self.httpretty_aws_metadata()
