@@ -24,7 +24,6 @@ class ScyllaMachineImageConfigurator(UserData):
     CONF_DEFAULTS = {
         'scylla_yaml': {
             'cluster_name': "scylladb-cluster-%s" % int(time.time()),
-            'experimental': False,
             'auto_bootstrap': True,
             'listen_address': "",  # will be configured as a private IP when instance meta data is read
             'broadcast_rpc_address': "",  # will be configured as a private IP when instance meta data is read
