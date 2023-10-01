@@ -40,7 +40,6 @@ listed here only the one get defaults scylla AMI
 
 * **Object Properties**    
     * **cluster_name** ([*string*](https://docs.python.org/library/stdtypes.html#str)) – Name of the cluster (*default=`generated name that would work for only one node cluster`*)
-    * **experimental** ([*boolean*](https://docs.python.org/library/stdtypes.html#boolean-values)) – To enable all experimental features add to the scylla.yaml (*default=’false’*)
     * **auto_bootstrap** ([*boolean*](https://docs.python.org/library/stdtypes.html#boolean-values)) – Enable auto bootstrap (*default=’true’*)
     * **listen_address** ([*string*](https://docs.python.org/library/stdtypes.html#str)) – Defaults to ec2 instance private ip
     * **broadcast_rpc_address** ([*string*](https://docs.python.org/library/stdtypes.html#str)) – Defaults to ec2 instance private ip

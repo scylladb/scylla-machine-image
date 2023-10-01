@@ -128,7 +128,6 @@ class TestScyllaConfigurator(TestCase):
             assert scylla_yaml["broadcast_rpc_address"] == ip_to_set
             assert scylla_yaml["seed_provider"][0]["parameters"][0]["seeds"] == ip_to_set
             # check defaults
-            assert scylla_yaml["experimental"] is False
             assert scylla_yaml["auto_bootstrap"] is True
 
     def test_postconfig_script(self):
@@ -202,7 +201,6 @@ class TestScyllaConfigurator(TestCase):
                 assert scylla_yaml["broadcast_rpc_address"] == ip_to_set
                 assert scylla_yaml["seed_provider"][0]["parameters"][0]["seeds"] == ip_to_set
                 # check defaults
-                assert scylla_yaml["experimental"] is False
                 assert scylla_yaml["auto_bootstrap"] is True
 
     def test_do_not_start_on_first_boot(self):
