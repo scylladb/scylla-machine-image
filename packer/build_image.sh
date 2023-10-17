@@ -274,7 +274,7 @@ if [ "$TARGET" = "aws" ]; then
         ;;
       "aarch64")
         SOURCE_AMI_FILTER="ubuntu-minimal/images/hvm-ssd/ubuntu-jammy-22.04-arm64*"
-        INSTANCE_TYPE="im4gn.xlarge"
+        INSTANCE_TYPE="im4gn.2xlarge"
         ;;
       *)
         echo "Unsupported architecture: $arch"
