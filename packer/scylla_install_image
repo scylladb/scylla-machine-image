@@ -14,6 +14,7 @@ import shlex
 import tarfile
 import argparse
 import platform
+import yaml
 from io import StringIO
 from subprocess import run, PIPE, STDOUT
 
@@ -188,20 +189,14 @@ WantedBy=multi-user.target
     # to do.
     if args.target_cloud == 'aws':
         with open('/etc/cloud/cloud.cfg') as f:
-            lines = f.readlines()
-        s = StringIO()
-        for l in lines:
-            match_groups = re.match(r'^\s+groups: \[(.+)\]\n$', l)
-            if match_groups:
-                groups = match_groups.group(1).replace(' ', '')
-            if not re.match(r'^ - mounts\n$', l):
-                s.write(l)
-        cfg = s.getvalue()
-        s.close()
-        cfg = re.sub('^preserve_hostname: false', 'preserve_hostname: false\n\nssh_deletekeys: true', cfg, flags=re.MULTILINE)
-        cfg = re.sub('^     name: ubuntu', '     name: scyllaadm', cfg, flags=re.MULTILINE)
+            y = yaml.safe_load(f)
+        groups = ','.join(y['system_info']['default_user']['groups'])
+        y['cloud_init_modules'].remove('mounts')
+        y['ssh_deletekeys'] = True
+        y['system_info']['default_user']['name'] = 'scyllaadm'
+        y['system_info']['default_user']['gecos'] = 'scyllaadm'
         with open('/etc/cloud/cloud.cfg', 'w') as f:
-            f.write(cfg)
+            yaml.dump(y, f)
         # before deleting home directory, need to change current directory
         os.chdir('/tmp')
         run('userdel -r -f ubuntu', shell=True, check=True)
