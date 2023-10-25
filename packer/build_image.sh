@@ -19,7 +19,7 @@ APT_KEY='d0a112e067426ab2'
 
 print_usage() {
     echo "$0 --localdeb --repo [URL] --target [distribution]"
-    echo "  [--localdeb]          Deploy locally built debs Default: false"
+    echo "  [--localdeb]            Deploy locally built debs Default: false"
     echo "  --repo                  Repository for both install and update, specify .repo/.list file URL"
     echo "  --repo-for-install      Repository for install, specify .repo/.list file URL"
     echo "  --repo-for-update       Repository for update, specify .repo/.list file URL"
@@ -37,6 +37,7 @@ print_usage() {
     echo "  [--log-file]            Path for log. Default build/ami.log on current dir. Default: build/packer.log"
     echo "  --target                Target cloud (aws/gce/azure), mandatory when using this script directly, and not by soft links"
     echo "  --arch                  Set the image build architecture. Valid options: x86_64 | aarch64 . if use didn't pass this parameter it will use local node architecture"
+    echo "  --ec2-instance-type     Set EC2 instance type to use while building the AMI. If empty will use defaults per architecture"
     exit 1
 }
 LOCALDEB=0
@@ -96,7 +97,7 @@ while [ $# -gt 0 ]; do
             ;;
         "--ami-regions"):
             AMI_REGIONS=$2
-            echo "--ami-regions prameter: AMI_REGIONS |$AMI_REGIONS|"
+            echo "--ami-regions parameter: AMI_REGIONS |$AMI_REGIONS|"
             shift 2
             ;;
         "--ami-users"):
@@ -150,6 +151,10 @@ while [ $# -gt 0 ]; do
             ;;
         "--arch")
             ARCH="$2"
+            shift 2
+            ;;
+        "--ec2-instance-type")
+            INSTANCE_TYPE="$2"
             shift 2
             ;;
         *)
@@ -270,11 +275,15 @@ if [ "$TARGET" = "aws" ]; then
     case "$arch" in
       "x86_64")
         SOURCE_AMI_FILTER="ubuntu-minimal/images/hvm-ssd/ubuntu-jammy-22.04-amd64*"
-        INSTANCE_TYPE="c4.xlarge"
+        if [ -z "$INSTANCE_TYPE" ]; then
+          INSTANCE_TYPE="c4.xlarge"
+        fi
         ;;
       "aarch64")
         SOURCE_AMI_FILTER="ubuntu-minimal/images/hvm-ssd/ubuntu-jammy-22.04-arm64*"
-        INSTANCE_TYPE="im4gn.xlarge"
+        if [ -z "$INSTANCE_TYPE" ]; then
+          INSTANCE_TYPE="im4gn.2xlarge"
+        fi
         ;;
       *)
         echo "Unsupported architecture: $arch"
