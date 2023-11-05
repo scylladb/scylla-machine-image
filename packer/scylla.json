@@ -192,7 +192,7 @@
       "destination": "/home/{{user `ssh_username`}}/",
       "source": "files/",
       "type": "file",
-      "pause_before": "20s"
+      "pause_before": "40s"
     },
     {
       "destination": "/home/{{user `ssh_username`}}/",
