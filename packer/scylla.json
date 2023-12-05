@@ -4,40 +4,6 @@
       "name": "aws",
       "type": "amazon-ebs",
       "access_key": "{{user `access_key`}}",
-      "ami_block_device_mappings": [
-        {
-          "device_name": "/dev/sdb",
-          "virtual_name": "ephemeral0"
-        },
-        {
-          "device_name": "/dev/sdc",
-          "virtual_name": "ephemeral1"
-        },
-        {
-          "device_name": "/dev/sdd",
-          "virtual_name": "ephemeral2"
-        },
-        {
-          "device_name": "/dev/sde",
-          "virtual_name": "ephemeral3"
-        },
-        {
-          "device_name": "/dev/sdf",
-          "virtual_name": "ephemeral4"
-        },
-        {
-          "device_name": "/dev/sdg",
-          "virtual_name": "ephemeral5"
-        },
-        {
-          "device_name": "/dev/sdh",
-          "virtual_name": "ephemeral6"
-        },
-        {
-          "device_name": "/dev/sdi",
-          "virtual_name": "ephemeral7"
-        }
-      ],
       "ami_name": "{{user `image_name`| clean_resource_name}}",
       "associate_public_ip_address": "{{user `associate_public_ip_address`}}",
       "sriov_support": true,
