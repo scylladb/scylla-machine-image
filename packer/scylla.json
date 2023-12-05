@@ -81,7 +81,7 @@
       "use_internal_ip": false,
       "preemptible": true,
       "omit_external_ip": false,
-      "disk_size": 30,
+      "disk_size": 10,
       "image_labels":  {
           "scylla_version": "{{user `scylla_full_version`| clean_resource_name}}",
           "scylla_machine_image_version": "{{user `scylla_machine_image_version`| clean_resource_name}}",
