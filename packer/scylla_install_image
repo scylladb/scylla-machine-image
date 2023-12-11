@@ -33,10 +33,6 @@ def deb_arch():
     darch={'x86_64': 'amd64', 'aarch64': 'arm64'}
     return darch[arch()]
 
-def half_of_diskfree():
-    disk = os.statvfs('/')
-    return int((disk.f_bavail * disk.f_frsize) / 2)
-
 if __name__ == '__main__':
     if os.getuid() > 0:
         print('Requires root permission.')
@@ -144,8 +140,6 @@ if __name__ == '__main__':
     run('/opt/scylladb/scripts/scylla_cpuscaling_setup --force', shell=True, check=True)
 
     run(f'/opt/scylladb/scripts/scylla_sysconfig_setup --set-clocksource', shell=True, check=True)
-    if args.target_cloud == 'aws' or args.target_cloud == 'gce':
-        run(f'/opt/scylladb/scripts/scylla_swap_setup --swap-size-bytes {half_of_diskfree()} --swap-directory /', shell=True, check=True)
     run('/opt/scylladb/scripts/scylla_coredump_setup', shell=True, check=True)
     dot_mount = '''
 [Unit]

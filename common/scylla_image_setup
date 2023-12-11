@@ -11,9 +11,16 @@ from lib.scylla_cloud import get_cloud_instance, is_gce, is_azure, is_redhat_var
 from subprocess import run
 
 if __name__ == '__main__':
-    if is_azure() and not Path('/mnt/swapfile').exists():
-        Path('/etc/systemd/system/mnt-swapfile.swap').unlink(missing_ok=True)
-        run('/opt/scylladb/scripts/scylla_swap_setup --swap-directory /mnt', shell=True, check=True)
+    if is_azure():
+        swap_directory = Path('/mnt')
+        swap_unit = Path('/etc/systemd/system/mnt-swapfile.swap')
+    else:
+        swap_directory = Path('/')
+        swap_unit = Path('/etc/systemd/system/swapfile.swap')
+    swapfile = swap_directory / 'swapfile'
+    if not swapfile.exists():
+        swap_unit.unlink(missing_ok=True)
+        run(f'/opt/scylladb/scripts/scylla_swap_setup --swap-directory {swap_directory}', shell=True, check=True)
     machine_image_configured = Path('/etc/scylla/machine_image_configured')
     if not machine_image_configured.exists():
         # On Ubuntu, we configure CPU scaling while AMI building time
