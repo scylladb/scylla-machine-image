@@ -15,7 +15,7 @@ DEBUG=false
 BUILD_MODE='release'
 TARGET=
 APT_KEYS_DIR='/etc/apt/keyrings'
-APT_KEY='d0a112e067426ab2'
+APT_KEY='d0a112e067426ab2 491c93b9de7496a7'
 
 print_usage() {
     echo "$0 --localdeb --repo [URL] --target [distribution]"
