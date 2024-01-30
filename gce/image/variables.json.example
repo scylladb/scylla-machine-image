@@ -1,7 +1,0 @@
-{
-    "project_id": "skilled-adapter-452",
-    "region": "europe-west1",
-    "zone": "europe-west1-b",
-    "image_storage_location": "europe-west1",
-    "instance_type": "n1-standard-1"
-}
