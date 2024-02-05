@@ -33,10 +33,6 @@ def deb_arch():
     darch={'x86_64': 'amd64', 'aarch64': 'arm64'}
     return darch[arch()]
 
-def half_of_diskfree():
-    disk = os.statvfs('/')
-    return int((disk.f_bavail * disk.f_frsize) / 2)
-
 if __name__ == '__main__':
     if os.getuid() > 0:
         print('Requires root permission.')
@@ -66,9 +62,8 @@ if __name__ == '__main__':
         print('Error: need to specify --localdeb or --repo/--repo-for-install')
         sys.exit(1)
 
-    run('apt-key adv --keyserver keyserver.ubuntu.com --recv-keys d0a112e067426ab2', shell=True, check=True)
     run(f'mkdir -p {apt_keys_dir}; gpg --homedir /tmp --no-default-keyring --keyring {apt_keys_dir}/scylladb.gpg '
-        f'--keyserver hkp://keyserver.ubuntu.com:80 --recv-keys d0a112e067426ab2', shell=True, check=True)
+        f'--keyserver hkp://keyserver.ubuntu.com:80 --recv-keys d0a112e067426ab2 491c93b9de7496a7', shell=True, check=True)
 
     if args.repo_for_install:
         run(f'curl -L -o /etc/apt/sources.list.d/scylla_install.list {args.repo_for_install}', shell=True, check=True)
@@ -144,8 +139,6 @@ if __name__ == '__main__':
     run('/opt/scylladb/scripts/scylla_cpuscaling_setup --force', shell=True, check=True)
 
     run(f'/opt/scylladb/scripts/scylla_sysconfig_setup --set-clocksource', shell=True, check=True)
-    if args.target_cloud == 'aws' or args.target_cloud == 'gce':
-        run(f'/opt/scylladb/scripts/scylla_swap_setup --swap-size-bytes {half_of_diskfree()} --swap-directory /', shell=True, check=True)
     run('/opt/scylladb/scripts/scylla_coredump_setup', shell=True, check=True)
     dot_mount = '''
 [Unit]

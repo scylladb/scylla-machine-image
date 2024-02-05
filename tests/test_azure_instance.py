@@ -4,7 +4,7 @@ import httpretty
 import unittest.mock
 import base64
 import re
-from unittest import TestCase
+from unittest import TestCase, IsolatedAsyncioTestCase
 from collections import namedtuple
 from pathlib import Path
 
@@ -42,14 +42,20 @@ mock_glob_glob_dev_standard_l16s_v2_2persistent = ['/dev/sdb1', '/dev/sdd', '/de
 mock_glob_glob_dev_standard_l16s_v2_2persistent_noswap = ['/dev/sdc', '/dev/sdb', '/dev/sda15', '/dev/sda14', '/dev/sda1', '/dev/sda']
 mock_glob_glob_dev_standard_l32s_v2 = mock_glob_glob_dev_standard_l16s_v2
 
-class TestAzureInstance(TestCase):
-    def setUp(self):
-        httpretty.enable(verbose=True, allow_net_connect=False)
+def _mock_multi_open(files, filename, *args, **kwargs):
+    if filename in files:
+        return unittest.mock.mock_open(read_data=files[filename]).return_value
+    else:
+        raise FileNotFoundError(f'Unable to open {filename}')
 
-    def tearDown(self):
-        httpretty.disable()
-        httpretty.reset()
+def mock_multi_open_l(filename, *args, **kwargs):
+    files = {
+        '/sys/class/dmi/id/sys_vendor': 'Microsoft Corporation',
+        '/etc/waagent.conf': ''
+    }
+    return _mock_multi_open(files, filename, *args, **kwargs)
 
+class AzureMetadata:
     def httpretty_azure_metadata(self, instance_type='Standard_L16s_v2', with_userdata=False):
         httpretty.register_uri(
             httpretty.GET,
@@ -93,24 +99,44 @@ network/
             status=404
         )
 
-    def test_is_azure_instance(self):
+class TestAsyncAzureInstance(IsolatedAsyncioTestCase, AzureMetadata):
+    def setUp(self):
+        httpretty.enable(verbose=True, allow_net_connect=False)
+
+    def tearDown(self):
+        httpretty.disable()
+        httpretty.reset()
+    async def test_identify_metadata(self):
         self.httpretty_azure_metadata()
-        assert azure_instance.is_azure_instance()
+        assert await azure_instance.identify_metadata()
 
     # XXX: Seems like Github Actions is running in Azure, we cannot disable
     # httpretty here (it suceeded to connect metadata server even we disabled
     # httpretty)
-    def test_is_not_azure_instance(self):
+    async def test_not_identify_metadata(self):
         self.httpretty_no_azure_metadata()
-        real_curl = lib.scylla_cloud.curl
+        real_curl = lib.scylla_cloud.aiocurl
 
-        def mocked_curl(*args, **kwargs):
+        async def mocked_curl(*args, **kwargs):
             kwargs['timeout'] = 0.001
             kwargs['retry_interval'] = 0.0001
-            return real_curl(*args, **kwargs)
+            return await real_curl(*args, **kwargs)
 
-        with unittest.mock.patch('lib.scylla_cloud.curl', new=mocked_curl):
-            assert not azure_instance.is_azure_instance()
+        with unittest.mock.patch('lib.scylla_cloud.aiocurl', new=mocked_curl):
+            assert not await azure_instance.identify_metadata()
+
+class TestAzureInstance(TestCase, AzureMetadata):
+    def setUp(self):
+        httpretty.enable(verbose=True, allow_net_connect=False)
+
+    def tearDown(self):
+        httpretty.disable()
+        httpretty.reset()
+
+    def test_identify_dmi(self):
+        with unittest.mock.patch('builtins.open', unittest.mock.MagicMock(side_effect=mock_multi_open_l)),\
+                unittest.mock.patch('os.path.exists', unittest.mock.MagicMock(side_effect=mock_multi_open_l)):
+            assert azure_instance.identify_dmi()
 
     def test_endpoint_snitch(self):
         self.httpretty_azure_metadata()

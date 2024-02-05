@@ -1,1 +1,0 @@
-../../packer/build_deb_image.sh
