@@ -115,7 +115,10 @@ class ScyllaMachineImageConfigurator(UserData):
             try:
                 default_timeout = self.CONF_DEFAULTS["post_configuration_script_timeout"]
                 script_timeout = self.instance_user_data.get("post_configuration_script_timeout", default_timeout)
-                decoded_script = base64.b64decode(post_configuration_script)
+                try:
+                    decoded_script = base64.b64decode(post_configuration_script)
+                except binascii.Error:
+                    decoded_script = post_configuration_script
                 LOGGER.info("Running post configuration script:\n%s", decoded_script)
                 subprocess.run(decoded_script, check=True, shell=True, timeout=int(script_timeout))
             except Exception as e:
