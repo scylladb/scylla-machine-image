@@ -52,9 +52,9 @@ while [ $# -gt 0 ]; do
             shift 1
             ;;
         "--repo")
-            REPO_FOR_INSTALL=$2
+            REPO_FOR_INSTALL="https://$2"
             echo "--repo parameter: REPO_FOR_INSTALL $REPO_FOR_INSTALL"
-            INSTALL_ARGS="$INSTALL_ARGS --repo $2"
+            INSTALL_ARGS="$INSTALL_ARGS --repo https://$2"
             shift 2
             ;;
         "--repo-for-install")

@@ -641,7 +641,7 @@ class aws_instance(cloud_instance):
             time_diff_sec = int(time_diff.total_seconds())
             if time_diff_sec >= self.METADATA_TOKEN_TTL - 120:
                 self.__refresh_metadata_token()
-        return curl(self.META_DATA_BASE_URL + "meta-data/" + path, headers={"X-aws-ec2-metadata-token": self._metadata_token})
+        return curl(self.META_DATA_BASE_URL + path, headers={"X-aws-ec2-metadata-token": self._metadata_token})
 
     def __device_exists(self, dev):
         if dev[0:4] != "/dev":
@@ -649,7 +649,7 @@ class aws_instance(cloud_instance):
         return os.path.exists(dev)
 
     def __xenify(self, devname):
-        dev = self.__instance_metadata('block-device-mapping/' + devname)
+        dev = self.__instance_metadata('meta-data/block-device-mapping/' + devname)
         return dev.replace("sd", "xvd")
 
     def __filter_nvmes(self, dev, dev_type):
@@ -680,7 +680,7 @@ class aws_instance(cloud_instance):
         return {"root": [ root_dev ], "ephemeral": ephemeral_present, "ebs": [ x for x in ebs_present if not root_dev.startswith(os.path.join("/dev/", x))] }
 
     def __populate_disks(self):
-        devmap = self.__instance_metadata("block-device-mapping")
+        devmap = self.__instance_metadata("meta-data/block-device-mapping")
         self._disks = {}
         devname = re.compile("^\D+")
         nvmes_present = self._non_root_nvmes()
@@ -706,7 +706,7 @@ class aws_instance(cloud_instance):
     def __init__(self):
         self._metadata_token = None
         self._metadata_token_time = None
-        self._type = self.__instance_metadata("instance-type")
+        self._type = self.__instance_metadata("meta-data/instance-type")
         self.__populate_disks()
 
     @property
@@ -796,15 +796,15 @@ class aws_instance(cloud_instance):
 
     def public_ipv4(self):
         """Returns the public IPv4 address of this instance"""
-        return self.__instance_metadata("public-ipv4")
+        return self.__instance_metadata("meta-data/public-ipv4")
 
     def private_ipv4(self):
         """Returns the private IPv4 address of this instance"""
-        return self.__instance_metadata("local-ipv4")
+        return self.__instance_metadata("meta-data/local-ipv4")
 
     def is_vpc_enabled(self, nic='eth0'):
         mac = self.__mac_address(nic)
-        mac_stat = self.__instance_metadata('network/interfaces/macs/{}'.format(mac))
+        mac_stat = self.__instance_metadata('meta-data/network/interfaces/macs/{}'.format(mac))
         return True if re.search(r'^vpc-id$', mac_stat, flags=re.MULTILINE) else False
 
     @staticmethod
@@ -816,9 +816,9 @@ class aws_instance(cloud_instance):
 
     @property
     def user_data(self):
-        base_contents = curl(self.META_DATA_BASE_URL).splitlines()
+        base_contents = self.__instance_metadata('').splitlines()
         if 'user-data' in base_contents:
-            return curl(self.META_DATA_BASE_URL + 'user-data')
+            return self.__instance_metadata('user-data')
         else:
             return ''
 
