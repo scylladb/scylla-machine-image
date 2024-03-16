@@ -93,3 +93,4 @@ if __name__ == "__main__":
         create_raid(disk_devices, args.raid_level)
     except (DiskIsNotEmptyError, NoDiskFoundError) as e:
         print(e)
+        sys.exit(1)
