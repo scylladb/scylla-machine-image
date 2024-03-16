@@ -124,6 +124,7 @@ class ScyllaMachineImageConfigurator(UserData):
             except Exception as e:
                 scylla_excepthook(*sys.exc_info())
                 LOGGER.error("Post configuration script failed: %s", e)
+                sys.exit(1)
 
     def start_scylla_on_first_boot(self):
         default_start_scylla_on_first_boot = self.CONF_DEFAULTS["start_scylla_on_first_boot"]
@@ -141,6 +142,7 @@ class ScyllaMachineImageConfigurator(UserData):
         except Exception as e:
             scylla_excepthook(*sys.exc_info())
             LOGGER.error("Failed to create devices: %s", e)
+            sys.exit(1)
 
     def configure(self):
         self.configure_scylla_yaml()
