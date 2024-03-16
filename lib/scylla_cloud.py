@@ -74,7 +74,10 @@ def curl(url, headers=None, method=None, byte=False, timeout=3, max_retries=5, r
     while True:
         try:
             return _curl_one(url, headers, method, byte, timeout)
-        except (urllib.error.URLError, socket.timeout):
+        except (urllib.error.URLError, socket.timeout) as e:
+            # if HTTP error code is client error (400-499), skip retrying
+            if isinstance(e, urllib.error.HTTPError) and e.code in range(400,500):
+                raise
             time.sleep(retry_interval)
             retries += 1
             if retries >= max_retries:
@@ -85,7 +88,10 @@ async def aiocurl(url, headers=None, method=None, byte=False, timeout=3, max_ret
     while True:
         try:
             return _curl_one(url, headers, method, byte, timeout)
-        except (urllib.error.URLError, socket.timeout):
+        except (urllib.error.URLError, socket.timeout) as e:
+            # if HTTP error code is client error (400-499), skip retrying
+            if isinstance(e, urllib.error.HTTPError) and e.code in range(400,500):
+                raise
             await asyncio.sleep(retry_interval)
             retries += 1
             if retries >= max_retries:
