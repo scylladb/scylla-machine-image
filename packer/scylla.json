@@ -208,12 +208,6 @@
       "type": "shell"
     },
     {
-      "source": "/home/{{user `ssh_username`}}/{{user `product`}}-packages-{{user `scylla_full_version`}}-{{user `arch`}}.txt",
-      "destination": "build/",
-      "direction": "download",
-      "type": "file"
-    },
-    {
       "source": "/home/{{user `ssh_username`}}/{{user `product`}}-{{build_name}}-kernel-{{user `scylla_full_version`}}-{{user `arch`}}.txt",
       "destination": "build/",
       "direction": "download",
