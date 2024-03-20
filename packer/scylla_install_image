@@ -224,18 +224,6 @@ WantedBy=multi-user.target
         with open('/etc/ssh/sshd_config.d/50-cloudimg-settings.conf', 'w') as f:
             f.write('ClientAliveInterval 180 \nHostKeyAlgorithms +ssh-rsa \nPubkeyAcceptedKeyTypes +ssh-rsa')
 
-    # generate package manifest to scylla-packages.txt
-    deps = run(f'apt-cache depends --recurse --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances --installed {args.product}', stdout=PIPE, stderr=STDOUT, shell=True, check=True, encoding='utf-8').stdout.splitlines()
-    pkgs=[]
-    for d in deps:
-        if re.match(r'^\w', d) and not re.match(r'.+:i386$', d) and d not in pkgs:
-            pkgs.append(d)
-    with open('{}/{}-packages-{}-{}.txt'.format(homedir, args.product, args.scylla_version, arch()), 'w') as f:
-        for pkg_name in pkgs:
-            pkg_name_version = run(f"dpkg-query --showformat='${{Package}}=${{Version}}' --show {pkg_name}", capture_output=True, shell=True, check=True, encoding='utf-8').stdout
-            f.write(f'{pkg_name_version}\n')
-    print('{}/{}-packages-{}-{}.txt generated.'.format(homedir, args.product, args.scylla_version, arch()))
-
     kver = run('uname -r', shell=True, check=True, capture_output=True, encoding='utf-8').stdout.strip()
     with open('{}/{}-{}-kernel-{}-{}.txt'.format(homedir, args.product, args.target_cloud, args.scylla_version, arch()), 'a+') as f:
             f.write(f'kernel-version: {kver}\n')
