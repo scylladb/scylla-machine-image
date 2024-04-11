@@ -4,6 +4,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import functools
 import json
 import logging
 import os
@@ -906,16 +907,14 @@ async def identify_cloud_async():
             break
     return result
 
-_identify_cloud_result = None
+
+@functools.cache
 def identify_cloud():
-    global _identify_cloud_result
-    if _identify_cloud_result:
-        return _identify_cloud_result
     time_start = datetime.datetime.now()
     result = asyncio.run(identify_cloud_async())
     time_end = datetime.datetime.now()
-    _identify_cloud_result = result
     return result
+
 
 def is_ec2():
     return identify_cloud() == aws_instance

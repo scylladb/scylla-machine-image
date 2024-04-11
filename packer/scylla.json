@@ -95,7 +95,10 @@
         "delay_seconds": "30",
         "max_attempts": "100"
       },
-      "shutdown_behavior": "terminate"
+      "shutdown_behavior": "terminate",
+      "ami_org_arns": [
+          "arn:aws:organizations::978072043225:organization/o-o561yy1rs6"
+      ]
     },
     {
       "name": "gce",
