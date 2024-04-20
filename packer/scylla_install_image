@@ -140,7 +140,7 @@ if __name__ == '__main__':
 
     run(f'/opt/scylladb/scripts/scylla_sysconfig_setup --set-clocksource', shell=True, check=True)
     run('/opt/scylladb/scripts/scylla_coredump_setup', shell=True, check=True)
-    dot_mount = '''
+    coredump_dot_mount = '''
 [Unit]
 Description=Save coredump to scylla data directory
 Conflicts=umount.target
@@ -158,7 +158,7 @@ Options=bind
 WantedBy=multi-user.target
 '''[1:-1]
     with open('/etc/systemd/system/var-lib-systemd-coredump.mount', 'w') as f:
-        f.write(dot_mount)
+        f.write(coredump_dot_mount)
     os.makedirs('/var/lib/scylla/coredump', exist_ok=True)
 
     os.remove('{}/.ssh/authorized_keys'.format(homedir))
@@ -177,6 +177,17 @@ WantedBy=multi-user.target
     profile = '/etc/skel/.profile'
     with open(profile, 'a') as f:
         f.write('\n\n/opt/scylladb/scylla-machine-image/scylla_login\n')
+
+    os.makedirs('/etc/systemd/system/tmp.mount.d', exist_ok=True)
+    options_conf = '''
+[Mount]
+Options=
+Options=mode=1777,strictatime,nosuid,nodev,noexec,size=50%%,nr_inodes=1m
+'''[1:-1]
+    with open('/etc/systemd/system/tmp.mount.d/options.conf', 'w') as f:
+        f.write(options_conf)
+    run('systemctl daemon-reload', shell=True, check=True)
+    run('systemctl enable --now /usr/share/systemd/tmp.mount', shell=True, check=True)
 
     # On AWS, ssh user is statically created at AMI building time, so we need to
     # change it to 'scyllaadm`.
