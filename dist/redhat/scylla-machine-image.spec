@@ -41,7 +41,8 @@ install -m755 common/scylla_configure.py common/scylla_post_start.py common/scyl
     --with-python3 ${RPM_BUILD_ROOT}/opt/scylladb/python3/bin/python3 \
     common/scylla_image_setup common/scylla_login common/scylla_configure.py \
     common/scylla_create_devices common/scylla_post_start.py \
-    common/scylla_cloud_io_setup common/scylla_ec2_check
+    common/scylla_cloud_io_setup common/scylla_ec2_check \
+    common/scylla_var_tmp_setup
 
 %pre
 /usr/sbin/groupadd scylla 2> /dev/null || :

@@ -188,6 +188,7 @@ Options=mode=1777,strictatime,nosuid,nodev,noexec,size=50%%,nr_inodes=1m
         f.write(options_conf)
     run('systemctl daemon-reload', shell=True, check=True)
     run('systemctl enable --now /usr/share/systemd/tmp.mount', shell=True, check=True)
+    run('/opt/scylladb/scylla-machine-image/scylla_var_tmp_setup --var-tmp-size 1', shell=True, check=True)
 
     # On AWS, ssh user is statically created at AMI building time, so we need to
     # change it to 'scyllaadm`.

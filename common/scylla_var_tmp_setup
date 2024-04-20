@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+#
+# Copyright 2019-present ScyllaDB
+#
+
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+import os
+import sys
+import argparse
+import psutil
+from pathlib import Path
+from subprocess import run
+
+def GB(n):
+    return n * 1024 * 1024 * 1024
+
+def to_GB(n):
+    return '{:.2f}'.format(n / 1024 / 1024 / 1024)
+
+def find_mount_point(path):
+    path = path.absolute()
+    while not path.is_mount():
+        path = path.parent
+    return path
+
+def get_fs_type(path):
+    mnt = find_mount_point(path)
+    for part in psutil.disk_partitions():
+        if part.mountpoint == str(mnt):
+            return part.fstype
+    return None
+
+if __name__ == '__main__':
+    if os.getuid() > 0:
+        print('Requires root permission.')
+        sys.exit(1)
+    parser = argparse.ArgumentParser(description='Configure /var/tmp for Scylla.')
+    parser.add_argument('--var-tmp-directory',
+                        help='specify vartmpfile directory', default='/')
+    parser.add_argument('--var-tmp-size', type=int,
+                        help='specify vartmpfile size in GB')
+    parser.add_argument('--var-tmp-size-bytes', type=int,
+                        help='specify vartmpfile size in bytes')
+    args = parser.parse_args()
+
+    var_tmp = Path('/var/tmp')
+    if find_mount_point(var_tmp).as_posix() == '/var/tmp':
+        print('/var/tmp already configured, exiting setup')
+        sys.exit(1)
+
+    if args.var_tmp_size and args.var_tmp_size_bytes:
+        print("Cannot specify both --var-tmp-size and --var-tmp-size-bytes")
+        sys.exit(1)
+
+    var_tmp_directory = Path(args.var_tmp_directory)
+    vartmpfile =  var_tmp_directory / 'vartmpfile'
+    if vartmpfile.exists():
+        print('vartmpfile {} already exists'.format(vartmpfile))
+        sys.exit(1)
+
+    vartmpunit_bn = 'var-tmp.mount'
+    vartmpunit = Path('/etc/systemd/system/{}'.format(vartmpunit_bn))
+    if vartmpunit.exists():
+        print('/var/tmp unit {} already exists'.format(vartmpunit))
+        sys.exit(1)
+
+    diskfree = psutil.disk_usage(args.var_tmp_directory).free
+    if args.var_tmp_size or args.var_tmp_size_bytes:
+        if args.var_tmp_size:
+            vartmpsize = GB(args.var_tmp_size)
+        else:
+            vartmpsize = args.var_tmp_size_bytes
+        if vartmpsize > diskfree:
+            print('Directory {} does not have enough disk space. {}GB space required.'.format(args.var_tmp_directory, to_GB(vartmpsize)))
+            sys.exit(1)
+    else:
+        print('Please specify --var-tmp-size or --var-tmp-size-bytes')
+        sys.exit(1)
+
+    vartmpsize_mb = int(vartmpsize / 1024 / 1024)
+    fs_type = get_fs_type(var_tmp_directory)
+    if fs_type == 'ext4':
+        run(f'fallocate -l {vartmpsize_mb}MiB {vartmpfile}', shell=True, check=True)
+    else:
+        run('dd if=/dev/zero of={} bs=1M count={}'.format(vartmpfile, vartmpsize_mb), shell=True, check=True)
+    vartmpfile.chmod(0o600)
+    run('mke2fs -t ext4 {}'.format(vartmpfile), shell=True, check=True)
+    unit_data = '''
+[Unit]
+Before=local-fs.target
+Requires=-.mount
+After=-.mount
+
+[Mount]
+What={}
+Where=/var/tmp
+Type=ext4
+Options=strictatime,nosuid,nodev,noexec
+ReadWriteOnly=True
+
+[Install]
+WantedBy=multi-user.target
+'''[1:-1].format(vartmpfile)
+    with vartmpunit.open('w') as f:
+        f.write(unit_data)
+    run('systemctl daemon-reload', shell=True, check=True)
+    run('systemctl enable --now var-tmp.mount', shell=True, check=True)
