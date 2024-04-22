@@ -7,7 +7,7 @@ Group:          Applications/Databases
 License:        ASL 2.0
 URL:            http://www.scylladb.com/
 Source0:        %{name}-%{version}-%{release}.tar
-Requires:       %{product} = %{version} %{product}-python3 curl
+Requires:       %{product} = %{version} %{product}-python3 curl auditd
 
 BuildArch:      noarch
 Obsoletes:      scylla-machine-image
@@ -42,6 +42,8 @@ install -m755 common/scylla_configure.py common/scylla_post_start.py common/scyl
     common/scylla_image_setup common/scylla_login common/scylla_configure.py \
     common/scylla_create_devices common/scylla_post_start.py \
     common/scylla_cloud_io_setup common/scylla_ec2_check
+install -d -m750 $RPM_BUILD_ROOT%{_sysconfdir}/audit/rules.d
+install -m640 dist/common/audit_rules.d/70-cis-rules.rules $RPM_BUILD_ROOT%{_sysconfdir}/audit/rules.d
 
 %pre
 /usr/sbin/groupadd scylla 2> /dev/null || :
@@ -50,6 +52,7 @@ install -m755 common/scylla_configure.py common/scylla_post_start.py common/scyl
 %post
 %systemd_post scylla-image-setup.service
 %systemd_post scylla-image-post-start.service
+augenrules --load
 
 %preun
 %systemd_preun scylla-image-setup.service
@@ -79,6 +82,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_unitdir}/scylla-image-setup.service
 %{_unitdir}/scylla-image-post-start.service
 /opt/scylladb/scylla-machine-image/*
+%{_sysconfdir}/audit/rules.d/*.rules
 
 %changelog
 * Sun Nov 1 2020 Bentsi Magidovich <bentsi@scylladb.com>

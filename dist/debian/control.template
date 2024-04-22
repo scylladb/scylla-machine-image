@@ -8,7 +8,7 @@ Rules-Requires-Root: no
 
 Package: %{product}-machine-image
 Architecture: all
-Depends: %{product}, %{product}-python3, ${shlibs:Depends}, ${misc:Depends}
+Depends: %{product}, %{product}-python3, ${shlibs:Depends}, ${misc:Depends}, auditd
 Replaces: scylla-machine-image
 Description: Scylla Machine Image
  Scylla is a highly scalable, eventually consistent, distributed,

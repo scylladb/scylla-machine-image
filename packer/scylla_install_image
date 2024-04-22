@@ -99,6 +99,9 @@ if __name__ == '__main__':
     # drop packages does not needed anymore
     run('apt-get autoremove --purge -y', shell=True, check=True)
 
+    # xccdf_org.ssgproject.content_rule_grub2_audit_argument
+    # xccdf_org.ssgproject.content_rule_grub2_audit_backlog_limit_argument
+    kernel_opt = 'audit=1 audit_backlog_limit=8192'
     if args.target_cloud == 'aws':
         run('apt-get install -y pip', shell=True, check=True)
         run('pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-2.0-18.tar.gz', shell=True, check=True)
@@ -117,15 +120,13 @@ if __name__ == '__main__':
         with open('/etc/chrony/sources.d/ntp-pool.sources', 'w') as f:
             f.write('pool time.aws.com iburst\n')
 
-        kernel_opt = ''
         grub_variable = 'GRUB_CMDLINE_LINUX_DEFAULT'
     elif args.target_cloud == 'gce':
         # align with other clouds image
         run('apt-get purge -y rsyslog', shell=True, check=True)
-        kernel_opt = ''
         grub_variable = 'GRUB_CMDLINE_LINUX_DEFAULT'
     elif args.target_cloud == 'azure':
-        kernel_opt = ' rootdelay=300'
+        kernel_opt += ' rootdelay=300'
         grub_variable = 'GRUB_CMDLINE_LINUX'
 
     run('systemctl disable apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer motd-news.timer', shell=True, check=True)
@@ -177,6 +178,17 @@ WantedBy=multi-user.target
     profile = '/etc/skel/.profile'
     with open(profile, 'a') as f:
         f.write('\n\n/opt/scylladb/scylla-machine-image/scylla_login\n')
+
+    with open('/etc/audit/auditd.conf') as f:
+        auditd = f.read()
+    # xccdf_org.ssgproject.content_rule_auditd_data_retention_max_log_file_action
+    auditd = re.sub(r'^max_log_file_action = .+$', 'max_log_file_action = KEEP_LOGS', auditd, flags=re.MULTILINE)
+    # xccdf_org.ssgproject.content_rule_auditd_data_retention_space_left_action
+    auditd = re.sub(r'^space_left_action = .+$', 'space_left_action = EMAIL', auditd, flags=re.MULTILINE)
+    # xccdf_org.ssgproject.content_rule_auditd_data_retention_admin_space_left_action
+    auditd = re.sub(r'^admin_space_left_action = .+$', 'admin_space_left_action = suspend', auditd, flags=re.MULTILINE)
+    with open('/etc/audit/auditd.conf', 'w') as f:
+        f.write(auditd)
 
     # On AWS, ssh user is statically created at AMI building time, so we need to
     # change it to 'scyllaadm`.

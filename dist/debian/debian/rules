@@ -16,6 +16,8 @@ override_dh_auto_install:
 	common/scylla_image_setup common/scylla_login common/scylla_configure.py \
 	common/scylla_create_devices common/scylla_post_start.py \
 	common/scylla_cloud_io_setup common/scylla_ec2_check
+	install -d -m750 $(CURDIR)/debian/tmp/etc/audit/rules.d
+	install -m640 dist/common/audit_rules.d/70-cis-rules.rules $(CURDIR)/debian/tmp/etc/audit/rules.d
 
 override_dh_installinit:
 	dh_installinit --no-start --name scylla-image-setup

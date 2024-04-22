@@ -1,1 +1,2 @@
 opt/scylladb/scylla-machine-image/*
+etc/audit/rules.d/*.rules
