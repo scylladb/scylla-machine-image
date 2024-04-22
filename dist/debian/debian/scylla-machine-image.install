@@ -1,1 +1,2 @@
 opt/scylladb/scylla-machine-image/*
+usr/lib/sysctl.d/*.conf

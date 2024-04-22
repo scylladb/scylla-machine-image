@@ -42,6 +42,8 @@ install -m755 common/scylla_configure.py common/scylla_post_start.py common/scyl
     common/scylla_image_setup common/scylla_login common/scylla_configure.py \
     common/scylla_create_devices common/scylla_post_start.py \
     common/scylla_cloud_io_setup common/scylla_ec2_check
+install -d -m755 $RPM_BUILD_ROOT%{_sysctldir}
+install -m644 dist/common/sysctl.d/*.conf $RPM_BUILD_ROOT%{_sysctldir}
 
 %pre
 /usr/sbin/groupadd scylla 2> /dev/null || :
@@ -50,6 +52,7 @@ install -m755 common/scylla_configure.py common/scylla_post_start.py common/scyl
 %post
 %systemd_post scylla-image-setup.service
 %systemd_post scylla-image-post-start.service
+%sysctl_apply 99-cis-rules.conf
 
 %preun
 %systemd_preun scylla-image-setup.service
@@ -79,6 +82,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_unitdir}/scylla-image-setup.service
 %{_unitdir}/scylla-image-post-start.service
 /opt/scylladb/scylla-machine-image/*
+%{_sysctldir}/*.conf
 
 %changelog
 * Sun Nov 1 2020 Bentsi Magidovich <bentsi@scylladb.com>
