@@ -90,6 +90,7 @@ if __name__ == '__main__':
     with open('/etc/audit/auditd.conf', 'w') as f:
         f.write(auditd)
 
+
     sysctl_conf = '''
 # xccdf_org.ssgproject.content_rule_sysctl_net_ipv6_conf_all_accept_ra
 net.ipv6.conf.all.accept_ra = 0
@@ -169,3 +170,58 @@ kernel.randomize_va_space = 2
     with open('/etc/sysctl.d/99-cis-rules.conf', 'w') as f:
         f.write(sysctl_conf)
     run('sysctl -p /etc/sysctl.d/99-cis-rules.conf', shell=True, check=True)
+
+
+    # xccdf_org.ssgproject.content_rule_partition_for_tmp
+    # xccdf_org.ssgproject.content_rule_mount_option_tmp_nodev
+    # xccdf_org.ssgproject.content_rule_mount_option_tmp_noexec
+    # xccdf_org.ssgproject.content_rule_mount_option_tmp_nosuid
+    tmp_dot_mount = '''
+[Unit]
+ConditionPathIsSymbolicLink=!/tmp
+DefaultDependencies=no
+Conflicts=umount.target
+Before=local-fs.target umount.target
+After=swap.target
+
+[Mount]
+What=tmpfs
+Where=/tmp
+Type=tmpfs
+Options=mode=1777,strictatime,nosuid,nodev,noexec,size=50%%,nr_inodes=1m
+
+[Install]
+WantedBy=local-fs.target
+'''[1:-1]
+    with open('/etc/systemd/system/tmp.mount', 'w') as f:
+        f.write(tmp_dot_mount)
+    run('systemctl daemon-reload', shell=True, check=True)
+    run('systemctl enable tmp.mount', shell=True, check=True)
+
+
+    # xccdf_org.ssgproject.content_rule_mount_option_var_tmp_nodev
+    # xccdf_org.ssgproject.content_rule_mount_option_var_tmp_noexec
+    # xccdf_org.ssgproject.content_rule_mount_option_var_tmp_nosuid
+    run('fallocate -l 1024MiB /vartmpfile', shell=True, check=True)
+    os.chmod('/vartmpfile', 0o600)
+    run('mke2fs -t ext4 /vartmpfile', shell=True, check=True)
+    var_tmp_dot_mount = '''
+[Unit]
+Before=local-fs.target
+Requires=-.mount
+After=-.mount
+
+[Mount]
+What=/vartmpfile
+Where=/var/tmp
+Type=ext4
+Options=strictatime,nosuid,nodev,noexec
+ReadWriteOnly=True
+
+[Install]
+WantedBy=multi-user.target
+    '''[1:-1]
+    with open('/etc/systemd/system/var-tmp.mount', 'w') as f:
+        f.write(var_tmp_dot_mount)
+    run('systemctl daemon-reload', shell=True, check=True)
+    run('systemctl enable var-tmp.mount', shell=True, check=True)
