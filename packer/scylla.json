@@ -183,9 +183,20 @@
       "type": "file"
     },
     {
+      "destination": "/tmp/",
+      "source": "apply_cis_rules",
+      "type": "file"
+    },
+    {
       "inline": [
         "sudo /usr/bin/cloud-init status --wait",
         "sudo /home/{{user `ssh_username`}}/scylla_install_image --target-cloud {{build_name}} --scylla-version {{user `scylla_full_version`}} {{user `install_args`}}"
+      ],
+      "type": "shell"
+    },
+    {
+      "inline": [
+        "sudo /tmp/apply_cis_rules --target-cloud {{build_name}}"
       ],
       "type": "shell"
     },
