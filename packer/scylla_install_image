@@ -77,7 +77,7 @@ if __name__ == '__main__':
     run('apt-get update --allow-insecure-repositories -y', shell=True, check=True)
     run('apt-get full-upgrade -y', shell=True, check=True)
     run('apt-get purge -y apport python3-apport fuse', shell=True, check=True)
-    run('apt-get install -y systemd-coredump vim.tiny', shell=True, check=True)
+    run('apt-get install -y systemd-coredump vim.tiny nload nmap ncat tmux jq ansible git python3-boto', shell=True, check=True)
     run(f'apt-get install -y --auto-remove --allow-unauthenticated {args.product}-machine-image {args.product}-server-dbg', shell=True, check=True)
 
     os.remove('/etc/apt/sources.list.d/scylla_install.list')
