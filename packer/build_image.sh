@@ -7,7 +7,7 @@
 DIR=$(dirname $(readlink -f "$0"))
 source "$DIR"/../SCYLLA-VERSION-GEN
 
-BUILD_ID=$(date -u '+%FT%H-%M-%S')
+CREATION_TIMESTAMP=$(date -u '+%FT%H-%M-%S')
 OPERATING_SYSTEM="ubuntu22.04"
 EXIT_STATUS=0
 DRY_RUN=false
@@ -25,7 +25,6 @@ print_usage() {
     echo "  --repo-for-update       Repository for update, specify .repo/.list file URL"
     echo "  [--product]             scylla or scylla-enterprise, default from SCYLLA-PRODUCT-FILE"
     echo "  [--dry-run]             Validate template only (image is not built). Default: false"
-    echo "  [--build-id]            Set unique build ID, will be part of GCE image name and as a label. Default: Date."
     echo "  [--scylla-build-sha-id] Scylla build SHA id form metadata file"
     echo "  [--branch]              Set the release branch for GCE label. Default: master"
     echo "  [--ami-regions]         Set regions to copy the AMI when done building it (including permissions and tags)"
@@ -75,14 +74,9 @@ while [ $# -gt 0 ]; do
             echo "--product parameter: PRODUCT |$PRODUCT|"
             shift 2
             ;;
-        "--build-id")
-            BUILD_ID=$2
-            echo "--build-id parameter: BUILD_ID |$BUILD_ID|"
-            shift 2
-            ;;
         "--scylla-build-sha-id")
             SCYLLA_BUILD_SHA_ID=$2
-            echo "--build-id parameter: SCYLLA_BUILD_SHA_ID |$SCYLLA_BUILD_SHA_ID|"
+            echo "--scylla-build-sha-id parameter: SCYLLA_BUILD_SHA_ID |$SCYLLA_BUILD_SHA_ID|"
             shift 2
             ;;
         "--build-tag")
@@ -353,7 +347,7 @@ set -x
   -var scylla_jmx_version="$SCYLLA_JMX_VERSION" \
   -var scylla_tools_version="$SCYLLA_TOOLS_VERSION" \
   -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" \
-  -var scylla_build_id="$BUILD_ID" \
+  -var creation_timestamp="$CREATION_TIMESTAMP" \
   -var scylla_build_sha_id="$SCYLLA_BUILD_SHA_ID" \
   -var build_tag="$BUILD_TAG" \
   -var operating_system="$OPERATING_SYSTEM" \
