@@ -77,8 +77,6 @@
           "Name": "{{user `image_name`| clean_resource_name}}",
           "scylla_version": "{{user `scylla_full_version`}}",
           "scylla_machine_image_version": "{{user `scylla_machine_image_version`}}",
-          "scylla_jmx_version": "{{user `scylla_jmx_version`}}",
-          "scylla_tools_version": "{{user `scylla_tools_version`}}",
           "scylla_python3_version": "{{user `scylla_python3_version`}}",
           "user_data_format_version": "3",
           "creation_timestamp": "{{user `creation_timestamp`| clean_resource_name}}",
@@ -122,8 +120,6 @@
       "image_labels":  {
           "scylla_version": "{{user `scylla_full_version`| clean_resource_name}}",
           "scylla_machine_image_version": "{{user `scylla_machine_image_version`| clean_resource_name}}",
-          "scylla_jmx_version": "{{user `scylla_jmx_version`| clean_resource_name}}",
-          "scylla_tools_version": "{{user `scylla_tools_version`| clean_resource_name}}",
           "scylla_python3_version": "{{user `scylla_python3_version`| clean_resource_name}}",
           "user_data_format_version": "3",
           "creation_timestamp": "{{user `creation_timestamp`| clean_resource_name}}",
@@ -158,8 +154,6 @@
       "azure_tags": {
         "scylla_version": "{{user `scylla_full_version`}}",
         "scylla_machine_image_version": "{{user `scylla_machine_image_version`}}",
-        "scylla_jmx_version": "{{user `scylla_jmx_version`}}",
-        "scylla_tools_version": "{{user `scylla_tools_version`}}",
         "scylla_python3_version": "{{user `scylla_python3_version`}}",
         "user_data_format_version": "3",
         "creation_timestamp": "{{user `creation_timestamp`| clean_resource_name}}",
