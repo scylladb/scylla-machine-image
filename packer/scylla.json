@@ -150,7 +150,7 @@
       "os_type": "Linux",
       "image_publisher": "Canonical",
       "image_offer": "0001-com-ubuntu-minimal-jammy",
-      "image_sku": "minimal-22_04-lts-gen2",
+      "image_sku": "minimal-24_04-lts-gen2",
       "azure_tags": {
         "scylla_version": "{{user `scylla_full_version`}}",
         "scylla_machine_image_version": "{{user `scylla_machine_image_version`}}",
@@ -175,14 +175,14 @@
     {
       "type": "shell",
       "inline": [
-        "if [ {{build_name}} = aws -o {{build_name}} = azure ]; then sudo DEBIAN_FRONTEND=noninteractive apt purge -y linux-{{build_name}}* linux-headers-{{build_name}}* linux-image*{{build_name}}* linux-modules*-{{build_name}}* && sudo DEBIAN_FRONTEND=noninteractive sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y linux-{{build_name}}-lts-22.04 && sudo reboot; fi"
+        "if [ {{build_name}} = aws -o {{build_name}} = azure ]; then sudo DEBIAN_FRONTEND=noninteractive apt purge -y linux-{{build_name}}* linux-headers-{{build_name}}* linux-image*{{build_name}}* linux-modules*-{{build_name}}* && sudo DEBIAN_FRONTEND=noninteractive sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y linux-{{build_name}}-lts-24.04 && sudo reboot; fi"
       ],
       "expect_disconnect": true
     },
     {
       "type": "shell",
       "inline": [
-        "if [ {{build_name}} = gce ]; then sudo DEBIAN_FRONTEND=noninteractive apt purge -y linux-gcp* linux-headers-gcp* linux-image*gcp* linux-modules*-gcp* && sudo DEBIAN_FRONTEND=noninteractive sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y linux-gcp-lts-22.04 && sudo reboot; fi"
+        "if [ {{build_name}} = gce ]; then sudo DEBIAN_FRONTEND=noninteractive apt purge -y linux-gcp* linux-headers-gcp* linux-image*gcp* linux-modules*-gcp* && sudo DEBIAN_FRONTEND=noninteractive sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y linux-gcp-lts-24.04 && sudo reboot; fi"
       ],
       "expect_disconnect": true
     },

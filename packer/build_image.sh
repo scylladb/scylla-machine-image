@@ -263,13 +263,13 @@ if [ "$TARGET" = "aws" ]; then
     arch="$ARCH"
     case "$arch" in
       "x86_64")
-        SOURCE_AMI_FILTER="ubuntu-minimal/images/hvm-ssd/ubuntu-jammy-22.04-amd64*"
+        SOURCE_AMI_FILTER="ubuntu-minimal/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64*"
         if [ -z "$INSTANCE_TYPE" ]; then
           INSTANCE_TYPE="c4.xlarge"
         fi
         ;;
       "aarch64")
-        SOURCE_AMI_FILTER="ubuntu-minimal/images/hvm-ssd/ubuntu-jammy-22.04-arm64*"
+        SOURCE_AMI_FILTER="ubuntu-minimal/images/hvm-ssd-gp3/ubuntu-noble-24.04-arm64*"
         if [ -z "$INSTANCE_TYPE" ]; then
           INSTANCE_TYPE="im4gn.2xlarge"
         fi
@@ -289,7 +289,7 @@ if [ "$TARGET" = "aws" ]; then
     PACKER_ARGS+=(-var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}")
 elif [ "$TARGET" = "gce" ]; then
     SSH_USERNAME=ubuntu
-    SOURCE_IMAGE_FAMILY="ubuntu-minimal-2204-lts"
+    SOURCE_IMAGE_FAMILY="ubuntu-minimal-2404-lts"
 
     PACKER_ARGS+=(-var source_image_family="$SOURCE_IMAGE_FAMILY")
 elif [ "$TARGET" = "azure" ]; then
