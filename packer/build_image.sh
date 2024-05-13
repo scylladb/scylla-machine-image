@@ -28,7 +28,6 @@ print_usage() {
     echo "  [--scylla-build-sha-id] Scylla build SHA id form metadata file"
     echo "  [--branch]              Set the release branch for GCE label. Default: master"
     echo "  [--ami-regions]         Set regions to copy the AMI when done building it (including permissions and tags)"
-    echo "  [--ami-users]           A list of account IDs that have access to launch the AMI"
     echo "  [--build-tag]           Jenkins Build tag"
     echo "  --download-no-server    Download all deb needed excluding scylla from repo-for-install"
     echo "  [--build-mode]          Choose which build mode to use for Scylla installation. Default: release. Valid options: release|debug"
@@ -92,11 +91,6 @@ while [ $# -gt 0 ]; do
         "--ami-regions"):
             AMI_REGIONS=$2
             echo "--ami-regions parameter: AMI_REGIONS |$AMI_REGIONS|"
-            shift 2
-            ;;
-        "--ami-users"):
-            AMI_USERS=$2
-            echo "--ami-users parameter: AMI_USERS |$AMI_USERS|"
             shift 2
             ;;
         "--log-file")
@@ -347,7 +341,6 @@ set -x
   -var operating_system="$OPERATING_SYSTEM" \
   -var branch="$BRANCH" \
   -var ami_regions="$AMI_REGIONS" \
-  -var ami_users="$AMI_USERS" \
   -var arch="$ARCH" \
   -var product="$PRODUCT" \
   -var build_mode="$BUILD_MODE" \
