@@ -77,11 +77,9 @@
           "Name": "{{user `image_name`| clean_resource_name}}",
           "scylla_version": "{{user `scylla_full_version`}}",
           "scylla_machine_image_version": "{{user `scylla_machine_image_version`}}",
-          "scylla_jmx_version": "{{user `scylla_jmx_version`}}",
-          "scylla_tools_version": "{{user `scylla_tools_version`}}",
           "scylla_python3_version": "{{user `scylla_python3_version`}}",
           "user_data_format_version": "3",
-          "build_id": "{{user `scylla_build_id`| clean_resource_name}}",
+          "creation_timestamp": "{{user `creation_timestamp`| clean_resource_name}}",
           "branch": "{{user `branch`| clean_resource_name}}",
           "operating_system": "{{user `operating_system`| clean_resource_name}}",
           "scylla_build_sha_id": "{{user `scylla_build_sha_id`| clean_resource_name}}",
@@ -90,7 +88,6 @@
           "build_mode": "{{user `build_mode`| clean_resource_name}}"
       },
       "ami_regions": "{{user `ami_regions`}}",
-      "ami_users": "{{user `ami_users`}}",
       "aws_polling": {
         "delay_seconds": "30",
         "max_attempts": "100"
@@ -122,11 +119,9 @@
       "image_labels":  {
           "scylla_version": "{{user `scylla_full_version`| clean_resource_name}}",
           "scylla_machine_image_version": "{{user `scylla_machine_image_version`| clean_resource_name}}",
-          "scylla_jmx_version": "{{user `scylla_jmx_version`| clean_resource_name}}",
-          "scylla_tools_version": "{{user `scylla_tools_version`| clean_resource_name}}",
           "scylla_python3_version": "{{user `scylla_python3_version`| clean_resource_name}}",
           "user_data_format_version": "3",
-          "build_id": "{{user `scylla_build_id`| clean_resource_name}}",
+          "creation_timestamp": "{{user `creation_timestamp`| clean_resource_name}}",
           "branch": "{{user `branch`| clean_resource_name}}",
           "operating_system": "{{user `operating_system`| clean_resource_name}}",
           "scylla_build_sha_id": "{{user `scylla_build_sha_id`| clean_resource_name}}",
@@ -158,11 +153,9 @@
       "azure_tags": {
         "scylla_version": "{{user `scylla_full_version`}}",
         "scylla_machine_image_version": "{{user `scylla_machine_image_version`}}",
-        "scylla_jmx_version": "{{user `scylla_jmx_version`}}",
-        "scylla_tools_version": "{{user `scylla_tools_version`}}",
         "scylla_python3_version": "{{user `scylla_python3_version`}}",
         "user_data_format_version": "3",
-        "build_id": "{{user `scylla_build_id`| clean_resource_name}}",
+        "creation_timestamp": "{{user `creation_timestamp`| clean_resource_name}}",
         "branch": "{{user `branch`| clean_resource_name}}",
         "operating_system": "{{user `operating_system`| clean_resource_name}}",
         "scylla_build_sha_id": "{{user `scylla_build_sha_id`| clean_resource_name}}",
