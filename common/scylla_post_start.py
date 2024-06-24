@@ -30,6 +30,7 @@ class ScyllaMachineImagePostStart(UserData):
             except Exception as e:
                 scylla_excepthook(*sys.exc_info())
                 LOGGER.error(f"Post start script failed: {e}")
+                sys.exit(1)
 
 
 if __name__ == "__main__":
