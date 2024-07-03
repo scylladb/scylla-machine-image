@@ -62,6 +62,8 @@ if __name__ == '__main__':
         print('Error: need to specify --localdeb or --repo/--repo-for-install')
         sys.exit(1)
 
+    run('apt-get update --allow-insecure-repositories -y', shell=True, check=True)
+    run('apt-get install -y gnupg2', shell=True, check=True)
     run(f'mkdir -p {apt_keys_dir}; gpg --homedir /tmp --no-default-keyring --keyring {apt_keys_dir}/scylladb.gpg '
         f'--keyserver hkp://keyserver.ubuntu.com:80 --recv-keys d0a112e067426ab2 491c93b9de7496a7', shell=True, check=True)
 
@@ -77,7 +79,7 @@ if __name__ == '__main__':
     run('apt-get update --allow-insecure-repositories -y', shell=True, check=True)
     run('apt-get full-upgrade -y', shell=True, check=True)
     run('apt-get purge -y apport python3-apport fuse', shell=True, check=True)
-    run('apt-get install -y systemd-coredump vim.tiny nload nmap ncat tmux jq python3-boto xfsprogs mdadm initramfs-tools', shell=True, check=True)
+    run('apt-get install -y systemd-coredump vim.tiny nload nmap ncat tmux jq python3-boto xfsprogs mdadm initramfs-tools ethtool', shell=True, check=True)
     run(f'apt-get install -y --auto-remove --allow-unauthenticated {args.product}-machine-image {args.product}-server-dbg', shell=True, check=True)
 
     os.remove('/etc/apt/sources.list.d/scylla_install.list')
@@ -92,16 +94,13 @@ if __name__ == '__main__':
     run('apt-get purge -y accountsservice', shell=True, check=True)
     run('apt-get purge -y acpid motd-news-config fwupd-signed', shell=True, check=True)
     run('apt-get purge -y udisks2', shell=True, check=True)
-    # cannot remove policykit since add-apt-repository depends on that,
-    # so just disable the service
-    run('systemctl disable polkit.service', shell=True, check=True)
 
-    # drop packages does not needed anymore
+    # drop packages does not need anymore
     run('apt-get autoremove --purge -y', shell=True, check=True)
 
     if args.target_cloud == 'aws':
-        run('apt-get install -y pip', shell=True, check=True)
-        run('pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-2.0-18.tar.gz', shell=True, check=True)
+        run('apt-get install -y pipx', shell=True, check=True)
+        run('pipx install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-2.0-18.tar.gz', shell=True, check=True)
 
         # install .deb version of ssm-agent since we dropped snapd version
         run(f'curl -L -o /tmp/amazon-ssm-agent.deb https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_{deb_arch()}/amazon-ssm-agent.deb', shell=True, check=True)
