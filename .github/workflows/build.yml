@@ -26,9 +26,6 @@ jobs:
             pip install -r test-requirements.txt
             pytest ./tests
 
-      - name: Build RPM (Centos:7)
-        run: docker run -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm centos:7.2.1511 bash -c './dist/redhat/build_rpm.sh -t centos7'
-
       - name: Build RPM (Rockylinux:8)
         run: docker run -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm rockylinux:8 bash -c 'dnf update -y; dnf install -y git ; git config --global --add safe.directory "*"; ./dist/redhat/build_rpm.sh -t centos8'
 
