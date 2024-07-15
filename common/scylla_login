@@ -10,7 +10,7 @@ import sys
 from lib.scylla_cloud import get_cloud_instance, colorprint, out
 from subprocess import run
 
-MSG_HEADER = '''
+MSG_HEADER = r'''
 
    _____            _ _       _____  ____  
   / ____|          | | |     |  __ \|  _ \ 
