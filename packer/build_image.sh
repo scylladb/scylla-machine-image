@@ -8,14 +8,14 @@ DIR=$(dirname $(readlink -f "$0"))
 source "$DIR"/../SCYLLA-VERSION-GEN
 
 CREATION_TIMESTAMP=$(date -u '+%FT%H-%M-%S')
-OPERATING_SYSTEM="ubuntu22.04"
+OPERATING_SYSTEM="ubuntu24.04"
 EXIT_STATUS=0
 DRY_RUN=false
 DEBUG=false
 BUILD_MODE='release'
 TARGET=
 APT_KEYS_DIR='/etc/apt/keyrings'
-APT_KEY='d0a112e067426ab2 491c93b9de7496a7'
+APT_KEY='a43e06657bac99e3'
 
 print_usage() {
     echo "$0 --localdeb --repo [URL] --target [distribution]"
@@ -257,13 +257,13 @@ if [ "$TARGET" = "aws" ]; then
     arch="$ARCH"
     case "$arch" in
       "x86_64")
-        SOURCE_AMI_FILTER="ubuntu-minimal/images/hvm-ssd/ubuntu-jammy-22.04-amd64*"
+        SOURCE_AMI_FILTER="ubuntu-minimal/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64*"
         if [ -z "$INSTANCE_TYPE" ]; then
           INSTANCE_TYPE="c4.xlarge"
         fi
         ;;
       "aarch64")
-        SOURCE_AMI_FILTER="ubuntu-minimal/images/hvm-ssd/ubuntu-jammy-22.04-arm64*"
+        SOURCE_AMI_FILTER="ubuntu-minimal/images/hvm-ssd-gp3/ubuntu-noble-24.04-arm64*"
         if [ -z "$INSTANCE_TYPE" ]; then
           INSTANCE_TYPE="im4gn.2xlarge"
         fi
@@ -283,7 +283,7 @@ if [ "$TARGET" = "aws" ]; then
     PACKER_ARGS+=(-var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}")
 elif [ "$TARGET" = "gce" ]; then
     SSH_USERNAME=ubuntu
-    SOURCE_IMAGE_FAMILY="ubuntu-minimal-2204-lts"
+    SOURCE_IMAGE_FAMILY="ubuntu-minimal-2404-lts-amd64"
 
     PACKER_ARGS+=(-var source_image_family="$SOURCE_IMAGE_FAMILY")
 elif [ "$TARGET" = "azure" ]; then
