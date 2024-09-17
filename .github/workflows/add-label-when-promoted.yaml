@@ -30,11 +30,6 @@ jobs:
           ref: ${{ env.DEFAULT_BRANCH }}
           token: ${{ secrets.AUTO_BACKPORT_TOKEN }}
           fetch-depth: 0  # Fetch all history for all tags and branches
-      - name: Set up Git identity
-        run: |
-          git config --global user.name "GitHub Action"
-          git config --global user.email "action@github.com"
-          git config --global merge.conflictstyle diff3
       - name: Install dependencies
         run: sudo apt-get install -y python3-github python3-git
       - name: Run python script
@@ -42,8 +37,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.AUTO_BACKPORT_TOKEN }}
         run: python .github/scripts/search_commits.py  --commits ${{ github.event.before }}..${{ github.sha }} --repository ${{ github.repository }} --ref ${{ github.ref }}
-      - name: Run auto-backport.py when promotion completed
-        if: github.event_name == 'push' && github.ref == 'refs/heads/${{ env.DEFAULT_BRANCH }}'
+      - name: Run auto-backport.py whe promotion completed
+        if: github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ secrets.AUTO_BACKPORT_TOKEN }}
         run: python .github/scripts/auto-backport.py --repo ${{ github.repository }} --base-branch ${{ github.ref }} --commits ${{ github.event.before }}..${{ github.sha }}
