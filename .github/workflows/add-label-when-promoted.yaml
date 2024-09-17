@@ -42,8 +42,19 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.AUTO_BACKPORT_TOKEN }}
         run: python .github/scripts/auto-backport.py --repo ${{ github.repository }} --base-branch ${{ github.ref }} --commits ${{ github.event.before }}..${{ github.sha }}
+      - name: Check if label starts with 'backport/' and contains digits
+        id: check_label
+        run: |
+          label_name="${{ github.event.label.name }}"
+          if [[ "$label_name" =~ ^backport/[0-9]+\.[0-9]+$ ]]; then
+            echo "Label matches backport/X.X pattern."
+            echo "backport_label=true" >> $GITHUB_OUTPUT
+          else
+            echo "Label does not match the required pattern."
+            echo "backport_label=false" >> $GITHUB_OUTPUT
+          fi
       - name: Run auto-backport.py when label was added
-        if: github.event_name == 'pull_request_target' && startsWith(github.event.label.name, 'backport/') && (github.event.pull_request.state == 'closed' && github.event.pull_request.merged == true)
+        if: github.event_name == 'pull_request_target' && steps.check_label.outputs.backport_label == 'true' && (github.event.pull_request.state == 'closed' && github.event.pull_request.merged == true)
         env:
           GITHUB_TOKEN: ${{ secrets.AUTO_BACKPORT_TOKEN }}
-        run: python .github/scripts/auto-backport.py --repo ${{ github.repository }} --base-branch ${{ github.ref }} --pull-request ${{ github.event.pull_request.number }} --commits ${{ github.sha }}
+        run: python .github/scripts/auto-backport.py --repo ${{ github.repository }} --base-branch ${{ github.ref }} --pull-request ${{ github.event.pull_request.number }} --head-commit ${{ github.sha }}
