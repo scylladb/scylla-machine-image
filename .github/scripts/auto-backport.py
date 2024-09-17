@@ -3,6 +3,7 @@
 import argparse
 import os
 import re
+import sys
 import tempfile
 import logging
 
@@ -12,12 +13,17 @@ from git import Repo, GitCommandError
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
+def is_pull_request():
+    return '--pull-request' in sys.argv[1:]
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--repo', type=str, required=True, help='Github repository name')
     parser.add_argument('--base-branch', type=str, default='refs/heads/next', help='Base branch')
     parser.add_argument('--commits', default=None, type=str, help='Range of promoted commits.')
     parser.add_argument('--pull-request', type=int, help='Pull request number to be backported')
+    parser.add_argument('--head-commit', type=str, required=is_pull_request(), help='The HEAD of target branch after the pull request specified by --pull-request is merged')
     return parser.parse_args()
 
 
@@ -66,6 +72,8 @@ def get_pr_commits(repo, pr, stable_branch, start_commit=None):
                     # So here, we are validating the correct SHA for each commit so we can cherry-pick
                     if promoted_commit.commit.message.startswith(commit_title):
                         commits.append(promoted_commit.sha)
+                else:
+                    commits.append(start_commit)
 
     elif pr.state == 'closed':
         events = pr.get_issue_events()
@@ -104,7 +112,7 @@ def backport(repo, pr, version, commits, backport_base_branch):
 
 def get_prs_from_commits(repo, commits):
     for sha1 in commits:
-        commit = repo.get_commit(sha1)
+        commit = repo.get_commit(sha1.sha)
         for parent in commit.parents:
             prs = repo.get_pulls(state="closed", head=parent.sha)
             if prs:
@@ -143,7 +151,7 @@ def main():
         prs = get_prs_from_commits(repo, commits)
         closed_prs = list(prs)
     if args.pull_request:
-        start_commit = args.commits
+        start_commit = args.head_commit
         pr = repo.get_pull(args.pull_request)
         closed_prs = [pr]
 
