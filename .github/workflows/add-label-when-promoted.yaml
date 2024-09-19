@@ -5,12 +5,10 @@ on:
     branches:
       - master
       - next-*.*
+      - enterprise
   pull_request_target:
     types: [labeled]
-    branches: [master, next]
-
-env:
-  DEFAULT_BRANCH: ${{ github.repository == 'scylladb/scylla-enterprise' && 'enterprise' || 'master' }}
+    branches: [master, next, enterprise]
 
 jobs:
   check-commit:
@@ -23,6 +21,14 @@ jobs:
         env:
           GITHUB_CONTEXT: ${{ toJson(github) }}
         run: echo "$GITHUB_CONTEXT"
+      - name: Set Default Branch
+        id: set_branch
+        run: |
+          if [[ "${{ github.repository }}" == *enterprise* ]]; then
+            echo "DEFAULT_BRANCH=enterprise" >> $GITHUB_ENV
+          else
+            echo "DEFAULT_BRANCH=master" >> $GITHUB_ENV
+          fi
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
