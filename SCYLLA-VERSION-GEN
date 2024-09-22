@@ -3,6 +3,7 @@
 PRODUCT=scylla-enterprise
 VERSION=2024.3.0-dev
 
+
 if test -f version
 then
 	SCYLLA_VERSION=$(cat version | awk -F'-' '{print $1}')
