@@ -11,6 +11,11 @@ from github import Github, GithubException
 from git import Repo, GitCommandError
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+try:
+    github_token = os.environ["GITHUB_TOKEN"]
+except KeyError:
+    print("Please set the 'GITHUB_TOKEN' environment variable")
+    sys.exit(1)
 
 
 def is_pull_request():
@@ -57,7 +62,7 @@ def get_pr_commits(repo, pr, stable_branch, start_commit=None):
     commits = []
     if pr.merged:
         merge_commit = repo.get_commit(pr.merge_commit_sha)
-        if len(merge_commit.parents) > 1:  # Check if this merge commit include multiple commits
+        if len(merge_commit.parents) > 1:  # Check if this merge commit includes multiple commits
             commits.append(pr.merge_commit_sha)
         else:
             if start_commit:
@@ -67,13 +72,13 @@ def get_pr_commits(repo, pr, stable_branch, start_commit=None):
             for commit in pr.get_commits():
                 for promoted_commit in promoted_commits:
                     commit_title = commit.commit.message.splitlines()[0]
-                    # In Scylla-pkg and scylla-dtest for example, we don't create a merge commit for a PR with multiple commits,
-                    # according to the GitHub API, the last commit will be the merge commit which is not what we need when backporting (we need all the commits).
+                    # In Scylla-pkg and scylla-dtest, for example,
+                    # we don't create a merge commit for a PR with multiple commits,
+                    # according to the GitHub API, the last commit will be the merge commit,
+                    # which is not what we need when backporting (we need all the commits).
                     # So here, we are validating the correct SHA for each commit so we can cherry-pick
                     if promoted_commit.commit.message.startswith(commit_title):
                         commits.append(promoted_commit.sha)
-                else:
-                    commits.append(start_commit)
 
     elif pr.state == 'closed':
         events = pr.get_issue_events()
@@ -83,15 +88,16 @@ def get_pr_commits(repo, pr, stable_branch, start_commit=None):
     return commits
 
 
-def backport(repo, pr, version, commits, backport_base_branch):
+def backport(repo, pr, version, commits, backport_base_branch, user):
     with (tempfile.TemporaryDirectory() as local_repo_path):
         try:
             new_branch_name = f'backport/{pr.number}/to-{version}'
             backport_pr_title = f'[Backport {version}] {pr.title}'
-            repo_local = Repo.clone_from(f'https://github.com/{repo.full_name}.git', local_repo_path, branch=backport_base_branch)
+            repo_local = Repo.clone_from(f'https://{user.login}:{github_token}@github.com/{repo.full_name}.git', local_repo_path, branch=backport_base_branch)
             repo_local.git.checkout(b=new_branch_name)
             fork_repo = pr.user.get_repo(repo.full_name.split('/')[1])
-            repo_local.create_remote('fork', fork_repo.clone_url)
+            fork_repo_url = f'https://{user.login}:{github_token}@github.com/{fork_repo.full_name}.git'
+            repo_local.create_remote('fork', fork_repo_url)
             remote = 'origin'
             is_draft = False
             for commit in commits:
@@ -110,46 +116,39 @@ def backport(repo, pr, version, commits, backport_base_branch):
             logging.warning(f"GitCommandError: {e}")
 
 
-def get_prs_from_commits(repo, commits):
-    for sha1 in commits:
-        commit = repo.get_commit(sha1.sha)
-        for parent in commit.parents:
-            prs = repo.get_pulls(state="closed", head=parent.sha)
-            if prs:
-                yield prs[0]
-                break
-
-
 def main():
     args = parse_args()
     base_branch = args.base_branch.split('/')[2]
     promoted_label = 'promoted-to-master'
     repo_name = args.repo
+    if 'scylla-enterprise' in args.repo:
+        promoted_label = 'promoted-to-enterprise'
     if args.repo in ('scylladb/scylla', 'scylladb/scylla-enterprise'):
         stable_branch = base_branch
         backport_branch = 'branch-'
-        if args.repo == 'scylladb/scylla-enterprise':
-            promoted_label = 'promoted-to-enterprise'
     else:
-        backport_branch = f'{base_branch}-'
-        if base_branch == 'next':
+        backport_branch = 'next-'
+        if base_branch in ('master', 'next'):
             stable_branch = 'master'
+        elif base_branch in ('enterprise', 'next-enterprise'):
+            stable_branch = 'enterprise'
         else:
             stable_branch = base_branch.replace('next', 'branch')
 
-    github_token = os.getenv("BACKPORT_GITHUB_TOKEN")
     backport_label_pattern = re.compile(r'backport/\d+\.\d+$')
 
     g = Github(github_token)
     repo = g.get_repo(repo_name)
+    user = g.get_user()
     closed_prs = []
     start_commit = None
 
     if args.commits:
         start_commit, end_commit = args.commits.split('..')
         commits = repo.compare(start_commit, end_commit).commits
-        prs = get_prs_from_commits(repo, commits)
-        closed_prs = list(prs)
+        for commit in commits:
+            for pr in commit.get_pulls():
+                closed_prs.append(pr)
     if args.pull_request:
         start_commit = args.head_commit
         pr = repo.get_pull(args.pull_request)
@@ -159,15 +158,17 @@ def main():
         labels = [label.name for label in pr.labels]
         backport_labels = [label for label in labels if backport_label_pattern.match(label)]
         if promoted_label not in labels:
+            print(f'no {promoted_label} label: {pr.number}')
             continue
         if not backport_labels:
+            print(f'no backport label: {pr.number}')
             continue
         commits = get_pr_commits(repo, pr, stable_branch, start_commit)
         logging.info(f"Found PR #{pr.number} with commit {commits} and the following labels: {backport_labels}")
         for backport_label in backport_labels:
             version = backport_label.replace('backport/', '')
             backport_base_branch = backport_label.replace('backport/', backport_branch)
-            backport(repo, pr, version, commits, backport_base_branch)
+            backport(repo, pr, version, commits, backport_base_branch, user)
 
 
 if __name__ == "__main__":
