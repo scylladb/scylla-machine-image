@@ -37,18 +37,17 @@ def create_pull_request(repo, new_branch_name, base_branch_name, pr, backport_pr
     for commit in commits:
         pr_body += f'- (cherry picked from commit {commit})\n\n'
     pr_body += f'Parent PR: #{pr.number}'
-    if is_draft:
-        new_branch_name = f'{pr.user.login}:{new_branch_name}'
     try:
         backport_pr = repo.create_pull(
             title=backport_pr_title,
             body=pr_body,
-            head=new_branch_name,
+            head=f'scylladbbot:{new_branch_name}',
             base=base_branch_name,
             draft=is_draft
         )
         logging.info(f"Pull request created: {backport_pr.html_url}")
         backport_pr.add_to_assignees(pr.user)
+        backport_pr.add_to_labels("conflicts") if is_draft else None
         logging.info(f"Assigned PR to original author: {pr.user}")
         return backport_pr
     except GithubException as e:
@@ -88,28 +87,25 @@ def get_pr_commits(repo, pr, stable_branch, start_commit=None):
     return commits
 
 
-def backport(repo, pr, version, commits, backport_base_branch, user):
+def backport(repo, pr, version, commits, backport_base_branch):
+    new_branch_name = f'backport/{pr.number}/to-{version}'
+    backport_pr_title = f'[Backport {version}] {pr.title}'
+    repo_url = f'https://scylladbbot:{github_token}@github.com/{repo.full_name}.git'
+    fork_repo = f'https://scylladbbot:{github_token}@github.com/scylladbbot/{repo.name}.git'
     with (tempfile.TemporaryDirectory() as local_repo_path):
         try:
-            new_branch_name = f'backport/{pr.number}/to-{version}'
-            backport_pr_title = f'[Backport {version}] {pr.title}'
-            repo_local = Repo.clone_from(f'https://{user.login}:{github_token}@github.com/{repo.full_name}.git', local_repo_path, branch=backport_base_branch)
+            repo_local = Repo.clone_from(repo_url, local_repo_path, branch=backport_base_branch)
             repo_local.git.checkout(b=new_branch_name)
-            fork_repo = pr.user.get_repo(repo.full_name.split('/')[1])
-            fork_repo_url = f'https://{user.login}:{github_token}@github.com/{fork_repo.full_name}.git'
-            repo_local.create_remote('fork', fork_repo_url)
-            remote = 'origin'
             is_draft = False
             for commit in commits:
                 try:
                     repo_local.git.cherry_pick(commit, '-m1', '-x')
                 except GitCommandError as e:
                     logging.warning(f'Cherry-pick conflict on commit {commit}: {e}')
-                    remote = 'fork'
                     is_draft = True
                     repo_local.git.add(A=True)
                     repo_local.git.cherry_pick('--continue')
-            repo_local.git.push(remote, new_branch_name, force=True)
+            repo_local.git.push(fork_repo, new_branch_name, force=True)
             create_pull_request(repo, new_branch_name, backport_base_branch, pr, backport_pr_title, commits,
                                 is_draft=is_draft)
         except GitCommandError as e:
@@ -121,25 +117,15 @@ def main():
     base_branch = args.base_branch.split('/')[2]
     promoted_label = 'promoted-to-master'
     repo_name = args.repo
-    if 'scylla-enterprise' in args.repo:
+    if 'scylla-enterprise-machine-image' in args.repo:
         promoted_label = 'promoted-to-enterprise'
-    if args.repo in ('scylladb/scylla', 'scylladb/scylla-enterprise'):
-        stable_branch = base_branch
-        backport_branch = 'branch-'
-    else:
-        backport_branch = 'next-'
-        if base_branch in ('master', 'next'):
-            stable_branch = 'master'
-        elif base_branch in ('enterprise', 'next-enterprise'):
-            stable_branch = 'enterprise'
-        else:
-            stable_branch = base_branch.replace('next', 'branch')
 
+    backport_branch = 'next-'
+    stable_branch = 'master' if base_branch == 'next' else 'enterprise' if base_branch == 'next-enterprise' else base_branch.replace('next', 'branch')
     backport_label_pattern = re.compile(r'backport/\d+\.\d+$')
 
     g = Github(github_token)
     repo = g.get_repo(repo_name)
-    user = g.get_user()
     closed_prs = []
     start_commit = None
 
@@ -168,7 +154,7 @@ def main():
         for backport_label in backport_labels:
             version = backport_label.replace('backport/', '')
             backport_base_branch = backport_label.replace('backport/', backport_branch)
-            backport(repo, pr, version, commits, backport_base_branch, user)
+            backport(repo, pr, version, commits, backport_base_branch)
 
 
 if __name__ == "__main__":
