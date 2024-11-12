@@ -40,6 +40,7 @@ jobs:
         run: |
           git config --global user.name "GitHub Action"
           git config --global user.email "action@github.com"
+          git config --global merge.conflictstyle diff3
       - name: Install dependencies
         run: sudo apt-get install -y python3-github python3-git
       - name: Run python script
@@ -48,7 +49,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.AUTO_BACKPORT_TOKEN }}
         run: python .github/scripts/search_commits.py  --commits ${{ github.event.before }}..${{ github.sha }} --repository ${{ github.repository }} --ref ${{ github.ref }}
       - name: Run auto-backport.py when promotion completed
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/${{ env.DEFAULT_BRANCH }}'
         env:
           GITHUB_TOKEN: ${{ secrets.AUTO_BACKPORT_TOKEN }}
         run: python .github/scripts/auto-backport.py --repo ${{ github.repository }} --base-branch ${{ github.ref }} --commits ${{ github.event.before }}..${{ github.sha }}
