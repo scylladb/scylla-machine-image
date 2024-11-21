@@ -45,6 +45,6 @@ if __name__ == '__main__':
                 # some distro has fstrim enabled by default, since we are using XFS with online discard, we don't need fstrim
                 run('systemctl is-active -q fstrim.timer && systemctl disable fstrim.timer', shell=True, check=True)
 
-        if not os.path.ismount('/var/lib/scylla'):
+        if not os.path.ismount('/var/lib/scylla') and not cloud_instance.is_dev_instance_type():
             print('Failed to initialize RAID volume!')
         machine_image_configured.touch()
