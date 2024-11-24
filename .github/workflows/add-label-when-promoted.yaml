@@ -25,15 +25,15 @@ jobs:
         id: set_branch
         run: |
           if [[ "${{ github.repository }}" == *enterprise* ]]; then
-            echo "DEFAULT_BRANCH=enterprise" >> $GITHUB_ENV
+            echo "stable_branch=enterprise" >> $GITHUB_OUTPUT
           else
-            echo "DEFAULT_BRANCH=master" >> $GITHUB_ENV
+            echo "stable_branch=master" >> $GITHUB_OUTPUT
           fi
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           repository: ${{ github.repository }}
-          ref: ${{ env.DEFAULT_BRANCH }}
+          ref: ${{ env.stable_branch }}
           token: ${{ secrets.AUTO_BACKPORT_TOKEN }}
           fetch-depth: 0  # Fetch all history for all tags and branches
       - name: Set up Git identity
@@ -49,7 +49,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.AUTO_BACKPORT_TOKEN }}
         run: python .github/scripts/search_commits.py  --commits ${{ github.event.before }}..${{ github.sha }} --repository ${{ github.repository }} --ref ${{ github.ref }}
       - name: Run auto-backport.py when promotion completed
-        if: github.event_name == 'push' && github.ref == 'refs/heads/${{ env.DEFAULT_BRANCH }}'
+        if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', steps.set_branch.outputs.stable_branch)
         env:
           GITHUB_TOKEN: ${{ secrets.AUTO_BACKPORT_TOKEN }}
         run: python .github/scripts/auto-backport.py --repo ${{ github.repository }} --base-branch ${{ github.ref }} --commits ${{ github.event.before }}..${{ github.sha }}
@@ -65,7 +65,7 @@ jobs:
             echo "backport_label=false" >> $GITHUB_OUTPUT
           fi
       - name: Run auto-backport.py when label was added
-        if: github.event_name == 'pull_request_target' && steps.check_label.outputs.backport_label == 'true' && (github.event.pull_request.state == 'closed' && github.event.pull_request.merged == true)
+        if: github.event_name == 'pull_request_target' && steps.check_label.outputs.backport_label == 'true' && github.event.pull_request.merged == true
         env:
           GITHUB_TOKEN: ${{ secrets.AUTO_BACKPORT_TOKEN }}
         run: python .github/scripts/auto-backport.py --repo ${{ github.repository }} --base-branch ${{ github.ref }} --pull-request ${{ github.event.pull_request.number }} --head-commit ${{ github.event.pull_request.base.sha }}
