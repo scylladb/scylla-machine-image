@@ -140,9 +140,12 @@ class ScyllaMachineImageConfigurator(UserData):
             LOGGER.info(f"Create scylla data devices as {device_type}")
             subprocess.run(cmd_create_devices, shell=True, check=True)
         except Exception as e:
-            scylla_excepthook(*sys.exc_info())
-            LOGGER.error("Failed to create devices: %s", e)
-            sys.exit(1)
+            if self.cloud_instance.is_dev_instance_type():
+                LOGGER.info("Skipping to create devices: %s", e)
+            else:
+                scylla_excepthook(*sys.exc_info())
+                LOGGER.error("Failed to create devices: %s", e)
+                sys.exit(1)
 
     def configure(self):
         self.configure_scylla_yaml()
