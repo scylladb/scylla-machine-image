@@ -14,8 +14,6 @@ DRY_RUN=false
 DEBUG=false
 BUILD_MODE='release'
 TARGET=
-APT_KEYS_DIR='/etc/apt/keyrings'
-APT_KEY='a43e06657bac99e3'
 
 print_usage() {
     echo "$0 --localdeb --repo [URL] --target [distribution]"
@@ -81,6 +79,21 @@ while [ $# -gt 0 ]; do
         "--build-tag")
             BUILD_TAG=$2
             echo "--build-tag parameter: BUILD_TAG |$BUILD_TAG|"
+            shift 2
+            ;;
+        "--version")
+            VERSION=$2
+            echo "--version: VERSION |$VERSION|"
+            shift 2
+            ;;
+        "--scylla-release")
+            SCYLLA_RELEASE=$2
+            echo "--scylla-release: SCYLLA_RELEASE |$SCYLLA_RELEASE|"
+            shift 2
+            ;;
+        "--scylla-machine-image-release")
+            SCYLLA_MACHINE_IMAGE_RELEASE=$2
+            echo "--scylla-machine-image-release: SCYLLA_MACHINE_IMAGE_RELEASE |$SCYLLA_MACHINE_IMAGE_RELEASE|"
             shift 2
             ;;
         "--branch")
@@ -155,22 +168,9 @@ done
 if [ -z "$PRODUCT" ]; then
     PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
 fi
-VERSION=$(cat build/SCYLLA-VERSION-FILE)
 INSTALL_ARGS="$INSTALL_ARGS --product $PRODUCT"
 
 echo "INSTALL_ARGS: |$INSTALL_ARGS|"
-
-get_version_from_local_deb () {
-    DEB=$1
-    FULL_VERSION=$(dpkg -f "$DEB" version)
-    echo "$FULL_VERSION"
-}
-
-get_version_from_remote_deb () {
-    DEB=$1
-    FULL_VERSION=$(sudo apt-cache madison "$DEB"|head -n1|awk '{print $3}')
-    echo "$FULL_VERSION"
-}
 
 deb_arch() {
     declare -A darch
@@ -190,15 +190,6 @@ check_deb_exists () {
     done
 }
 
-import_gpg_key () {
-  echo "Importing apt key ($APT_KEY)"
-  TMPREPO=$(mktemp -u -p /etc/apt/sources.list.d/ --suffix .list)
-  sudo curl -sSo $TMPREPO $REPO_FOR_INSTALL
-  sudo mkdir -p $APT_KEYS_DIR
-  sudo gpg --homedir /tmp --no-default-keyring --keyring $APT_KEYS_DIR/scylladb.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys $APT_KEY
-  sudo apt-get update -y
-}
-
 if [ -z "$TARGET" ]; then
     echo "Missing --target parameter. Please specify target cloud (aws/gce/azure)"
     exit 1
@@ -206,14 +197,13 @@ fi
 
 SSH_USERNAME=ubuntu
 
+SCYLLA_FULL_VERSION="$VERSION-$SCYLLA_RELEASE"
+SCYLLA_MACHINE_IMAGE_VERSION="$VERSION-$SCYLLA_MACHINE_IMAGE_RELEASE"
+
 if [ $LOCALDEB -eq 1 ]; then
     INSTALL_ARGS="$INSTALL_ARGS --localdeb"
 
     check_deb_exists "$DIR"/files
-
-    SCYLLA_FULL_VERSION=$(get_version_from_local_deb "$DIR"/files/"$PRODUCT"-server*_$(deb_arch).deb)
-    SCYLLA_MACHINE_IMAGE_VERSION=$(get_version_from_local_deb "$DIR"/files/"$PRODUCT"-machine-image*_all.deb)
-    SCYLLA_PYTHON3_VERSION=$(get_version_from_local_deb "$DIR"/files/"$PRODUCT"-python3*_$(deb_arch).deb)
 
     cd "$DIR"/files
     dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz
@@ -225,11 +215,8 @@ elif [ $DOWNLOAD_ONLY -eq 1 ]; then
         exit 1
     fi
 
-    import_gpg_key
-
     cd "$DIR"/files
     apt-get download --allow-unauthenticated "$PRODUCT" "$PRODUCT"-machine-image "$PRODUCT"-python3
-    sudo rm -f $TMPREPO
     exit 0
 else
     if [ -z "$REPO_FOR_INSTALL" ]; then
@@ -237,14 +224,6 @@ else
         print_usage
         exit 1
     fi
-
-    import_gpg_key
-
-    SCYLLA_FULL_VERSION=$(get_version_from_remote_deb $PRODUCT-server)
-    SCYLLA_MACHINE_IMAGE_VERSION=$(get_version_from_remote_deb $PRODUCT-machine-image)
-    SCYLLA_PYTHON3_VERSION=$(get_version_from_remote_deb $PRODUCT-python3)
-
-    sudo rm -f $TMPREPO
 
 fi
 
@@ -273,7 +252,7 @@ if [ "$TARGET" = "aws" ]; then
         exit 1
     esac
 
-    SCYLLA_AMI_DESCRIPTION="scylla-$SCYLLA_FULL_VERSION scylla-machine-image-$SCYLLA_MACHINE_IMAGE_VERSION scylla-python3-$SCYLLA_PYTHON3_VERSION"
+    SCYLLA_AMI_DESCRIPTION="scylla-$SCYLLA_FULL_VERSION scylla-machine-image-$SCYLLA_MACHINE_IMAGE_VERSION scylla-python3-$SCYLLA_FULL_VERSION"
 
     PACKER_ARGS+=(-var region="$REGION")
     PACKER_ARGS+=(-var buildMode="$BUILD_MODE")
@@ -289,7 +268,7 @@ elif [ "$TARGET" = "gce" ]; then
 elif [ "$TARGET" = "azure" ]; then
     REGION="EAST US"
     SSH_USERNAME=azureuser
-    SCYLLA_IMAGE_DESCRIPTION="scylla-$SCYLLA_FULL_VERSION scylla-machine-image-$SCYLLA_MACHINE_IMAGE_VERSION scylla-python3-$SCYLLA_PYTHON3_VERSION"
+    SCYLLA_IMAGE_DESCRIPTION="scylla-$SCYLLA_FULL_VERSION scylla-machine-image-$SCYLLA_MACHINE_IMAGE_VERSION scylla-python3-$SCYLLA_FULL_VERSION"
 
     PACKER_ARGS+=(-var scylla_image_description="${SCYLLA_IMAGE_DESCRIPTION:0:255}")
     PACKER_ARGS+=(-var client_id="$AZURE_CLIENT_ID")
@@ -334,7 +313,7 @@ set -x
   -var scylla_full_version="$SCYLLA_FULL_VERSION" \
   -var scylla_version="$VERSION" \
   -var scylla_machine_image_version="$SCYLLA_MACHINE_IMAGE_VERSION" \
-  -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" \
+  -var scylla_python3_version="$SCYLLA_FULL_VERSION" \
   -var creation_timestamp="$CREATION_TIMESTAMP" \
   -var scylla_build_sha_id="$SCYLLA_BUILD_SHA_ID" \
   -var build_tag="$BUILD_TAG" \
