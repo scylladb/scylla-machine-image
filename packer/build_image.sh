@@ -16,8 +16,7 @@ BUILD_MODE='release'
 TARGET=
 
 print_usage() {
-    echo "$0 --localdeb --repo [URL] --target [distribution]"
-    echo "  [--localdeb]            Deploy locally built debs Default: false"
+    echo "$0 --repo [URL] --target [distribution]"
     echo "  --repo                  Repository for both install and update, specify .repo/.list file URL"
     echo "  --repo-for-install      Repository for install, specify .repo/.list file URL"
     echo "  --repo-for-update       Repository for update, specify .repo/.list file URL"
@@ -27,7 +26,6 @@ print_usage() {
     echo "  [--branch]              Set the release branch for GCE label. Default: master"
     echo "  [--ami-regions]         Set regions to copy the AMI when done building it (including permissions and tags)"
     echo "  [--build-tag]           Jenkins Build tag"
-    echo "  --download-no-server    Download all deb needed excluding scylla from repo-for-install"
     echo "  [--build-mode]          Choose which build mode to use for Scylla installation. Default: release. Valid options: release|debug"
     echo "  [--debug]               Build debug image with special prefix for image name. Default: false."
     echo "  [--log-file]            Path for log. Default build/ami.log on current dir. Default: build/packer.log"
@@ -36,19 +34,12 @@ print_usage() {
     echo "  --ec2-instance-type     Set EC2 instance type to use while building the AMI. If empty will use defaults per architecture"
     exit 1
 }
-LOCALDEB=0
-DOWNLOAD_ONLY=0
 PACKER_SUB_CMD="build"
 REPO_FOR_INSTALL=
 PACKER_LOG_PATH=build/packer.log
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        "--localdeb")
-            echo "!!! Building image --localdeb !!!"
-            LOCALDEB=1
-            shift 1
-            ;;
         "--repo")
             REPO_FOR_INSTALL="https://$2"
             echo "--repo parameter: REPO_FOR_INSTALL $REPO_FOR_INSTALL"
@@ -111,11 +102,6 @@ while [ $# -gt 0 ]; do
             echo "--log-file parameter: PACKER_LOG_PATH |$PACKER_LOG_PATH|"
             shift 2
             ;;
-        "--download-no-server")
-            DOWNLOAD_ONLY=1
-            echo "--download-no-server parameter: DOWNLOAD_ONLY |$DOWNLOAD_ONLY|"
-            shift 1
-            ;;
         "--build-mode")
             BUILD_MODE=$2
             shift 2
@@ -172,24 +158,6 @@ INSTALL_ARGS="$INSTALL_ARGS --product $PRODUCT"
 
 echo "INSTALL_ARGS: |$INSTALL_ARGS|"
 
-deb_arch() {
-    declare -A darch
-    darch=(["x86_64"]=amd64 ["aarch64"]=arm64)
-    echo "${darch[$(arch)]}"
-}
-
-check_deb_exists () {
-    BASE_DIR=$1
-    deb_files="$BASE_DIR/$PRODUCT-server*_$(deb_arch).deb $BASE_DIR/$PRODUCT-machine-image*_all.deb $BASE_DIR/$PRODUCT-python3*_$(deb_arch).deb"
-    for deb in $deb_files
-    do
-        if [[ ! -f "$deb" ]]; then
-            echo "ERROR: Matching DEB file not found [$deb]"
-        exit 1
-        fi
-    done
-}
-
 if [ -z "$TARGET" ]; then
     echo "Missing --target parameter. Please specify target cloud (aws/gce/azure)"
     exit 1
@@ -200,31 +168,10 @@ SSH_USERNAME=ubuntu
 SCYLLA_FULL_VERSION="$VERSION-$SCYLLA_RELEASE"
 SCYLLA_MACHINE_IMAGE_VERSION="$VERSION-$SCYLLA_MACHINE_IMAGE_RELEASE"
 
-if [ $LOCALDEB -eq 1 ]; then
-    INSTALL_ARGS="$INSTALL_ARGS --localdeb"
-
-    check_deb_exists "$DIR"/files
-
-    cd "$DIR"/files
-    dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz
-    cd -
-elif [ $DOWNLOAD_ONLY -eq 1 ]; then
-    if [ -z "$REPO_FOR_INSTALL" ]; then
-        echo "ERROR: No --repo or --repo-for-install were given on DOWNLOAD_ONLY run."
-        print_usage
-        exit 1
-    fi
-
-    cd "$DIR"/files
-    apt-get download --allow-unauthenticated "$PRODUCT" "$PRODUCT"-machine-image "$PRODUCT"-python3
-    exit 0
-else
-    if [ -z "$REPO_FOR_INSTALL" ]; then
-        echo "ERROR: No --repo or --repo-for-install were given."
-        print_usage
-        exit 1
-    fi
-
+if [ -z "$REPO_FOR_INSTALL" ]; then
+    echo "ERROR: No --repo or --repo-for-install were given."
+    print_usage
+    exit 1
 fi
 
 if [ "$TARGET" = "aws" ]; then
