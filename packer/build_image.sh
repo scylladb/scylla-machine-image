@@ -14,12 +14,9 @@ DRY_RUN=false
 DEBUG=false
 BUILD_MODE='release'
 TARGET=
-APT_KEYS_DIR='/etc/apt/keyrings'
-APT_KEY='a43e06657bac99e3'
 
 print_usage() {
-    echo "$0 --localdeb --repo [URL] --target [distribution]"
-    echo "  [--localdeb]            Deploy locally built debs Default: false"
+    echo "$0 --repo [URL] --target [distribution]"
     echo "  --repo                  Repository for both install and update, specify .repo/.list file URL"
     echo "  --repo-for-install      Repository for install, specify .repo/.list file URL"
     echo "  --repo-for-update       Repository for update, specify .repo/.list file URL"
@@ -29,7 +26,6 @@ print_usage() {
     echo "  [--branch]              Set the release branch for GCE label. Default: master"
     echo "  [--ami-regions]         Set regions to copy the AMI when done building it (including permissions and tags)"
     echo "  [--build-tag]           Jenkins Build tag"
-    echo "  --download-no-server    Download all deb needed excluding scylla from repo-for-install"
     echo "  [--build-mode]          Choose which build mode to use for Scylla installation. Default: release. Valid options: release|debug"
     echo "  [--debug]               Build debug image with special prefix for image name. Default: false."
     echo "  [--log-file]            Path for log. Default build/ami.log on current dir. Default: build/packer.log"
@@ -38,19 +34,12 @@ print_usage() {
     echo "  --ec2-instance-type     Set EC2 instance type to use while building the AMI. If empty will use defaults per architecture"
     exit 1
 }
-LOCALDEB=0
-DOWNLOAD_ONLY=0
 PACKER_SUB_CMD="build"
 REPO_FOR_INSTALL=
 PACKER_LOG_PATH=build/packer.log
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        "--localdeb")
-            echo "!!! Building image --localdeb !!!"
-            LOCALDEB=1
-            shift 1
-            ;;
         "--repo")
             REPO_FOR_INSTALL="https://$2"
             echo "--repo parameter: REPO_FOR_INSTALL $REPO_FOR_INSTALL"
@@ -83,6 +72,21 @@ while [ $# -gt 0 ]; do
             echo "--build-tag parameter: BUILD_TAG |$BUILD_TAG|"
             shift 2
             ;;
+        "--version")
+            VERSION=$2
+            echo "--version: VERSION |$VERSION|"
+            shift 2
+            ;;
+        "--scylla-release")
+            SCYLLA_RELEASE=$2
+            echo "--scylla-release: SCYLLA_RELEASE |$SCYLLA_RELEASE|"
+            shift 2
+            ;;
+        "--scylla-machine-image-release")
+            SCYLLA_MACHINE_IMAGE_RELEASE=$2
+            echo "--scylla-machine-image-release: SCYLLA_MACHINE_IMAGE_RELEASE |$SCYLLA_MACHINE_IMAGE_RELEASE|"
+            shift 2
+            ;;
         "--branch")
             BRANCH=$2
             echo "--branch parameter: BRANCH |$BRANCH|"
@@ -97,11 +101,6 @@ while [ $# -gt 0 ]; do
             PACKER_LOG_PATH=$2
             echo "--log-file parameter: PACKER_LOG_PATH |$PACKER_LOG_PATH|"
             shift 2
-            ;;
-        "--download-no-server")
-            DOWNLOAD_ONLY=1
-            echo "--download-no-server parameter: DOWNLOAD_ONLY |$DOWNLOAD_ONLY|"
-            shift 1
             ;;
         "--build-mode")
             BUILD_MODE=$2
@@ -155,49 +154,9 @@ done
 if [ -z "$PRODUCT" ]; then
     PRODUCT=$(cat build/SCYLLA-PRODUCT-FILE)
 fi
-VERSION=$(cat build/SCYLLA-VERSION-FILE)
 INSTALL_ARGS="$INSTALL_ARGS --product $PRODUCT"
 
 echo "INSTALL_ARGS: |$INSTALL_ARGS|"
-
-get_version_from_local_deb () {
-    DEB=$1
-    FULL_VERSION=$(dpkg -f "$DEB" version)
-    echo "$FULL_VERSION"
-}
-
-get_version_from_remote_deb () {
-    DEB=$1
-    FULL_VERSION=$(sudo apt-cache madison "$DEB"|head -n1|awk '{print $3}')
-    echo "$FULL_VERSION"
-}
-
-deb_arch() {
-    declare -A darch
-    darch=(["x86_64"]=amd64 ["aarch64"]=arm64)
-    echo "${darch[$(arch)]}"
-}
-
-check_deb_exists () {
-    BASE_DIR=$1
-    deb_files="$BASE_DIR/$PRODUCT-server*_$(deb_arch).deb $BASE_DIR/$PRODUCT-machine-image*_all.deb $BASE_DIR/$PRODUCT-python3*_$(deb_arch).deb"
-    for deb in $deb_files
-    do
-        if [[ ! -f "$deb" ]]; then
-            echo "ERROR: Matching DEB file not found [$deb]"
-        exit 1
-        fi
-    done
-}
-
-import_gpg_key () {
-  echo "Importing apt key ($APT_KEY)"
-  TMPREPO=$(mktemp -u -p /etc/apt/sources.list.d/ --suffix .list)
-  sudo curl -sSo $TMPREPO $REPO_FOR_INSTALL
-  sudo mkdir -p $APT_KEYS_DIR
-  sudo gpg --homedir /tmp --no-default-keyring --keyring $APT_KEYS_DIR/scylladb.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys $APT_KEY
-  sudo apt-get update -y
-}
 
 if [ -z "$TARGET" ]; then
     echo "Missing --target parameter. Please specify target cloud (aws/gce/azure)"
@@ -206,46 +165,13 @@ fi
 
 SSH_USERNAME=ubuntu
 
-if [ $LOCALDEB -eq 1 ]; then
-    INSTALL_ARGS="$INSTALL_ARGS --localdeb"
+SCYLLA_FULL_VERSION="$VERSION-$SCYLLA_RELEASE"
+SCYLLA_MACHINE_IMAGE_VERSION="$VERSION-$SCYLLA_MACHINE_IMAGE_RELEASE"
 
-    check_deb_exists "$DIR"/files
-
-    SCYLLA_FULL_VERSION=$(get_version_from_local_deb "$DIR"/files/"$PRODUCT"-server*_$(deb_arch).deb)
-    SCYLLA_MACHINE_IMAGE_VERSION=$(get_version_from_local_deb "$DIR"/files/"$PRODUCT"-machine-image*_all.deb)
-    SCYLLA_PYTHON3_VERSION=$(get_version_from_local_deb "$DIR"/files/"$PRODUCT"-python3*_$(deb_arch).deb)
-
-    cd "$DIR"/files
-    dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz
-    cd -
-elif [ $DOWNLOAD_ONLY -eq 1 ]; then
-    if [ -z "$REPO_FOR_INSTALL" ]; then
-        echo "ERROR: No --repo or --repo-for-install were given on DOWNLOAD_ONLY run."
-        print_usage
-        exit 1
-    fi
-
-    import_gpg_key
-
-    cd "$DIR"/files
-    apt-get download --allow-unauthenticated "$PRODUCT" "$PRODUCT"-machine-image "$PRODUCT"-python3
-    sudo rm -f $TMPREPO
-    exit 0
-else
-    if [ -z "$REPO_FOR_INSTALL" ]; then
-        echo "ERROR: No --repo or --repo-for-install were given."
-        print_usage
-        exit 1
-    fi
-
-    import_gpg_key
-
-    SCYLLA_FULL_VERSION=$(get_version_from_remote_deb $PRODUCT-server)
-    SCYLLA_MACHINE_IMAGE_VERSION=$(get_version_from_remote_deb $PRODUCT-machine-image)
-    SCYLLA_PYTHON3_VERSION=$(get_version_from_remote_deb $PRODUCT-python3)
-
-    sudo rm -f $TMPREPO
-
+if [ -z "$REPO_FOR_INSTALL" ]; then
+    echo "ERROR: No --repo or --repo-for-install were given."
+    print_usage
+    exit 1
 fi
 
 if [ "$TARGET" = "aws" ]; then
@@ -273,7 +199,7 @@ if [ "$TARGET" = "aws" ]; then
         exit 1
     esac
 
-    SCYLLA_AMI_DESCRIPTION="scylla-$SCYLLA_FULL_VERSION scylla-machine-image-$SCYLLA_MACHINE_IMAGE_VERSION scylla-python3-$SCYLLA_PYTHON3_VERSION"
+    SCYLLA_AMI_DESCRIPTION="scylla-$SCYLLA_FULL_VERSION scylla-machine-image-$SCYLLA_MACHINE_IMAGE_VERSION scylla-python3-$SCYLLA_FULL_VERSION"
 
     PACKER_ARGS+=(-var region="$REGION")
     PACKER_ARGS+=(-var buildMode="$BUILD_MODE")
@@ -289,7 +215,7 @@ elif [ "$TARGET" = "gce" ]; then
 elif [ "$TARGET" = "azure" ]; then
     REGION="EAST US"
     SSH_USERNAME=azureuser
-    SCYLLA_IMAGE_DESCRIPTION="scylla-$SCYLLA_FULL_VERSION scylla-machine-image-$SCYLLA_MACHINE_IMAGE_VERSION scylla-python3-$SCYLLA_PYTHON3_VERSION"
+    SCYLLA_IMAGE_DESCRIPTION="scylla-$SCYLLA_FULL_VERSION scylla-machine-image-$SCYLLA_MACHINE_IMAGE_VERSION scylla-python3-$SCYLLA_FULL_VERSION"
 
     PACKER_ARGS+=(-var scylla_image_description="${SCYLLA_IMAGE_DESCRIPTION:0:255}")
     PACKER_ARGS+=(-var client_id="$AZURE_CLIENT_ID")
@@ -334,7 +260,7 @@ set -x
   -var scylla_full_version="$SCYLLA_FULL_VERSION" \
   -var scylla_version="$VERSION" \
   -var scylla_machine_image_version="$SCYLLA_MACHINE_IMAGE_VERSION" \
-  -var scylla_python3_version="$SCYLLA_PYTHON3_VERSION" \
+  -var scylla_python3_version="$SCYLLA_FULL_VERSION" \
   -var creation_timestamp="$CREATION_TIMESTAMP" \
   -var scylla_build_sha_id="$SCYLLA_BUILD_SHA_ID" \
   -var build_tag="$BUILD_TAG" \
