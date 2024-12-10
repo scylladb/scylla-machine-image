@@ -558,3 +558,23 @@ i4i.metal:
   read_bandwidth: 3088599296
   write_iops: 239549
   write_bandwidth: 2302438912
+i7ie.large:
+  read_iops: 58449
+  read_bandwidth: 574854656
+  write_iops: 47145
+  write_bandwidth: 253132917
+i7ie.xlarge:
+  read_iops: 117257
+  read_bandwidth: 1148572714
+  write_iops: 94180
+  write_bandwidth: 505684885
+i7ie.2xlarge:
+  read_iops: 117257
+  read_bandwidth: 1148572714
+  write_iops: 94180
+  write_bandwidth: 505684885
+i7ie.ALL:
+  read_iops: 352834
+  read_bandwidth: 3422623232
+  write_iops: 119327
+  write_bandwidth: 1526442410
