@@ -23,9 +23,7 @@ if __name__ == '__main__':
         run(f'/opt/scylladb/scripts/scylla_swap_setup --swap-directory {swap_directory}', shell=True, check=True)
     machine_image_configured = Path('/etc/scylla/machine_image_configured')
     if not machine_image_configured.exists():
-        # On Ubuntu, we configure CPU scaling while AMI building time
-        if is_redhat_variant():
-            run('/opt/scylladb/scripts/scylla_cpuscaling_setup', shell=True, check=True)
+        run('/opt/scylladb/scripts/scylla_cpuscaling_setup', shell=True, check=True)
         cloud_instance = get_cloud_instance()
         run('/opt/scylladb/scylla-machine-image/scylla_configure.py', shell=True, check=True)
 
