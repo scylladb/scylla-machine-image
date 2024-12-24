@@ -14,6 +14,7 @@ DRY_RUN=false
 DEBUG=false
 BUILD_MODE='release'
 TARGET=
+ENV_TAG="debug"
 
 print_usage() {
     echo "$0 --repo [URL] --target [distribution]"
@@ -26,6 +27,7 @@ print_usage() {
     echo "  [--branch]              Set the release branch for GCE label. Default: master"
     echo "  [--ami-regions]         Set regions to copy the AMI when done building it (including permissions and tags)"
     echo "  [--build-tag]           Jenkins Build tag"
+    echo "  [--env-tag]             Environment tag for our images. default: debug. Valid options: daily(master)|candidate(releases)|production(releases)|private(custom images for customers)"
     echo "  [--build-mode]          Choose which build mode to use for Scylla installation. Default: release. Valid options: release|debug"
     echo "  [--debug]               Build debug image with special prefix for image name. Default: false."
     echo "  [--log-file]            Path for log. Default build/ami.log on current dir. Default: build/packer.log"
@@ -70,6 +72,11 @@ while [ $# -gt 0 ]; do
         "--build-tag")
             BUILD_TAG=$2
             echo "--build-tag parameter: BUILD_TAG |$BUILD_TAG|"
+            shift 2
+            ;;
+        "--env-tag")
+            ENV_TAG=$2
+            echo "--env-tag parameter: ENV_TAG |$ENV_TAG|"
             shift 2
             ;;
         "--version")
@@ -264,6 +271,7 @@ set -x
   -var creation_timestamp="$CREATION_TIMESTAMP" \
   -var scylla_build_sha_id="$SCYLLA_BUILD_SHA_ID" \
   -var build_tag="$BUILD_TAG" \
+  -var environment="$ENV_TAG" \
   -var operating_system="$OPERATING_SYSTEM" \
   -var branch="$BRANCH" \
   -var ami_regions="$AMI_REGIONS" \
