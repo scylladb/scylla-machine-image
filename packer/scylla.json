@@ -85,6 +85,7 @@
           "scylla_build_sha_id": "{{user `scylla_build_sha_id`| clean_resource_name}}",
           "arch": "{{user `arch`| clean_resource_name}}",
           "build_tag": "{{user `build_tag`| clean_resource_name}}",
+          "environment": "{{user `environment`| clean_resource_name}}",
           "build_mode": "{{user `build_mode`| clean_resource_name}}"
       },
       "ami_regions": "{{user `ami_regions`}}",
@@ -127,6 +128,7 @@
           "scylla_build_sha_id": "{{user `scylla_build_sha_id`| clean_resource_name}}",
           "arch": "{{user `arch`| clean_resource_name}}",
           "build_tag": "{{user `build_tag`| clean_resource_name}}",
+          "environment": "{{user `environment`| clean_resource_name}}",
           "build_mode": "{{user `build_mode`| clean_resource_name}}"
       },
       "labels": {
@@ -161,6 +163,7 @@
         "scylla_build_sha_id": "{{user `scylla_build_sha_id`| clean_resource_name}}",
         "arch": "{{user `arch`| clean_resource_name}}",
         "build_tag": "{{user `build_tag`| clean_resource_name}}",
+        "environment": "{{user `environment`| clean_resource_name}}",
         "build_mode": "{{user `build_mode`| clean_resource_name}}"
       },
       "vm_size": "{{user `vm_size`}}",
