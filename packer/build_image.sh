@@ -16,6 +16,7 @@ BUILD_MODE='release'
 TARGET=
 APT_KEYS_DIR='/etc/apt/keyrings'
 APT_KEY='a43e06657bac99e3'
+ENV_TAG="debug"
 
 print_usage() {
     echo "$0 --localdeb --repo [URL] --target [distribution]"
@@ -30,6 +31,7 @@ print_usage() {
     echo "  [--ami-regions]         Set regions to copy the AMI when done building it (including permissions and tags)"
     echo "  [--build-tag]           Jenkins Build tag"
     echo "  --download-no-server    Download all deb needed excluding scylla from repo-for-install"
+    echo "  [--env-tag]             Environment tag for our images. default: debug. Valid options: daily(master)|candidate(releases)|production(releases)|private(custom images for customers)"
     echo "  [--build-mode]          Choose which build mode to use for Scylla installation. Default: release. Valid options: release|debug"
     echo "  [--debug]               Build debug image with special prefix for image name. Default: false."
     echo "  [--log-file]            Path for log. Default build/ami.log on current dir. Default: build/packer.log"
@@ -338,6 +340,7 @@ set -x
   -var creation_timestamp="$CREATION_TIMESTAMP" \
   -var scylla_build_sha_id="$SCYLLA_BUILD_SHA_ID" \
   -var build_tag="$BUILD_TAG" \
+  -var environment="$ENV_TAG" \
   -var operating_system="$OPERATING_SYSTEM" \
   -var branch="$BRANCH" \
   -var ami_regions="$AMI_REGIONS" \
