@@ -29,6 +29,7 @@ def parse_args():
     parser.add_argument('--commits', default=None, type=str, help='Range of promoted commits.')
     parser.add_argument('--pull-request', type=int, help='Pull request number to be backported')
     parser.add_argument('--head-commit', type=str, required=is_pull_request(), help='The HEAD of target branch after the pull request specified by --pull-request is merged')
+    parser.add_argument('--label', type=str, required=is_pull_request(), help='Backport label name when --pull-request is defined')
     return parser.parse_args()
 
 
@@ -47,7 +48,11 @@ def create_pull_request(repo, new_branch_name, base_branch_name, pr, backport_pr
         )
         logging.info(f"Pull request created: {backport_pr.html_url}")
         backport_pr.add_to_assignees(pr.user)
-        backport_pr.add_to_labels("conflicts") if is_draft else None
+        if is_draft:
+            backport_pr.add_to_labels("conflicts")
+            pr_comment = f"@{pr.user.login} - This PR has conflicts, therefore it was moved to `draft` \n"
+            pr_comment += "Please resolve them and mark this PR as ready for review"
+            backport_pr.create_issue_comment(pr_comment)
         logging.info(f"Assigned PR to original author: {pr.user}")
         return backport_pr
     except GithubException as e:
@@ -141,14 +146,17 @@ def main():
         closed_prs = [pr]
 
     for pr in closed_prs:
-        labels = [label.name for label in pr.labels]
-        backport_labels = [label for label in labels if backport_label_pattern.match(label)]
-        if promoted_label not in labels:
-            print(f'no {promoted_label} label: {pr.number}')
-            continue
-        if not backport_labels:
-            print(f'no backport label: {pr.number}')
-            continue
+        if args.pull_request:
+            backport_labels = [args.label]
+        else:
+            labels = [label.name for label in pr.labels]
+            backport_labels = [label for label in labels if backport_label_pattern.match(label)]
+            if promoted_label not in labels:
+                print(f'no {promoted_label} label: {pr.number}')
+                continue
+            if not backport_labels:
+                print(f'no backport label: {pr.number}')
+                continue
         commits = get_pr_commits(repo, pr, stable_branch, start_commit)
         logging.info(f"Found PR #{pr.number} with commit {commits} and the following labels: {backport_labels}")
         for backport_label in backport_labels:
