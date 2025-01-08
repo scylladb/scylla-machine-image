@@ -5,7 +5,7 @@
 # because we do run `yum update` as one of the steps so we get all the OS/packages bug fixes.
 #
 # !!! This setup is considered **deprecated** and will be removed soon in favor of different, safer solution. !!!
-FROM docker.io/scylladb/scylla:4.1.6 as base
+FROM docker.io/scylladb/scylla:4.6.11 as base
 
 # Disable scylla repo, as 4.1 is already EOL.
 RUN yum-config-manager --disable scylla --disable scylla-generic --disable scylladb-scylla-3rdparty
