@@ -1,6 +1,6 @@
 distro==1.7.0
 httpretty==1.1.4
-psutil==5.9.1
+psutil==5.9.8
 pytest==7.1.2
 PyYAML==6.0
 traceback-with-variables==2.0.4
