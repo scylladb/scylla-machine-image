@@ -85,6 +85,11 @@ while [ $# -gt 0 ]; do
             echo "--build-tag parameter: BUILD_TAG |$BUILD_TAG|"
             shift 2
             ;;
+        "--env-tag")
+            ENV_TAG=$2
+            echo "--env-tag parameter: ENV_TAG |$ENV_TAG|"
+            shift 2
+            ;;
         "--branch")
             BRANCH=$2
             echo "--branch parameter: BRANCH |$BRANCH|"
