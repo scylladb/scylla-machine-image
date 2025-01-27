@@ -10,7 +10,6 @@ Source0:        %{name}-%{version}-%{release}.tar
 Requires:       %{product} = %{version} %{product}-python3 curl
 
 BuildArch:      noarch
-Obsoletes:      scylla-machine-image
 
 %global _python_bytecompile_errors_terminate_build 0
 %global __brp_python_bytecompile %{nil}
