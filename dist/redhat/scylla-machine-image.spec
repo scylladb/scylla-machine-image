@@ -12,7 +12,6 @@ Provides:       scylla-enterprise-machine-image = %{version}-%{release}
 Obsoletes:      scylla-enterprise-machine-image < 2025.1.0
 
 BuildArch:      noarch
-Obsoletes:      scylla-machine-image
 
 %global _python_bytecompile_errors_terminate_build 0
 %global __brp_python_bytecompile %{nil}
