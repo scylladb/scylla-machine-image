@@ -10,6 +10,16 @@ Package: %{product}-machine-image
 Architecture: all
 Depends: %{product}, %{product}-python3, ${shlibs:Depends}, ${misc:Depends}
 Replaces: scylla-machine-image
+Replaces: scylla-enterprise-machine-image (<< 2025.1.0~)
+Breaks: scylla-enterprise-machine-image (<< 2025.1.0~)
 Description: Scylla Machine Image
  Scylla is a highly scalable, eventually consistent, distributed,
  partitioned row DB.
+
+Package: scylla-enterprise-machine-image
+Depends: %{product}-machine-image (= ${binary:Version})
+Architecture: all
+Priority: optional
+Section: oldlibs
+Description: transitional package
+ This is a transitional package. It can safely be removed.
