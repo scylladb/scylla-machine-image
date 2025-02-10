@@ -118,14 +118,17 @@ if __name__ == '__main__':
 
         kernel_opt = ''
         grub_variable = 'GRUB_CMDLINE_LINUX_DEFAULT'
+        run('systemctl mask amazon-ssm-agent', shell=True, check=True)
     elif args.target_cloud == 'gce':
         # align with other clouds image
         run('apt-get purge -y rsyslog', shell=True, check=True)
         kernel_opt = ''
         grub_variable = 'GRUB_CMDLINE_LINUX_DEFAULT'
+        run('systemctl mask google-osconfig-agent', shell=True, check=True)
     elif args.target_cloud == 'azure':
         kernel_opt = ' rootdelay=300'
         grub_variable = 'GRUB_CMDLINE_LINUX'
+        run('systemctl mask walinuxagent', shell=True, check=True)
 
     run('systemctl disable apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer motd-news.timer', shell=True, check=True)
     run('systemctl daemon-reload', shell=True, check=True)
