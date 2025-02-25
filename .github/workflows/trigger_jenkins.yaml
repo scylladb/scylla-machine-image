@@ -12,10 +12,10 @@ jobs:
       - name: Determine Jenkins Job Name
         run: |
           if [[ "${{ github.ref_name }}" == "next" ]]; then
-            echo "JOB_NAME=scylla-master/next-machine-image" >> $GITHUB_ENV
+            echo "JOB_NAME=scylla-master/job/next-machine-image" >> $GITHUB_ENV
           else
             VERSION=$(echo "${{ github.ref_name }}" | awk -F'-' '{print $2}')
-            echo "JOB_NAME=scylla-${VERSION}/next-machine-image-trigger" >> $GITHUB_ENV
+            echo "JOB_NAME=scylla-${VERSION}/job/next-machine-image" >> $GITHUB_ENV
           fi
 
       - name: Trigger Jenkins Job
@@ -26,7 +26,7 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
           echo "Triggering Jenkins Job: $JOB_NAME"
-          if ! curl -X POST "$JENKINS_URL/job/$JOB_NAME/build" --fail --user "$JENKINS_USER:$JENKINS_API_TOKEN"; then
+          if ! curl -X POST "$JENKINS_URL/job/$JOB_NAME/buildWithParameters" --fail --user "$JENKINS_USER:$JENKINS_API_TOKEN" -i -v; then
             echo "Error: Jenkins job trigger failed"
 
             # Send Slack message
