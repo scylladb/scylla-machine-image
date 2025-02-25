@@ -12,11 +12,16 @@ jobs:
       - name: Determine Jenkins Job Name
         run: |
           if [[ "${{ github.ref_name }}" == "next" ]]; then
-            echo "JOB_NAME=scylla-master/job/next-machine-image" >> $GITHUB_ENV
+            FOLDER_NAME="scylla-master"
           else
             VERSION=$(echo "${{ github.ref_name }}" | awk -F'-' '{print $2}')
-            echo "JOB_NAME=scylla-${VERSION}/job/next-machine-image" >> $GITHUB_ENV
+            if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+$ ]]; then
+              FOLDER_NAME="scylla-$VERSION"
+            elif [[ "$VERSION" =~ ^202[0-4]\.[0-9]+$ ]]; then
+              VERSION="enterprise-$VERSION"
+            fi
           fi
+          echo "JOB_NAME=${FOLDER_NAME}/job/next-machine-image" >> $GITHUB_ENV
 
       - name: Trigger Jenkins Job
         env:
@@ -33,9 +38,8 @@ jobs:
             curl -X POST -H 'Content-type: application/json' \
               -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
               --data '{
-                "channel": "#jenkins-notifications",
-                "text": "🚨 Jenkins job *'$JOB_NAME'* failed!",
-                "icon_emoji": ":warning:"
+                "channel": "#releng-team",
+                "text": "🚨 @here '$JOB_NAME' failed to be triggered, please check https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }} for more details"
               }' \
               https://slack.com/api/chat.postMessage
 
