@@ -18,7 +18,7 @@ jobs:
             if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+$ ]]; then
               FOLDER_NAME="scylla-$VERSION"
             elif [[ "$VERSION" =~ ^202[0-4]\.[0-9]+$ ]]; then
-              VERSION="enterprise-$VERSION"
+              FOLDER_NAME="enterprise-$VERSION"
             fi
           fi
           echo "JOB_NAME=${FOLDER_NAME}/job/next-machine-image" >> $GITHUB_ENV
