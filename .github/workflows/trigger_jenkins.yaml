@@ -15,10 +15,10 @@ jobs:
             FOLDER_NAME="scylla-master"
           else
             VERSION=$(echo "${{ github.ref_name }}" | awk -F'-' '{print $2}')
-            if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+$ ]]; then
-              FOLDER_NAME="scylla-$VERSION"
-            elif [[ "$VERSION" =~ ^202[0-4]\.[0-9]+$ ]]; then
+            if [[ "$VERSION" =~ ^202[0-4]\.[0-9]+$ ]]; then
               FOLDER_NAME="enterprise-$VERSION"
+            elif [[ "$VERSION" =~ ^[0-9]+\.[0-9]+$ ]]; then
+              FOLDER_NAME="scylla-$VERSION"
             fi
           fi
           echo "JOB_NAME=${FOLDER_NAME}/job/next-machine-image" >> $GITHUB_ENV
