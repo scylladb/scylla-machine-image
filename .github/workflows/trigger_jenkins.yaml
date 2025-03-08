@@ -26,7 +26,7 @@ jobs:
           echo "JOB_NAME=${FOLDER_NAME}/job/next-machine-image" >> $GITHUB_ENV
 
       - name: Start Jenkins Job
-        uses: scylladb-actions/jenkins-client@v0.1.0
+        uses: scylladb-actions/jenkins-client@v0.2.0
         with:
           job_name: ${{ env.JOB_NAME }}
           base_url: https://jenkins.scylladb.com
