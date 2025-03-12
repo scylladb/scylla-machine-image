@@ -204,6 +204,23 @@
       "type": "shell"
     },
     {
+      "inline": [
+        "curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sudo sh -s -- -b /usr/local/bin",
+        "sudo syft -o cyclonedx-json@1.4 / > /home/{{user `ssh_username`}}/sbom_report.json",
+        "python3 -c 'import json; d=json.load(open(\"/home/{{user `ssh_username`}}/sbom_report.json\")); d[\"components\"]=[c for c in d[\"components\"] if c.get(\"type\")!=\"file\"]; json.dump(d, open(\"/home/{{user `ssh_username`}}/ami_sbom_report_{{user `scylla_version`}}_{{user `arch`}}.json\", \"w\"), indent=2)'",
+        "sudo rm -f /usr/local/bin/syft /home/{{user `ssh_username`}}/sbom_report.json"
+      ],
+      "only": ["aws"],
+      "type": "shell"
+    },
+    {
+      "source": "/home/{{user `ssh_username`}}/ami_sbom_report_{{user `scylla_version`}}_{{user `arch`}}.json",
+      "destination": "build/",
+      "direction": "download",
+      "only": ["aws"],
+      "type": "file"
+    },
+    {
       "source": "/home/{{user `ssh_username`}}/{{user `product`}}-{{build_name}}-kernel-{{user `scylla_full_version`}}-{{user `arch`}}.txt",
       "destination": "build/",
       "direction": "download",
