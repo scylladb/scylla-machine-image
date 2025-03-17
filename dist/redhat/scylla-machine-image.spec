@@ -4,13 +4,14 @@ Release:        %{release}
 Summary:        Scylla Machine Image
 Group:          Applications/Databases
 
-License:        ASL 2.0
+License:        Apache-2.0
 URL:            http://www.scylladb.com/
 Source0:        %{name}-%{version}-%{release}.tar
 Requires:       %{product} = %{version} %{product}-python3 curl
+Provides:       scylla-enterprise-machine-image = %{version}-%{release}
+Obsoletes:      scylla-enterprise-machine-image < 2025.1.0
 
 BuildArch:      noarch
-Obsoletes:      scylla-machine-image
 
 %global _python_bytecompile_errors_terminate_build 0
 %global __brp_python_bytecompile %{nil}

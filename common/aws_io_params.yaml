@@ -543,11 +543,21 @@ i4i.8xlarge:
   read_bandwidth: 3115819008
   write_iops: 239980
   write_bandwidth: 2289285120
+i4i.12xlarge:
+  read_iops: 294982
+  read_bandwidth: 3116245760
+  write_iops: 67283
+  write_bandwidth: 2287695786
 i4i.16xlarge:
   read_iops: 374273
   read_bandwidth: 3088962816
   write_iops: 240185
   write_bandwidth: 2292813568
+i4i.24xlarge:
+  read_iops: 282557
+  read_bandwidth: 3116171434
+  write_iops: 67003
+  write_bandwidth: 2288658688
 i4i.32xlarge:
   read_iops: 374273
   read_bandwidth: 3095612416
@@ -558,3 +568,23 @@ i4i.metal:
   read_bandwidth: 3088599296
   write_iops: 239549
   write_bandwidth: 2302438912
+i7ie.large:
+  read_iops: 58449
+  read_bandwidth: 574854656
+  write_iops: 47145
+  write_bandwidth: 253132917
+i7ie.xlarge:
+  read_iops: 117257
+  read_bandwidth: 1148572714
+  write_iops: 94180
+  write_bandwidth: 505684885
+i7ie.2xlarge:
+  read_iops: 117257
+  read_bandwidth: 1148572714
+  write_iops: 94180
+  write_bandwidth: 505684885
+i7ie.ALL:
+  read_iops: 352834
+  read_bandwidth: 3422623232
+  write_iops: 119327
+  write_bandwidth: 1526442410

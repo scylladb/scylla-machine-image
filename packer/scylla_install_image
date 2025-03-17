@@ -79,7 +79,7 @@ if __name__ == '__main__':
     run('apt-get update --allow-insecure-repositories -y', shell=True, check=True)
     run('apt-get full-upgrade -y', shell=True, check=True)
     run('apt-get purge -y apport python3-apport fuse', shell=True, check=True)
-    run('apt-get install -y systemd-coredump vim.tiny nmap ncat tmux jq python3-boto xfsprogs mdadm initramfs-tools ethtool vim-nox sysstat cpufrequtils ', shell=True, check=True)
+    run('apt-get install -y systemd-coredump vim.tiny nmap ncat tmux jq python3-boto xfsprogs mdadm initramfs-tools ethtool vim-nox sysstat cpufrequtils nload htop traceroute dnsutils net-tools', shell=True, check=True)
     run(f'apt-get install -y --auto-remove --allow-unauthenticated {args.product}-machine-image {args.product}-server-dbg', shell=True, check=True)
 
     os.remove('/etc/apt/sources.list.d/scylla_install.list')
@@ -118,14 +118,17 @@ if __name__ == '__main__':
 
         kernel_opt = ''
         grub_variable = 'GRUB_CMDLINE_LINUX_DEFAULT'
+        run('systemctl mask amazon-ssm-agent', shell=True, check=True)
     elif args.target_cloud == 'gce':
         # align with other clouds image
         run('apt-get purge -y rsyslog', shell=True, check=True)
         kernel_opt = ''
         grub_variable = 'GRUB_CMDLINE_LINUX_DEFAULT'
+        run('systemctl mask google-osconfig-agent', shell=True, check=True)
     elif args.target_cloud == 'azure':
         kernel_opt = ' rootdelay=300'
         grub_variable = 'GRUB_CMDLINE_LINUX'
+        run('systemctl mask walinuxagent', shell=True, check=True)
 
     run('systemctl disable apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer motd-news.timer', shell=True, check=True)
     run('systemctl daemon-reload', shell=True, check=True)
