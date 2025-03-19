@@ -588,3 +588,48 @@ i7ie.ALL:
   read_bandwidth: 3422623232
   write_iops: 119327
   write_bandwidth: 1526442410
+i8g.large:
+  read_iops: 82268
+  read_bandwidth: 605359957
+  write_iops: 45598
+  write_bandwidth: 419360096
+i8g.xlarge:
+  read_iops: 164442
+  read_bandwidth: 1216944170
+  write_iops: 90446
+  write_bandwidth: 838613674
+i8g.2xlarge:
+  read_iops: 328275
+  read_bandwidth: 2438557696
+  write_iops: 134545
+  write_bandwidth: 1687947733
+i8g.4xlarge:
+  read_iops: 553607
+  read_bandwidth: 4797597013
+  write_iops: 140814
+  write_bandwidth: 3419948373
+i8g.8xlarge:
+  read_iops: 527429
+  read_bandwidth: 4797424981
+  write_iops: 139669
+  write_bandwidth: 3421133482
+i8g.12xlarge:
+  read_iops: 511314
+  read_bandwidth: 4794307754
+  write_iops: 139187
+  write_bandwidth: 3421301930
+i8g.16xlarge:
+  read_iops: 505671
+  read_bandwidth: 4797634048
+  write_iops: 139999
+  write_bandwidth: 3420557226
+i8g.24xlarge:
+  read_iops: 518127
+  read_bandwidth: 4796989610
+  write_iops: 139994
+  write_bandwidth: 3423059285
+i8g.metal-24xl:
+  read_iops: 511950
+  read_bandwidth: 4788620288
+  write_iops: 139157
+  write_bandwidth: 3419887189
