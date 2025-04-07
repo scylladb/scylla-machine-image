@@ -146,17 +146,17 @@ def main():
         closed_prs = [pr]
 
     for pr in closed_prs:
+        labels = [label.name for label in pr.labels]
         if args.pull_request:
             backport_labels = [args.label]
         else:
-            labels = [label.name for label in pr.labels]
             backport_labels = [label for label in labels if backport_label_pattern.match(label)]
-            if promoted_label not in labels:
-                print(f'no {promoted_label} label: {pr.number}')
-                continue
-            if not backport_labels:
-                print(f'no backport label: {pr.number}')
-                continue
+        if promoted_label not in labels:
+            print(f'no {promoted_label} label: {pr.number}')
+            continue
+        if not backport_labels:
+            print(f'no backport label: {pr.number}')
+            continue
         commits = get_pr_commits(repo, pr, stable_branch, start_commit)
         logging.info(f"Found PR #{pr.number} with commit {commits} and the following labels: {backport_labels}")
         for backport_label in backport_labels:
