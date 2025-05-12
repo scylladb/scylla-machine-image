@@ -238,3 +238,16 @@ MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,h
     with open('/etc/ssh/sshd_config.d/99-cis-rules.conf', 'w') as f:
         f.write(sshd_config)
     run('systemctl restart ssh.service', shell=True, check=True)
+
+
+    # xccdf_org.ssgproject.content_rule_accounts_tmout
+    tmout_sh = '''
+#!/bin/bash
+# Set TMOUT to 900 per security requirements
+TMOUT=900
+readonly TMOUT
+export TMOUT
+'''[1:-1]
+    with open('/etc/profile.d/99-tmout.sh', 'w') as f:
+        f.write(tmout_sh)
+    os.chmod('/etc/profile.d/99-tmout.sh', 0o755)
