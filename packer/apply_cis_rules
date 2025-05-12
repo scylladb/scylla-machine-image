@@ -272,3 +272,13 @@ MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,h
 
     # xccdf_org.ssgproject.content_rule_aide_periodic_checking_systemd_timer
     # Nothing to do, periodic job is enabled by default
+
+
+    # xccdf_org.ssgproject.content_rule_sudo_custom_logfile
+    sudoersd_logfile = 'Defaults logfile=/var/log/sudo.log'
+    with open('/etc/sudoers.d/99-logfile', 'w') as f:
+        f.write(sudoersd_logfile)
+    # xccdf_org.ssgproject.content_rule_sudo_require_reauthentication
+    sudoersd_timestamp_timeout = 'Defaults timestamp_timeout=15'
+    with open('/etc/sudoers.d/99-timestamp_timeout', 'w') as f:
+        f.write(sudoersd_timestamp_timeout)
