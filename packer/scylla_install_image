@@ -63,7 +63,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     run('apt-get update --allow-insecure-repositories -y', shell=True, check=True)
-    run('apt-get install -y gnupg2', shell=True, check=True)
+    run('apt-get install --no-install-recommends -y gnupg2', shell=True, check=True)
     run(f'mkdir -p {apt_keys_dir}; gpg --homedir /tmp --no-default-keyring --keyring {apt_keys_dir}/scylladb.gpg '
         f'--keyserver hkp://keyserver.ubuntu.com:80 --recv-keys a43e06657bac99e3', shell=True, check=True)
 
@@ -79,7 +79,7 @@ if __name__ == '__main__':
     run('apt-get update --allow-insecure-repositories -y', shell=True, check=True)
     run('apt-get full-upgrade -y', shell=True, check=True)
     run('apt-get purge -y accountsservice acpid apport fuse fwupd-signed modemmanager motd-news-config python3-apport snapd udisks2 unattended-upgrades update-notifier-common', shell=True, check=True)
-    run(f'apt-get install -y --auto-remove --allow-unauthenticated {args.product}-machine-image {args.product}-server-dbg ' \
+    run(f'apt-get install -y --auto-remove --allow-unauthenticated --no-install-recommends {args.product}-machine-image {args.product}-server-dbg ' \
         'cpufrequtils dnsutils ethtool initramfs-tools jq mdadm ncat netcat-openbsd ' \
         'net-tools nload nmap python3-boto sysstat systemd-coredump tmux traceroute vim-nox vim.tiny xfsprogs', shell=True, check=True)
     run(f'curl -L -o /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_{deb_arch()} && chmod +x /usr/local/bin/yq', shell=True, check=True)
@@ -88,7 +88,7 @@ if __name__ == '__main__':
         run(f'curl -L -o /etc/apt/sources.list.d/scylla.list {args.repo_for_update}', shell=True, check=True)
 
     if args.target_cloud == 'aws':
-        run('apt-get install -y pipx', shell=True, check=True)
+        run('apt-get install --no-install-recommends -y pipx', shell=True, check=True)
         run('pipx install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-2.0-18.tar.gz', shell=True, check=True)
 
         # install .deb version of ssm-agent since we dropped snapd version
