@@ -36,7 +36,7 @@ if is_redhat && ! rpm -q sudo; then
 elif is_debian && ! dpkg -s sudo > /dev/null 2>&1; then
     apt-get update
     apt_updated=true
-    apt-get install -y sudo
+    apt-get install -y --no-install-recommends sudo
 fi
 
 yum_install() {
@@ -53,7 +53,7 @@ apt_install() {
             sudo apt-get update
             apt_updated=true
         fi
-        sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y $1
+        sudo env DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y $1
     else
         echo "$1 already installed."
     fi
@@ -72,6 +72,7 @@ if [[ ! -e dist/debian/build_deb.sh ]]; then
     exit 1
 fi
 
+pkg_install build-essential
 pkg_install devscripts
 pkg_install debhelper
 pkg_install fakeroot
