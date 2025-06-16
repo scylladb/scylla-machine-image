@@ -358,7 +358,7 @@ class gcp_instance(cloud_instance):
         """Returns if this instance type belongs to supported ones for nvmes"""
         if self.instancetype == self.m1supported:
             return True
-        if self.instance_class() in ['n1', 'n2', 'n2d' ,'c2']:
+        if self.instance_class() in ['n1', 'n2', 'n2d' ,'c2', 'z3']:
             return True
         return False
 
