@@ -43,13 +43,13 @@ fi
 
 # On clean CentOS Docker sudo command is not installed
 if ! rpm -q sudo; then
-    yum install -y sudo
+    yum install -y --setopt=install_weak_deps=False sudo
 fi
 
 
 pkg_install() {
     if ! rpm -q $1; then
-        sudo yum install -y $1
+        sudo yum install -y --setopt=install_weak_deps=False $1
     else
         echo "$1 already installed."
     fi
