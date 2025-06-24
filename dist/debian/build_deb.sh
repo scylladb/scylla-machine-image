@@ -32,7 +32,7 @@ apt_updated=false
 
 # On clean Docker sudo command is not installed
 if is_redhat && ! rpm -q sudo; then
-    yum install -y sudo
+    yum install -y --setopt=install_weak_deps=False sudo
 elif is_debian && ! dpkg -s sudo > /dev/null 2>&1; then
     apt-get update
     apt_updated=true
@@ -41,7 +41,7 @@ fi
 
 yum_install() {
     if ! rpm -q $1; then
-        sudo yum install -y $1
+        sudo yum install -y --setopt=install_weak_deps=False $1
     else
         echo "$1 already installed."
     fi
