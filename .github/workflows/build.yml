@@ -26,8 +26,8 @@ jobs:
             pip install -r test-requirements.txt
             pytest ./tests
 
-      - name: Build RPM (Rockylinux:8)
-        run: docker run -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm rockylinux:8 bash -c 'dnf update -y; dnf install -y git ; git config --global --add safe.directory "*"; ./dist/redhat/build_rpm.sh -t centos8'
+      - name: Build RPM (CentOS 8)
+        run: docker run -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm redhat/ubi10-minimal bash -c 'ln -s /usr/bin/microdnf /usr/bin/dnf && ln -s /usr/bin/microdnf /usr/bin/yum && dnf update -y && dnf install -y git sudo && git config --global --add safe.directory "*"; ./dist/redhat/build_rpm.sh -t centos8'
 
       - name: Build DEB (Ubuntu:22.04)
         run: docker run -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm ubuntu:22.04 bash -c 'apt update -y; apt install -y git ; git config --global --add safe.directory "*"; ./dist/debian/build_deb.sh'
