@@ -603,8 +603,3 @@ i7i.2xlarge:
   read_bandwidth: 2438352896
   write_iops: 180500
   write_bandwidth: 1688460672
-i7i.ALL:
-  read_iops: 561784
-  read_bandwidth: 4797273429
-  write_iops: 248036
-  write_bandwidth: 3424567808
