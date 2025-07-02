@@ -588,3 +588,19 @@ i7ie.ALL:
   read_bandwidth: 3422623232
   write_iops: 119327
   write_bandwidth: 1526442410
+i7i.large:
+  read_iops: 82265
+  read_bandwidth: 605572458
+  write_iops: 45701
+  write_bandwidth: 419357536
+i7i.xlarge:
+  read_iops: 164466
+  read_bandwidth: 1216811392
+  write_iops: 91157
+  write_bandwidth: 838602026
+i7i.2xlarge:
+  read_iops: 328246
+  read_bandwidth: 2438352896
+  write_iops: 180500
+  write_bandwidth: 1688460672
+
