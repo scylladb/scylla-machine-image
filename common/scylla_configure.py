@@ -16,7 +16,7 @@ from lib.scylla_cloud import scylla_excepthook
 from lib.log import setup_logging
 from lib.user_data import UserData
 from pathlib import Path
-
+from lib.param_estimation import estimate_streaming_bandwidth
 LOGGER = logging.getLogger(__name__)
 
 
@@ -78,6 +78,9 @@ class ScyllaMachineImageConfigurator(UserData):
         self.CONF_DEFAULTS["scylla_yaml"]["broadcast_rpc_address"] = private_ip
         self.CONF_DEFAULTS["scylla_yaml"]["seed_provider"][0]['parameters'][0]['seeds'] = private_ip
         self.CONF_DEFAULTS["scylla_yaml"]["endpoint_snitch"] = self.cloud_instance.endpoint_snitch
+        stream_bandw = estimate_streaming_bandwidth()
+        if stream_bandw != 0:
+            self.CONF_DEFAULTS["scylla_yaml"]["stream_io_throughput_mb_per_sec"] = stream_bandw
 
     def configure_scylla_yaml(self):
         self.updated_ami_conf_defaults()
