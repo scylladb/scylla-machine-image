@@ -78,25 +78,14 @@ if __name__ == '__main__':
 
     run('apt-get update --allow-insecure-repositories -y', shell=True, check=True)
     run('apt-get full-upgrade -y', shell=True, check=True)
-    run('apt-get purge -y apport python3-apport fuse', shell=True, check=True)
-    run('apt-get install -y systemd-coredump vim.tiny nmap ncat tmux jq python3-boto xfsprogs mdadm initramfs-tools ethtool vim-nox sysstat cpufrequtils nload htop traceroute dnsutils net-tools netcat-openbsd', shell=True, check=True)
-    run(f'apt-get install -y --auto-remove --allow-unauthenticated {args.product}-machine-image {args.product}-server-dbg', shell=True, check=True)
-
+    run('apt-get purge -y accountsservice acpid apport fuse fwupd-signed modemmanager motd-news-config python3-apport snapd udisks2 unattended-upgrades update-notifier-common', shell=True, check=True)
+    run(f'apt-get install -y --auto-remove --allow-unauthenticated {args.product}-machine-image {args.product}-server-dbg ' \
+        'cpufrequtils dnsutils ethtool initramfs-tools jq mdadm ncat netcat-openbsd ' \
+        'net-tools nload nmap python3-boto sysstat systemd-coredump tmux traceroute vim-nox vim.tiny xfsprogs', shell=True, check=True)
+    run(f'curl -L -o /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_{deb_arch()} && chmod +x /usr/local/bin/yq', shell=True, check=True)
     os.remove('/etc/apt/sources.list.d/scylla_install.list')
     if args.repo_for_update:
         run(f'curl -L -o /etc/apt/sources.list.d/scylla.list {args.repo_for_update}', shell=True, check=True)
-
-    # disable unattended-upgrades
-    run('apt-get purge -y unattended-upgrades update-notifier-common', shell=True, check=True)
-    # remove snapd
-    run('apt-get purge -y snapd', shell=True, check=True)
-    run('apt-get purge -y modemmanager', shell=True, check=True)
-    run('apt-get purge -y accountsservice', shell=True, check=True)
-    run('apt-get purge -y acpid motd-news-config fwupd-signed', shell=True, check=True)
-    run('apt-get purge -y udisks2 htop', shell=True, check=True)
-
-    # drop packages does not need anymore
-    run('apt-get autoremove --purge -y', shell=True, check=True)
 
     if args.target_cloud == 'aws':
         run('apt-get install -y pipx', shell=True, check=True)
@@ -130,7 +119,7 @@ if __name__ == '__main__':
         grub_variable = 'GRUB_CMDLINE_LINUX'
         run('systemctl mask walinuxagent', shell=True, check=True)
 
-    run('systemctl disable apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer motd-news.timer', shell=True, check=True)
+    run('systemctl disable apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer motd-news.timer esm-cache.service apt-news.service', shell=True, check=True)
     run('systemctl daemon-reload', shell=True, check=True)
     run('systemctl enable scylla-image-setup.service', shell=True, check=True)
     run('systemctl enable scylla-image-post-start.service', shell=True, check=True)
