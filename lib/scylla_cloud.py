@@ -744,7 +744,7 @@ class aws_instance(cloud_instance):
     def __populate_disks(self):
         devmap = self.__instance_metadata("meta-data/block-device-mapping")
         self._disks = {}
-        devname = re.compile("^\D+")
+        devname = re.compile(r"^\D+")
         nvmes_present = self._non_root_nvmes()
         for k,v in nvmes_present.items():
             self._disks[k] = v
