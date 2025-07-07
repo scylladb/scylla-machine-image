@@ -10,6 +10,7 @@ override_dh_auto_install:
 	install -d -m755 $(CURDIR)/debian/tmp/opt/scylladb/scylla-machine-image/lib
 	install -m644 lib/log.py lib/scylla_cloud.py lib/user_data.py $(CURDIR)/debian/tmp/opt/scylladb/scylla-machine-image/lib
 	install -m644 common/aws_io_params.yaml $(CURDIR)/debian/tmp/opt/scylladb/scylla-machine-image
+	install -m644 common/aws_net_params.json $(CURDIR)/debian/tmp/opt/scylladb/scylla-machine-image
 	install -m755 common/scylla_configure.py common/scylla_post_start.py common/scylla_create_devices $(CURDIR)/debian/tmp/opt/scylladb/scylla-machine-image
 	./tools/relocate_python_scripts.py \
 		--installroot $(CURDIR)/debian/tmp/opt/scylladb/scylla-machine-image/ \
