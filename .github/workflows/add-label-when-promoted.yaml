@@ -36,7 +36,7 @@ jobs:
           git config --global user.email "action@github.com"
           git config --global merge.conflictstyle diff3
       - name: Install dependencies
-        run: sudo apt-get install -y python3-github python3-git
+        run: sudo apt-get install -y --no-install-recommends python3-github python3-git
       - name: Run python script
         if: github.event_name == 'push'
         env:
