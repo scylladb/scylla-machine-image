@@ -247,3 +247,10 @@ MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,h
         file.write("readonly TMOUT\n")
         file.write("export TMOUT\n")
     os.chmod('/etc/profile.d/tmout.sh', 0o755)
+
+    # xccdf_org.ssgproject.content_rule_sudo_custom_logfile
+    var_sudo_logfile = '/var/log/sudo.log'
+    with open('/etc/sudoers.d/99_logfile', 'w') as f:
+        f.write(f"Defaults logfile={var_sudo_logfile}\n")
+    os.chmod('/etc/sudoers.d/99_logfile', 0o660)
+    run('visudo -cf /etc/sudoers.d/99_logfile', shell=True, check=True)
