@@ -36,6 +36,7 @@ install -d -m755 $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image
 install -d -m755 $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/lib
 install -m644 lib/log.py lib/scylla_cloud.py lib/user_data.py $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/lib
 install -m644 common/aws_io_params.yaml $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/
+install -m644 common/gcp_io_params.yaml $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/
 install -m755 common/scylla_configure.py common/scylla_post_start.py common/scylla_create_devices \
         $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/
 ./tools/relocate_python_scripts.py \
