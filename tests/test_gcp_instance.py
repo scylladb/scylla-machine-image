@@ -254,6 +254,16 @@ class TestGcpInstance(TestCase, GcpMetadata):
         ins = gcp_instance()
         assert ins.is_supported_instance_class()
 
+    def test_is_supported_instance_class_z3_highmem_8_highlssd(self):
+        self.httpretty_gcp_metadata(instance_type='z3-highmem-8-highlssd')
+        ins = gcp_instance()
+        assert ins.is_supported_instance_class()
+
+    def test_is_supported_instance_class_z3_highmem_88_standardlssd(self):
+        self.httpretty_gcp_metadata(instance_type='z3-highmem-88-standardlssd')
+        ins = gcp_instance()
+        assert ins.is_supported_instance_class()
+
     def test_is_recommended_instance_size_n2_standard_8(self):
         self.httpretty_gcp_metadata()
         ins = gcp_instance()
