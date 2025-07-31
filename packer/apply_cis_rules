@@ -261,3 +261,14 @@ MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,h
         f.write(f"Defaults timestamp_timeout={var_sudo_timestamp_timeout}\n")
     os.chmod('/etc/sudoers.d/99_timestamp_timeout', 0o660)
     run('visudo -cf /etc/sudoers.d/99_timestamp_timeout', shell=True, check=True)
+
+    # xccdf_org.ssgproject.content_rule_package_aide_installed
+    # Install aide package non-interactively
+    run(['apt-get', 'install', '-y', 'aide'],
+                   env={**os.environ, 'DEBIAN_FRONTEND': 'noninteractive'})
+
+    # xccdf_org.ssgproject.content_rule_aide_build_database
+    run(['/usr/sbin/aideinit', '-y', '-f'])
+
+    # xccdf_org.ssgproject.content_rule_aide_periodic_checking_systemd_timer
+    # Nothing to do, periodic job is enabled by default
