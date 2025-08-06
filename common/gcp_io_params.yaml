@@ -1,0 +1,65 @@
+z3-highmem-8-highlssd:
+  read_iops: 750000
+  read_bandwidth: 3221225472
+  write_iops: 500000
+  write_bandwidth: 2684354560
+
+z3-highmem-16-highlssd:
+  read_iops: 1500000
+  read_bandwidth: 6442450944
+  write_iops: 1000000
+  write_bandwidth: 5368709120
+
+z3-highmem-22-highlssd:
+  read_iops: 2250000
+  read_bandwidth: 9663676416
+  write_iops: 1500000
+  write_bandwidth: 8053063680
+
+z3-highmem-32-highlssd:
+  read_iops: 3000000
+  read_bandwidth: 12884901888
+  write_iops: 2000000
+  write_bandwidth: 10737418240
+
+z3-highmem-44-highlssd:
+  read_iops: 4500000
+  read_bandwidth: 19327352832
+  write_iops: 3000000
+  write_bandwidth: 16106127360
+
+z3-highmem-88-highlssd:
+  read_iops: 9000000
+  read_bandwidth: 38654705664
+  write_iops: 6000000
+  write_bandwidth: 32212254720
+
+z3-highmem-14-standardlssd:
+  read_iops: 750000
+  read_bandwidth: 3221225472
+  write_iops: 500000
+  write_bandwidth: 2684354560
+
+z3-highmem-22-standardlssd:
+  read_iops: 1500000
+  read_bandwidth: 6442450944
+  write_iops: 1000000
+  write_bandwidth: 5368709120
+
+z3-highmem-44-standardlssd:
+  read_iops: 2250000
+  read_bandwidth: 9663676416
+  write_iops: 1500000
+  write_bandwidth: 8053063680
+
+z3-highmem-88-standardlssd:
+  read_iops: 4500000
+  read_bandwidth: 19327352832
+  write_iops: 3000000
+  write_bandwidth: 16106127360
+
+z3-highmem-176-standardlssd:
+  read_iops: 9000000
+  read_bandwidth: 38654705664
+  write_iops: 6000000
+  write_bandwidth: 32212254720
