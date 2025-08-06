@@ -568,83 +568,93 @@ i4i.metal:
   read_bandwidth: 3088599296
   write_iops: 239549
   write_bandwidth: 2302438912
-i7ie.large:
-  read_iops: 58449
-  read_bandwidth: 574854656
-  write_iops: 47145
-  write_bandwidth: 253132917
-i7ie.xlarge:
-  read_iops: 117257
-  read_bandwidth: 1148572714
-  write_iops: 94180
-  write_bandwidth: 505684885
-i7ie.2xlarge:
-  read_iops: 117257
-  read_bandwidth: 1148572714
-  write_iops: 94180
-  write_bandwidth: 505684885
-i7ie.ALL:
-  read_iops: 352834
-  read_bandwidth: 3422623232
-  write_iops: 119327
-  write_bandwidth: 1526442410
-<<<<<<< HEAD
-||||||| parent of 4007fac (Update AWS i7i instance I/O parameters)
 i7i.large:
-  read_iops: 82265
-  read_bandwidth: 605572458
-  write_iops: 45701
-  write_bandwidth: 419357536
-i7i.xlarge:
-  read_iops: 164466
-  read_bandwidth: 1216811392
-  write_iops: 91157
-  write_bandwidth: 838602026
-i7i.2xlarge:
-  read_iops: 328246
-  read_bandwidth: 2438352896
-  write_iops: 180500
-  write_bandwidth: 1688460672
-
-=======
-i7i.large:
-  read_bandwidth: 526767296
   read_iops: 75029
-  write_bandwidth: 412903360
+  read_bandwidth: 526767296
   write_iops: 41253
+  write_bandwidth: 412903360
 i7i.xlarge:
-  read_bandwidth: 1057917888
   read_iops: 150061
-  write_bandwidth: 825843520
+  read_bandwidth: 1057917888
   write_iops: 82507
+  write_bandwidth: 825843520
 i7i.2xlarge:
-  read_bandwidth: 2133351552
   read_iops: 300483
-  write_bandwidth: 1662370688
+  read_bandwidth: 2133351552
   write_iops: 165128
+  write_bandwidth: 1662370688
 i7i.4xlarge:
-  read_bandwidth: 4266672128
   read_iops: 583935
-  write_bandwidth: 3368507648
+  read_bandwidth: 4266672128
   write_iops: 330688
+  write_bandwidth: 3368507648
 i7i.8xlarge:
-  read_bandwidth: 8533411840
-  read_iops: 1015409
-  write_bandwidth: 6737054720
-  write_iops: 661232
+  read_iops: 2030818
+  read_bandwidth: 17066823680
+  write_iops: 1322464
+  write_bandwidth: 13474109440
 i7i.12xlarge:
-  read_bandwidth: 12800154624
-  read_iops: 1446023
-  write_bandwidth: 10147609600
-  write_iops: 992098
+  read_iops: 4338069
+  read_bandwidth: 38400463872
+  write_iops: 2976294
+  write_bandwidth: 30442828800
 i7i.16xlarge:
-  read_bandwidth: 17259044864
-  read_iops: 1852713
-  write_bandwidth: 13573568512
-  write_iops: 1322586
+  read_iops: 7410852
+  read_bandwidth: 69036179456
+  write_iops: 5290344
+  write_bandwidth: 54294274048
 i7i.24xlarge:
-  read_bandwidth: 26121177088
-  read_iops: 2647697
-  write_bandwidth: 19944206336
-  write_iops: 2002573
->>>>>>> 4007fac (Update AWS i7i instance I/O parameters)
+  read_iops: 15886182
+  read_bandwidth: 156727062528
+  write_iops: 12015438
+  write_bandwidth: 119665238016
+i7i.48xlarge:
+  read_iops: 5223710
+  read_bandwidth: 52233424896
+  write_iops: 4016543
+  write_bandwidth: 40953311232
+i7ie.large:
+  read_iops: 54183
+  read_bandwidth: 500035616
+  write_iops: 43342
+  write_bandwidth: 250007504
+i7ie.xlarge:
+  read_iops: 108413
+  read_bandwidth: 1000058624
+  write_iops: 86684
+  write_bandwidth: 500034112
+i7ie.2xlarge:
+  read_iops: 432946
+  read_bandwidth: 4000089600
+  write_iops: 346960
+  write_bandwidth: 2000141952
+i7ie.3xlarge:
+  read_iops: 325522
+  read_bandwidth: 3047670528
+  write_iops: 256037
+  write_bandwidth: 1505950336
+i7ie.6xlarge:
+  - read_iops: 1061850
+    read_bandwidth: 12190453760
+    write_iops: 919012
+    write_bandwidth: 6023903232
+i7ie.12xlarge:
+  read_iops: 3794332
+  read_bandwidth: 48761073664
+  write_iops: 3190724
+  write_bandwidth: 24095168512
+i7ie.18xlarge:
+  read_iops: 8153544
+  read_bandwidth: 110610554880
+  write_iops: 6331452
+  write_bandwidth: 54207719424
+i7ie.24xlarge:
+  read_iops: 14163024
+  read_bandwidth: 199309246464
+  write_iops: 9872896
+  write_bandwidth: 96483745792
+i7ie.48xlarge:
+  read_iops: 3478541
+  read_bandwidth: 48636522496
+  write_iops: 2496468
+  write_bandwidth: 24572725248
