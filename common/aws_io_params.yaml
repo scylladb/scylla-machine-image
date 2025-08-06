@@ -589,18 +589,59 @@ i7ie.ALL:
   write_iops: 119327
   write_bandwidth: 1526442410
 i7i.large:
-  read_iops: 82265
-  read_bandwidth: 605572458
-  write_iops: 45701
-  write_bandwidth: 419357536
+  disks:
+  - mountpoint: /var/lib/scylla
+    read_bandwidth: 605572458
+    read_iops: 82265
+    write_bandwidth: 419357536
+    write_iops: 45701
 i7i.xlarge:
-  read_iops: 164466
-  read_bandwidth: 1216811392
-  write_iops: 91157
-  write_bandwidth: 838602026
+  disks:
+  - mountpoint: /var/lib/scylla
+    read_bandwidth: 1216811392
+    read_iops: 164466
+    write_bandwidth: 838602026
+    write_iops: 91157
 i7i.2xlarge:
-  read_iops: 328246
-  read_bandwidth: 2438352896
-  write_iops: 180500
-  write_bandwidth: 1688460672
+  disks:
+  - mountpoint: /var/lib/scylla
+    read_bandwidth: 2438352896
+    read_iops: 328246
+    write_bandwidth: 1688460672
+    write_iops: 180500
+i7i.4xlarge:
+  disks:
+  - mountpoint: /var/lib/scylla
+    read_bandwidth: 4771557888
+    read_iops: 632442
+    write_bandwidth: 3412591360
+    write_iops: 362746
+i7i.8xlarge:
+  disks:
+  - mountpoint: /var/lib/scylla
+    read_bandwidth: 18866339840
+    read_iops: 2212002
+    write_bandwidth: 13635286016
+    write_iops: 1446580
+i7i.12xlarge:
+  disks:
+  - mountpoint: /var/lib/scylla
+    read_bandwidth: 43187312640
+    read_iops: 4792845
+    write_bandwidth: 30719447040
+    write_iops: 3251160
+i7i.16xlarge:
+  disks:
+  - mountpoint: /var/lib/scylla
+    read_bandwidth: 74640777216
+    read_iops: 8247112
+    write_bandwidth: 54536830976
+    write_iops: 5772992
+i7i.24xlarge:
+  disks:
+  - mountpoint: /var/lib/scylla
+    read_bandwidth: 168671686656
+    read_iops: 17878188
+    write_bandwidth: 120035573760
+    write_iops: 12981132
 
