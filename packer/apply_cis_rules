@@ -308,3 +308,19 @@ ucredit = -1
     with open(pwquality_path, 'w') as f:
         f.write(pwquality_content)
     os.chmod(pwquality_path, 0o644)
+
+
+    # xccdf_org.ssgproject.content_rule_ensure_pam_wheel_group_empty
+    var_pam_wheel_group_for_su = 'sugroup'
+
+    with open('/etc/group', 'r') as f:
+        group_content = f.read()
+
+    group_pattern = f"^{var_pam_wheel_group_for_su}:[^:]*:[^:]*:[^:]*"
+    group_exists = any(line.startswith(f"{var_pam_wheel_group_for_su}:") for line in group_content.splitlines())
+
+    if not group_exists:
+        run(['groupadd', var_pam_wheel_group_for_su])
+
+    # group must be empty
+    run(['gpasswd', '-M', '', var_pam_wheel_group_for_su])
