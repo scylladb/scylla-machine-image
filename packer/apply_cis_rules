@@ -20,6 +20,10 @@ if __name__ == '__main__':
     parser.add_argument('--target-cloud', choices=['aws', 'gce', 'azure'], help='specify target cloud')
     args = parser.parse_args()
 
+    env_noninteractive = os.environ.copy()
+    env_noninteractive['DEBIAN_FRONTEND'] = 'noninteractive'
+    run(['apt-get', 'update'])
+
     # xccdf_org.ssgproject.content_rule_grub2_audit_argument
     kernel_opt = 'audit=1'
     # xccdf_org.ssgproject.content_rule_grub2_audit_backlog_limit_argument
@@ -264,11 +268,43 @@ MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,h
 
     # xccdf_org.ssgproject.content_rule_package_aide_installed
     # Install aide package non-interactively
-    run(['apt-get', 'install', '-y', 'aide'],
-                   env={**os.environ, 'DEBIAN_FRONTEND': 'noninteractive'})
+    run(['apt-get', 'install', '-y', 'aide'], env=env_noninteractive)
 
     # xccdf_org.ssgproject.content_rule_aide_build_database
     run(['/usr/sbin/aideinit', '-y', '-f'])
 
     # xccdf_org.ssgproject.content_rule_aide_periodic_checking_systemd_timer
     # Nothing to do, periodic job is enabled by default
+
+
+    # xccdf_org.ssgproject.content_rule_accounts_password_pam_dcredit
+    # xccdf_org.ssgproject.content_rule_accounts_password_pam_dictcheck
+    # xccdf_org.ssgproject.content_rule_accounts_password_pam_difok
+    # xccdf_org.ssgproject.content_rule_accounts_password_pam_enforce_root
+    # xccdf_org.ssgproject.content_rule_accounts_password_pam_enforcing
+    # xccdf_org.ssgproject.content_rule_accounts_password_pam_lcredit
+    # xccdf_org.ssgproject.content_rule_accounts_password_pam_maxrepeat
+    # xccdf_org.ssgproject.content_rule_accounts_password_pam_maxsequence
+    # xccdf_org.ssgproject.content_rule_accounts_password_pam_minclass
+    # xccdf_org.ssgproject.content_rule_accounts_password_pam_minlen
+    # xccdf_org.ssgproject.content_rule_accounts_password_pam_ocredit
+    # xccdf_org.ssgproject.content_rule_accounts_password_pam_pwquality_enabled
+    # xccdf_org.ssgproject.content_rule_accounts_password_pam_ucredit
+    run(['apt-get', 'install', '-y', 'libpam-pwquality'], env=env_noninteractive)
+    pwquality_path = "/etc/security/pwquality.conf"
+    pwquality_content = """dcredit = -1
+dictcheck = 1
+difok = 2
+enforce_for_root
+enforcing = 1
+lcredit = -1
+maxrepeat = 3
+maxsequence = 3
+minclass = 4
+minlen = 14
+ocredit = -1
+ucredit = -1
+"""
+    with open(pwquality_path, 'w') as f:
+        f.write(pwquality_content)
+    os.chmod(pwquality_path, 0o644)
