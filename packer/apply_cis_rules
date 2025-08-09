@@ -324,3 +324,37 @@ ucredit = -1
 
     # group must be empty
     run(['gpasswd', '-M', '', var_pam_wheel_group_for_su])
+
+
+    # xccdf_org.ssgproject.content_rule_use_pam_wheel_group_for_su
+    var_pam_wheel_group_for_su = 'sugroup'
+
+    PAM_CONF = '/etc/pam.d/su'
+
+    # Read the PAM configuration file
+    with open(PAM_CONF, 'r') as f:
+        content = f.read()
+
+    # Look for the specific pam_wheel.so line pattern
+    pamstr_match = re.search(r'^auth\s+required\s+pam_wheel\.so\s+(?=[^#]*\buse_uid\b)(?=[^#]*\bgroup=).*$', content, re.MULTILINE)
+    pamstr = pamstr_match.group(0) if pamstr_match else ""
+
+    if not pamstr:
+        # Remove any remaining uncommented pam_wheel.so line
+        content = re.sub(r'^auth\b.*\brequired\b.*\bpam_wheel\.so.*$', '', content, flags=re.MULTILINE)
+        # Add the new line after pam_rootok.so
+        content = re.sub(r'^(auth\s+sufficient\s+pam_rootok\.so.*$)',
+                       fr'\1\nauth             required        pam_wheel.so use_uid group={var_pam_wheel_group_for_su}',
+                       content, flags=re.MULTILINE)
+    else:
+        # Extract group value
+        group_match = re.search(r'\bgroup=([_a-z][-0-9_a-z]*)', pamstr)
+        group_val = group_match.group(1) if group_match else ""
+
+        if not group_val or group_val != var_pam_wheel_group_for_su:
+            content = re.sub(r'(^auth\s+required\s+pam_wheel\.so\s+[^#]*group=)[_a-z][-0-9_a-z]*',
+                           fr'\1{var_pam_wheel_group_for_su}', content, flags=re.MULTILINE)
+
+    # Write the modified content back to the file
+    with open(PAM_CONF, 'w') as f:
+        f.write(content)
