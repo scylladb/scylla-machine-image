@@ -4,4 +4,4 @@ psutil==7.0.0
 pytest==8.4.1
 PyYAML==6.0.2
 traceback-with-variables==2.2.0
-boto3==1.40.15
+boto3==1.40.16
