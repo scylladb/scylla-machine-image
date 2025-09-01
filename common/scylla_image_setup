@@ -7,12 +7,23 @@
 import os
 import sys
 import logging
+import subprocess
+import re
 from pathlib import Path
 from lib.log import setup_logging
 from lib.scylla_cloud import get_cloud_instance, is_gce, is_azure, is_redhat_variant
 from subprocess import run
 
 LOGGER = logging.getLogger(__name__)
+
+def disable_perftune():
+    # There is no way to disable SET_CLOCKSOURCE from scylla_sysconfig_setup
+    # once it enabled, so we have to directly editing the sysconfig file
+    with open('/etc/default/scylla-server') as f:
+        sysconfig = f.read()
+    sysconfig = re.sub(r'^SET_CLOCKSOURCE=.*$', 'SET_CLOCKSOURCE=no', sysconfig, flags=re.MULTILINE)
+    with open('/etc/default/scylla-server', 'w') as f:
+        f.write(sysconfig)
 
 if __name__ == '__main__':
     setup_logging()
@@ -32,7 +43,11 @@ if __name__ == '__main__':
         cloud_instance = get_cloud_instance()
         run('/opt/scylladb/scylla-machine-image/scylla_configure.py', shell=True, check=True)
 
-        run('/opt/scylladb/scripts/scylla_sysconfig_setup --nic eth0 --setup-nic', shell=True, check=True)
+        try:
+            run('/opt/scylladb/scripts/scylla_sysconfig_setup --nic eth0 --setup-nic', shell=True, check=True)
+        except subprocess.CalledProcessError:
+            disable_perftune()
+            LOGGER.warning('Failed to enable perftune.py, continue without using it')
         if os.path.ismount('/var/lib/scylla'):
             if cloud_instance.is_supported_instance_class():
                 # We run io_setup only when ehpemeral disks are available
