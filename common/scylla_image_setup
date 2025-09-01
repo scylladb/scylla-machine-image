@@ -6,11 +6,16 @@
 
 import os
 import sys
+import logging
 from pathlib import Path
+from lib.log import setup_logging
 from lib.scylla_cloud import get_cloud_instance, is_gce, is_azure, is_redhat_variant
 from subprocess import run
 
+LOGGER = logging.getLogger(__name__)
+
 if __name__ == '__main__':
+    setup_logging()
     if is_azure():
         swap_directory = Path('/mnt')
         swap_unit = Path('/etc/systemd/system/mnt-swapfile.swap')
@@ -44,5 +49,5 @@ if __name__ == '__main__':
                 run('systemctl is-active -q fstrim.timer && systemctl disable fstrim.timer', shell=True, check=True)
 
         if not os.path.ismount('/var/lib/scylla') and not cloud_instance.is_dev_instance_type():
-            print('Failed to initialize RAID volume!')
+            LOGGER.error('Failed to initialize RAID volume!')
         machine_image_configured.touch()
