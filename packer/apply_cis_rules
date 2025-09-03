@@ -272,3 +272,26 @@ MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,h
 
     # xccdf_org.ssgproject.content_rule_aide_periodic_checking_systemd_timer
     # Nothing to do, periodic job is enabled by default
+
+
+    # xccdf_org.ssgproject.content_rule_accounts_maximum_age_login_defs
+    var_accounts_maximum_age_login_defs = '365'
+
+    # Check if PASS_MAX_DAYS exists in /etc/login.defs
+    with open('/etc/login.defs', 'r') as f:
+        content = f.read()
+
+    if re.search(r'^PASS_MAX_DAYS', content, re.MULTILINE):
+        # Replace existing PASS_MAX_DAYS line
+        new_content = re.sub(r'PASS_MAX_DAYS.*',
+                           f'PASS_MAX_DAYS     {var_accounts_maximum_age_login_defs}',
+                           content)
+        with open('/etc/login.defs', 'w') as f:
+            f.write(new_content)
+        success = True
+    else:
+        success = False
+
+    if not success:
+        with open('/etc/login.defs', 'a') as f:
+            f.write(f"PASS_MAX_DAYS      {var_accounts_maximum_age_login_defs}\n")
