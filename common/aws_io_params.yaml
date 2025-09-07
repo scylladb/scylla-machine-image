@@ -579,15 +579,45 @@ i7ie.xlarge:
   write_iops: 94180
   write_bandwidth: 505684885
 i7ie.2xlarge:
-  read_iops: 117257
-  read_bandwidth: 1148572714
-  write_iops: 94180
-  write_bandwidth: 505684885
-i7ie.ALL:
+  read_iops: 234514
+  read_bandwidth: 2297145428
+  write_iops: 188360
+  write_bandwidth: 1011369770
+i7ie.3xlarge:
   read_iops: 352834
   read_bandwidth: 3422623232
   write_iops: 119327
   write_bandwidth: 1526442410
+i7ie.6xlarge:
+  read_iops: 705668
+  read_bandwidth: 6845246464
+  write_iops: 238654
+  write_bandwidth: 3052884820
+i7ie.12xlarge:
+  read_iops: 1411336
+  read_bandwidth: 13690492928
+  write_iops: 477308
+  write_bandwidth: 6105769640
+i7ie.18xlarge:
+  read_iops: 2117004
+  read_bandwidth: 20535739392
+  write_iops: 715962
+  write_bandwidth: 9158654460
+i7ie.24xlarge:
+  read_iops: 2822672
+  read_bandwidth: 27380985856
+  write_iops: 954616
+  write_bandwidth: 12211539280
+i7ie.metal-24xl:
+  read_iops: 2822672
+  read_bandwidth: 27380985856
+  write_iops: 954616
+  write_bandwidth: 12211539280
+i7ie.metal-48xl:
+  read_iops: 5645344
+  read_bandwidth: 54761971712
+  write_iops: 1909232
+  write_bandwidth: 24423078560
 i7i.large:
   read_iops: 82265
   read_bandwidth: 605572458
@@ -603,4 +633,34 @@ i7i.2xlarge:
   read_bandwidth: 2438352896
   write_iops: 180500
   write_bandwidth: 1688460672
+i7i.4xlarge:
+  read_iops: 632442
+  read_bandwidth: 4771557888
+  write_iops: 362746
+  write_bandwidth: 3412591360
+i7i.8xlarge:
+  read_iops: 1106001
+  read_bandwidth: 9433169920
+  write_iops: 723290
+  write_bandwidth: 6817643008
+i7i.12xlarge:
+  read_iops: 1597615
+  read_bandwidth: 14395770880
+  write_iops: 1083720
+  write_bandwidth: 10239815680
+i7i.16xlarge:
+  read_iops: 2061778
+  read_bandwidth: 18660194304
+  write_iops: 1443248
+  write_bandwidth: 13634207744
+i7i.24xlarge:
+  read_iops: 2979698
+  read_bandwidth: 28111947776
+  write_iops: 2163522
+  write_bandwidth: 20005928960
+i7i.metal-24xl:
+  read_iops: 2997968
+  read_bandwidth: 28088877056
+  write_iops: 2164124
+  write_bandwidth: 19988750336
 
