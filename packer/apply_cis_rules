@@ -381,3 +381,11 @@ ucredit = -1
     if not success:
         with open('/etc/login.defs', 'a') as f:
             f.write(f"PASS_MAX_DAYS      {var_accounts_maximum_age_login_defs}\n")
+
+
+    # xccdf_org.ssgproject.content_rule_account_disable_post_pw_expiration
+    var_account_disable_post_pw_expiration = '45'
+    config_file = "/etc/default/useradd"
+    with open(config_file, 'a') as f:
+        f.write('\n')
+        f.write(f"INACTIVE={var_account_disable_post_pw_expiration}\n")
