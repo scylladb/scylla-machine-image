@@ -634,10 +634,10 @@ i7ie.3xlarge:
   write_iops: 256037
   write_bandwidth: 1505950336
 i7ie.6xlarge:
-  - read_iops: 1061850
-    read_bandwidth: 12190453760
-    write_iops: 919012
-    write_bandwidth: 6023903232
+  read_iops: 1061850
+  read_bandwidth: 12190453760
+  write_iops: 919012
+  write_bandwidth: 6023903232
 i7ie.12xlarge:
   read_iops: 3794332
   read_bandwidth: 48761073664
@@ -658,3 +658,84 @@ i7ie.48xlarge:
   read_bandwidth: 48636522496
   write_iops: 2496468
   write_bandwidth: 24572725248
+i8g.large:
+  read_iops: 75029
+  read_bandwidth: 526759424
+  write_iops: 41253
+  write_bandwidth: 412912320
+i8g.xlarge:
+  read_iops: 150059
+  read_bandwidth: 1057916224
+  write_iops: 82508
+  write_bandwidth: 825837440
+i8g.2xlarge:
+  read_iops: 300481
+  read_bandwidth: 2133338752
+  write_iops: 165126
+  write_bandwidth: 1662360448
+i8g.4xlarge:
+  read_iops: 572927
+  read_bandwidth: 4266699264
+  write_iops: 330686
+  write_bandwidth: 3368528896
+i8g.8xlarge:
+  read_iops: 1963608
+  read_bandwidth: 17066126336
+  write_iops: 1321944
+  write_bandwidth: 13545230336
+i8g.12xlarge:
+  read_iops: 4270701
+  read_bandwidth: 38399447040
+  write_iops: 2975886
+  write_bandwidth: 30517484544
+i8g.16xlarge:
+  read_iops: 7410420
+  read_bandwidth: 69231714304
+  write_iops: 5290108
+  write_bandwidth: 54149341184
+i8g.24xlarge:
+  read_iops: 15974610
+  read_bandwidth: 158220251136
+  write_iops: 12429588
+  write_bandwidth: 118720081920
+i8ge.large:
+  read_iops: 54183
+  read_bandwidth: 500071552
+  write_iops: 43341
+  write_bandwidth: 250006496
+i8ge.xlarge:
+  read_iops: 108413
+  read_bandwidth: 1000043392
+  write_iops: 86686
+  write_bandwidth: 500028096
+i8ge.2xlarge:
+  read_iops: 433702
+  read_bandwidth: 4000013312
+  write_iops: 346296
+  write_bandwidth: 2000118784
+i8ge.3xlarge:
+  read_iops: 325520
+  read_bandwidth: 3047622656
+  write_iops: 254614
+  write_bandwidth: 1505959936
+i8ge.6xlarge:
+  read_iops: 1058654
+  read_bandwidth: 12190355456
+  write_iops: 900166
+  write_bandwidth: 6023806976
+i8ge.12xlarge:
+  read_iops: 3743524
+  read_bandwidth: 48761999360
+  write_iops: 3007176
+  write_bandwidth: 24098465792
+i8ge.18xlarge:
+  read_iops: 8154762
+  read_bandwidth: 109712044032
+  write_iops: 6410778
+  write_bandwidth: 54217230336
+i8ge.24xlarge:
+  read_iops: 14063448
+  read_bandwidth: 203865178112
+  write_iops: 9861448
+  write_bandwidth: 96404873216
+  
