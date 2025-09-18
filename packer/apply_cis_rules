@@ -401,3 +401,14 @@ ucredit = -1
             for filepath in glob.glob(pattern):
                 if os.path.isfile(filepath):
                     os.lchown(filepath, uid, -1)
+
+
+    # xccdf_org.ssgproject.content_rule_accounts_user_dot_group_ownership
+    for user_entry in pwd.getpwall():
+        gid = user_entry.pw_gid
+        home = user_entry.pw_dir
+        if gid >= 1000 and gid != 65534:
+            pattern = os.path.join(home, '.[!.]*')
+            for filepath in glob.glob(pattern):
+                if os.path.isfile(filepath):
+                    os.lchown(filepath, -1, gid)
