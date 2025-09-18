@@ -9,6 +9,8 @@ import os
 import sys
 import re
 import argparse
+import pwd
+import glob
 from subprocess import run
 
 if __name__ == '__main__':
@@ -389,3 +391,13 @@ ucredit = -1
     with open(config_file, 'a') as f:
         f.write('\n')
         f.write(f"INACTIVE={var_account_disable_post_pw_expiration}\n")
+
+    # xccdf_org.ssgproject.content_rule_accounts_user_dot_user_ownership
+    for user_entry in pwd.getpwall():
+        uid = user_entry.pw_uid
+        home = user_entry.pw_dir
+        if uid >= 1000 and uid != 65534:
+            pattern = os.path.join(home, '.[!.]*')
+            for filepath in glob.glob(pattern):
+                if os.path.isfile(filepath):
+                    os.lchown(filepath, uid, -1)
