@@ -11,7 +11,9 @@ import re
 import argparse
 import pwd
 import glob
+import stat
 from subprocess import run
+from pathlib import Path
 
 if __name__ == '__main__':
     if os.getuid() > 0:
@@ -412,3 +414,36 @@ ucredit = -1
             for filepath in glob.glob(pattern):
                 if os.path.isfile(filepath):
                     os.lchown(filepath, -1, gid)
+
+
+    # xccdf_org.ssgproject.content_rule_file_permission_user_init_files
+    var_user_initialization_files_regex = re.compile(r'^\.[\w\- ]+$')
+
+    # Get all interactive users with UID >= 1000 (equivalent to readarray commands)
+    interactive_users = [entry.pw_name for entry in pwd.getpwall() if entry.pw_uid >= 1000]
+    interactive_users_home = [entry.pw_dir for entry in pwd.getpwall() if entry.pw_uid >= 1000]
+    interactive_users_shell = [entry.pw_shell for entry in pwd.getpwall() if entry.pw_uid >= 1000]
+
+    USERS_IGNORED_REGEX = re.compile(r'nobody|nfsnobody')
+
+    for i in range(len(interactive_users)):
+        if not USERS_IGNORED_REGEX.search(interactive_users[i]) and \
+            interactive_users_shell[i] != "/sbin/nologin":
+
+            # Find initialization files in user's home directory (equivalent to find + grep)
+            init_files = []
+            try:
+                with os.scandir(interactive_users_home[i]) as it:
+                    for entry in it:
+                        if entry.is_file() and var_user_initialization_files_regex.match(entry.name):
+                            init_files.append(entry.name)
+            except (FileNotFoundError, PermissionError):
+                continue
+
+            for file in init_files:
+                file_path = Path(interactive_users_home[i]) / file
+                # chmod u-s,g-wxs,o= equivalent
+                current_mode = file_path.stat().st_mode
+                # Remove setuid (u-s), group write/execute/setgid (g-wxs), all others permissions (o=)
+                new_mode = current_mode & ~stat.S_ISUID & ~stat.S_IWGRP & ~stat.S_IXGRP & ~stat.S_ISGID & ~stat.S_IRWXO
+                file_path.chmod(new_mode)
