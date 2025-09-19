@@ -462,3 +462,10 @@ ucredit = -1
         home_dir = user_entry.pw_dir
         if uid >= 1000 and uid != 65534:
             os.chown(home_dir, -1, gid)
+
+    # xccdf_org.ssgproject.content_rule_file_ownership_home_directories
+    for user_entry in pwd.getpwall():
+        uid = user_entry.pw_uid
+        home_dir = user_entry.pw_dir
+        if uid >= 1000 and uid != 65534:
+            os.chown(home_dir, uid, -1)
