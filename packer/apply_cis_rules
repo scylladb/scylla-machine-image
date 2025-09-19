@@ -447,3 +447,9 @@ ucredit = -1
                 # Remove setuid (u-s), group write/execute/setgid (g-wxs), all others permissions (o=)
                 new_mode = current_mode & ~stat.S_ISUID & ~stat.S_IWGRP & ~stat.S_IXGRP & ~stat.S_ISGID & ~stat.S_IRWXO
                 file_path.chmod(new_mode)
+
+
+    # xccdf_org.ssgproject.content_rule_accounts_user_interactive_home_directory_exists
+    for entry in pwd.getpwall():
+        if entry.pw_uid >= 1000 and entry.pw_uid != 65534:
+            run(['mkhomedir_helper', entry.pw_name, '0077'], check=True)
