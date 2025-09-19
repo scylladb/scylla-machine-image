@@ -453,3 +453,12 @@ ucredit = -1
     for entry in pwd.getpwall():
         if entry.pw_uid >= 1000 and entry.pw_uid != 65534:
             run(['mkhomedir_helper', entry.pw_name, '0077'], check=True)
+
+
+    # xccdf_org.ssgproject.content_rule_file_groupownership_home_directories
+    for user_entry in pwd.getpwall():
+        uid = user_entry.pw_uid
+        gid = user_entry.pw_gid
+        home_dir = user_entry.pw_dir
+        if uid >= 1000 and uid != 65534:
+            os.chown(home_dir, -1, gid)
