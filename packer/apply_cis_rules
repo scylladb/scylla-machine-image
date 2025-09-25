@@ -494,3 +494,55 @@ Password-Initial: requisite pam_pwhistory.so remember=24 enforce_for_root try_fi
 
     # Run pam-auth-update noninteractively
     run(["pam-auth-update"], env=env_noninteractive)
+
+
+    # xccdf_org.ssgproject.content_rule_accounts_passwords_pam_faillock_deny
+    # xccdf_org.ssgproject.content_rule_accounts_passwords_pam_faillock_enabled
+    # xccdf_org.ssgproject.content_rule_accounts_passwords_pam_faillock_unlock_time
+    var_accounts_passwords_pam_faillock_deny = '4'
+    var_accounts_passwords_pam_faillock_unlock_time = '900'
+
+    conf_name = 'cac_faillock'
+    conf_path = "/usr/share/pam-configs"
+    conf_file = os.path.join(conf_path, conf_name)
+    if not os.path.isfile(conf_file):
+        with open(conf_file, 'w') as f:
+            f.write(
+                """Name: Enable pam_faillock to deny access
+Default: yes
+Conflicts: faillock
+Priority: 0
+Auth-Type: Primary
+Auth:
+    [default=die]                   pam_faillock.so authfail
+"""
+            )
+
+    conf_name = 'cac_faillock_notify'
+    conf_path = "/usr/share/pam-configs"
+    conf_file = os.path.join(conf_path, conf_name)
+    if not os.path.isfile(conf_file):
+        with open(conf_file, 'w') as f:
+            f.write(
+                """Name: Notify of failed login attempts and reset count upon success
+Default: yes
+Conflicts: faillock_notify
+Priority: 1025
+Auth-Type: Primary
+Auth:
+    requisite                       pam_faillock.so preauth
+Account-Type: Primary
+Account:
+    required                        pam_faillock.so
+"""
+            )
+
+    # Run pam-auth-update noninteractively
+    run(["pam-auth-update"], env=env_noninteractive)
+
+    faillock_conf = "/etc/security/faillock.conf"
+    faillock_content = f"""deny = {var_accounts_passwords_pam_faillock_deny}
+unlock_time = {var_accounts_passwords_pam_faillock_unlock_time}
+"""
+    with open(faillock_conf, 'a') as f:
+        f.write(faillock_content)
