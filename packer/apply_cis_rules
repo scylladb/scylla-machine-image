@@ -469,3 +469,28 @@ ucredit = -1
         home_dir = user_entry.pw_dir
         if uid >= 1000 and uid != 65534:
             os.chown(home_dir, uid, -1)
+
+
+    # xccdf_org.ssgproject.content_rule_accounts_password_pam_pwhistory_enabled
+    # xccdf_org.ssgproject.content_rule_accounts_password_pam_pwhistory_enforce_root
+    # xccdf_org.ssgproject.content_rule_accounts_password_pam_pwhistory_remember
+    # xccdf_org.ssgproject.content_rule_accounts_password_pam_pwhistory_use_authtok
+    conf_name = "cac_pwhistory"
+    conf_path = "/usr/share/pam-configs"
+    conf_file = os.path.join(conf_path, conf_name)
+
+    # Check if file exists
+    if not os.path.isfile(conf_file):
+        # Write configuration content
+        content = """Name: pwhistory password history checking
+Default: yes
+Priority: 1024
+Password-Type: Primary
+Password: requisite pam_pwhistory.so remember=24 enforce_for_root try_first_pass use_authtok
+Password-Initial: requisite pam_pwhistory.so remember=24 enforce_for_root try_first_pass
+"""
+        with open(conf_file, "w") as f:
+            f.write(content)
+
+    # Run pam-auth-update noninteractively
+    run(["pam-auth-update"], env=env_noninteractive)
