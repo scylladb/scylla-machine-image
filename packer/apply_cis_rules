@@ -274,8 +274,41 @@ MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,h
     # Install aide package non-interactively
     run(['apt-get', 'install', '-y', 'aide'], env=env_noninteractive)
 
+    aide_rules = '''
+!/dev/.*
+!/etc/scylla/.*
+!/etc/scylla.d/.*
+!/etc/systemd/system/local-fs.target.wants/var-lib-scylla.mount
+!/etc/systemd/system/multi-user.target.wants/swapfile.swap
+!/etc/systemd/system/multi-user.target.wants/var-lib-systemd-coredump.mount
+!/etc/systemd/system/scylla-server.service.d/mounts.conf
+!/etc/systemd/system/swapfile.swap
+!/etc/systemd/system/var-lib-scylla.mount
+!/home/.*
+!/opt/scylladb/python3/lib64/.*
+!/root/.*
+!/run/.*
+!/swapfile
+!/var/cache/.*
+!/var/lib/.*
+!/var/log/.*
+!/var/tmp/.*
+!/var/spool/.*
+!/vartmpfile
+'''
+    with open('/etc/aide/aide.conf', 'a') as f:
+        f.write(aide_rules)
+
+    os.makedirs('/etc/systemd/system/dailyaidecheck.service.d/', mode=0o755, exist_ok=True)
+    slice_conf = '''[Service]
+Slice=scylla-helper.slice
+'''
+    with open('/etc/systemd/system/dailyaidecheck.service.d/slice.conf', 'w') as f:
+        f.write(slice_conf)
+
     # xccdf_org.ssgproject.content_rule_aide_build_database
-    run(['/usr/sbin/aideinit', '-y', '-f'])
+    # Defer to run aideinit until the end of scylla.json, to make AIDE DB
+    # up-to-date
 
     # xccdf_org.ssgproject.content_rule_aide_periodic_checking_systemd_timer
     # Nothing to do, periodic job is enabled by default
