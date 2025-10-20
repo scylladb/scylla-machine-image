@@ -81,7 +81,7 @@ if __name__ == '__main__':
     run('apt-get purge -y accountsservice acpid apport fuse fwupd-signed modemmanager motd-news-config python3-apport snapd udisks2 unattended-upgrades update-notifier-common', shell=True, check=True)
     run(f'apt-get install -y --auto-remove --allow-unauthenticated {args.product}-machine-image {args.product}-server-dbg ' \
         'cpufrequtils dnsutils ethtool initramfs-tools jq mdadm ncat netcat-openbsd ' \
-        'net-tools nload nmap python3-boto sysstat systemd-coredump tmux traceroute vim-nox vim.tiny xfsprogs', shell=True, check=True)
+        'net-tools nload nmap python3-boto sysstat systemd-coredump tmux traceroute vim-nox vim.tiny xfsprogs aide', shell=True, check=True)
     run(f'curl -L -o /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_{deb_arch()} && chmod +x /usr/local/bin/yq', shell=True, check=True)
     os.remove('/etc/apt/sources.list.d/scylla_install.list')
     if args.repo_for_update:
@@ -119,7 +119,7 @@ if __name__ == '__main__':
         grub_variable = 'GRUB_CMDLINE_LINUX'
         run('systemctl mask walinuxagent', shell=True, check=True)
 
-    run('systemctl disable apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer motd-news.timer esm-cache.service apt-news.service', shell=True, check=True)
+    run('systemctl disable apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer motd-news.timer esm-cache.service apt-news.service dailyaidecheck.timer', shell=True, check=True)
     run('systemctl daemon-reload', shell=True, check=True)
     run('systemctl enable scylla-image-setup.service', shell=True, check=True)
     run('systemctl enable scylla-image-post-start.service', shell=True, check=True)
