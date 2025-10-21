@@ -1,0 +1,20 @@
+#!/usr/bin/env python3
+#
+# Copyright 2025 ScyllaDB
+#
+# SPDX-License-Identifier: Apache-2.0
+
+import os
+import sys
+from lib.scylla_cloud import get_cloud_instance, is_ec2
+
+if __name__ == '__main__':
+    if not is_ec2():
+        print('This machine is not running on EC2, exiting')
+        sys.exit(1)
+    cloud_instance = get_cloud_instance()
+    public_keys = cloud_instance.public_keys()
+    os.makedirs(os.path.expanduser('~/.ssh'), mode=0o700, exist_ok=True)
+    with open(os.path.expanduser('~/.ssh/authorized_keys'), 'w') as f:
+        f.writelines(public_keys)
+    os.chmod(os.path.expanduser('~/.ssh/authorized_keys'), 0o600)
