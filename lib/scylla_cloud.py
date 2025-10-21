@@ -897,6 +897,15 @@ class aws_instance(cloud_instance):
         else:
             return ''
 
+    def public_keys(self):
+        keylist = self.__instance_metadata('meta-data/public-keys/')
+        public_keys = []
+        for line in keylist.splitlines():
+            index, name = line.split('=')
+            key = self.__instance_metadata(f'meta-data/public-keys/{index}/openssh-key')
+            public_keys.append(key)
+        return public_keys
+
 
 async def identify_cloud_async():
     tasks = [

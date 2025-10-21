@@ -38,7 +38,7 @@ if __name__ == '__main__':
         print('Requires root permission.')
         sys.exit(1)
 
-    homedir = os.path.abspath(os.path.join(__file__, os.pardir))
+    homedir = os.environ['HOME']
     parser = argparse.ArgumentParser(description='Construct AMI')
     parser.add_argument('--localdeb', action='store_true', default=False,
                         help='deploy locally built rpms')
@@ -182,8 +182,36 @@ WantedBy=multi-user.target
         y['ssh_deletekeys'] = True
         y['system_info']['default_user']['name'] = 'scyllaadm'
         y['system_info']['default_user']['gecos'] = 'scyllaadm'
+        y['system_info']['default_user']['uid'] = 1000
+        y['users'].append({
+            'name': 'centos',
+            'gecos': 'centos',
+            'uid': 1001,
+            'groups': y['system_info']['default_user']['groups'],
+            'lock_passwd': y['system_info']['default_user']['lock_passwd'],
+            'shell': y['system_info']['default_user']['shell'],
+            'sudo':  y['system_info']['default_user']['sudo']
+        })
+        y['users'].append({
+            'name': 'ubuntu',
+            'gecos': 'ubuntu',
+            'uid': 1002,
+            'groups': y['system_info']['default_user']['groups'],
+            'lock_passwd': y['system_info']['default_user']['lock_passwd'],
+            'shell': y['system_info']['default_user']['shell'],
+            'sudo':  y['system_info']['default_user']['sudo']
+        })
+        y['runcmd'] = [
+            ['sudo', '-u', 'centos', '/opt/scylladb/scylla-machine-image/download_authorized_keys'],
+            ['sudo', '-u', 'ubuntu', '/opt/scylladb/scylla-machine-image/download_authorized_keys']
+        ]
+
+        class NoAliasDumper(yaml.Dumper):
+            def ignore_aliases(self, data):
+                return True
         with open('/etc/cloud/cloud.cfg', 'w') as f:
-            yaml.dump(y, f)
+            yaml.dump(y, f, Dumper=NoAliasDumper)
+
         # before deleting home directory, need to change current directory
         os.chdir('/tmp')
         run('userdel -r -f ubuntu', shell=True, check=True)
@@ -192,12 +220,6 @@ WantedBy=multi-user.target
         for skel in glob.glob('/etc/skel/.*'):
             shutil.copy(skel, '/home/scyllaadm')
             os.chown(skel, 1000, 1000)
-        run(f'useradd -o -u 1000 -g scyllaadm -G {groups} -s /bin/bash -d /home/scyllaadm centos', shell=True, check=True)
-        run('groupadd -o -g 1000 centos', shell=True, check=True)
-        os.symlink('/home/scyllaadm', '/home/centos')
-        run(f'useradd -o -u 1000 -g scyllaadm -G {groups} -s /bin/bash -d /home/scyllaadm ubuntu', shell=True, check=True)
-        run('groupadd -o -g 1000 ubuntu', shell=True, check=True)
-        os.symlink('/home/scyllaadm', '/home/ubuntu')
 
     if args.target_cloud == 'azure':
         with open('/etc/hosts', 'a') as f:
@@ -206,6 +228,6 @@ WantedBy=multi-user.target
             f.write('ClientAliveInterval 180 \nHostKeyAlgorithms +ssh-rsa \nPubkeyAcceptedKeyTypes +ssh-rsa')
 
     kver = run('uname -r', shell=True, check=True, capture_output=True, encoding='utf-8').stdout.strip()
-    with open('{}/{}-{}-kernel-{}-{}.txt'.format(homedir, args.product, args.target_cloud, args.scylla_version, arch()), 'a+') as f:
+    with open('/tmp/{}-{}-kernel-{}-{}.txt'.format(args.product, args.target_cloud, args.scylla_version, arch()), 'a+') as f:
             f.write(f'kernel-version: {kver}\n')
-    print('{}/{}-{}-kernel-{}-{}.txt generated.'.format(homedir, args.product, args.target_cloud, args.scylla_version, arch()))
+    print('/tmp/{}-{}-kernel-{}-{}.txt generated.'.format(args.product, args.target_cloud, args.scylla_version, arch()))
