@@ -536,3 +536,28 @@ unlock_time = {var_accounts_passwords_pam_faillock_unlock_time}
 """
     with open(faillock_conf, 'a') as f:
         f.write(faillock_content)
+
+
+    # xccdf_org.ssgproject.content_rule_accounts_umask_etc_bashrc
+    bash_bashrc = '''
+
+umask 027
+    '''[1:-1]
+    with open('/etc/bash.bashrc', 'a') as f:
+        f.write(bash_bashrc)
+
+    # xccdf_org.ssgproject.content_rule_accounts_umask_etc_login_defs
+    with open('/etc/login.defs') as f:
+        login_defs = f.read()
+    login_defs = re.sub(r'^UMASK\s+022', 'UMASK           027', login_defs, flags=re.MULTILINE)
+    with open('/etc/login.defs', 'w') as f:
+        f.write(login_defs)
+
+    # xccdf_org.ssgproject.content_rule_accounts_umask_etc_profile
+    umask_sh = '''
+#!/bin/bash
+umask 027
+    '''[1:-1]
+    with open('/etc/profile.d/99-umask.sh', 'w') as f:
+        f.write(umask_sh)
+    os.chmod('/etc/profile.d/99-umask.sh', 0o755)
