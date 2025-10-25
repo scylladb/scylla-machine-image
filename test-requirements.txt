@@ -3,5 +3,5 @@ httpretty==1.1.4
 psutil==7.1.1
 pytest==8.4.2
 PyYAML==6.0.3
-traceback-with-variables==2.2.0
+traceback-with-variables==2.2.1
 boto3==1.40.59
