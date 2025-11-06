@@ -34,10 +34,12 @@ if __name__ == '__main__':
     
     # Check if enhanced networking is enabled by verifying the driver
     if driver not in ['ena', 'ixgbevf']:
-        colorprint('{red}{nic} doesn\'t support enhanced networking!{nocolor}', nic=args.nic)
-        print(f'Current driver: {driver}')
+        colorprint('{red}Enhanced networking is not enabled on {nic}!{nocolor}', nic=args.nic)
+        print(f'Current NIC driver: {driver}')
         print('''Enhanced networking requires ena or ixgbevf driver.
-To enable enhanced networking, please use an instance type that supports it.
+The NIC hardware may support enhanced networking, but the current driver does not.
+To enable enhanced networking, please use an instance type that supports it and ensure
+the correct drivers are loaded.
 More documentation available at:
 http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking.html#enabling_enhanced_networking''')
         sys.exit(1)

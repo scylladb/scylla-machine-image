@@ -691,14 +691,23 @@ class aws_instance(cloud_instance):
 
     @classmethod
     def _get_supported_instance_classes(cls):
-        """Load supported instance classes from aws_io_params.yaml"""
+        """Load supported instance classes from aws_io_params.yaml
+        
+        The yaml file location can be overridden via AWS_IO_PARAMS_PATH environment variable.
+        """
         if cls._supported_instance_classes_cache is None:
             try:
-                # Try production path first, then relative path for tests
-                yaml_paths = [
-                    '/opt/scylladb/scylla-machine-image/aws_io_params.yaml',
-                    os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'common', 'aws_io_params.yaml')
-                ]
+                # Allow override via environment variable
+                yaml_path = os.environ.get('AWS_IO_PARAMS_PATH')
+                if yaml_path and os.path.exists(yaml_path):
+                    yaml_paths = [yaml_path]
+                else:
+                    # Try production path first, then relative path for tests
+                    yaml_paths = [
+                        '/opt/scylladb/scylla-machine-image/aws_io_params.yaml',
+                        os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'common', 'aws_io_params.yaml')
+                    ]
+                
                 io_params = None
                 for yaml_path in yaml_paths:
                     if os.path.exists(yaml_path):
@@ -717,9 +726,15 @@ class aws_instance(cloud_instance):
                     instance_classes.add(instance_class)
                 cls._supported_instance_classes_cache = instance_classes
             except Exception as e:
-                logging.warning(f"Failed to load aws_io_params.yaml: {e}")
-                # Fallback to empty set if file cannot be loaded
-                cls._supported_instance_classes_cache = set()
+                logging.error(f"Failed to load aws_io_params.yaml: {e}")
+                # Fallback to hardcoded list to maintain backward compatibility
+                # This should match the list that was previously hardcoded in is_supported_instance_class()
+                cls._supported_instance_classes_cache = {
+                    'i2', 'i3', 'i3en', 'c5d', 'm5d', 'm5ad', 'r5d', 'z1d', 
+                    'c6gd', 'm6gd', 'r6gd', 'x2gd', 'im4gn', 'is4gen', 
+                    'i4i', 'i4g', 'i7i', 'i7ie', 'i8g', 'i8ge'
+                }
+                logging.warning("Using fallback hardcoded instance class list")
         return cls._supported_instance_classes_cache
 
     def __disk_name(self, dev):
