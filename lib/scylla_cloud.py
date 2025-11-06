@@ -20,6 +20,7 @@ import distro
 import base64
 import datetime
 import asyncio
+import yaml
 from subprocess import run, CalledProcessError
 from abc import ABCMeta, abstractmethod
 
@@ -686,6 +687,40 @@ class aws_instance(cloud_instance):
     META_DATA_BASE_URL = "http://169.254.169.254/latest/"
     ENDPOINT_SNITCH = "Ec2Snitch"
     METADATA_TOKEN_TTL = 21600
+    _supported_instance_classes_cache = None
+
+    @classmethod
+    def _get_supported_instance_classes(cls):
+        """Load supported instance classes from aws_io_params.yaml"""
+        if cls._supported_instance_classes_cache is None:
+            try:
+                # Try production path first, then relative path for tests
+                yaml_paths = [
+                    '/opt/scylladb/scylla-machine-image/aws_io_params.yaml',
+                    os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'common', 'aws_io_params.yaml')
+                ]
+                io_params = None
+                for yaml_path in yaml_paths:
+                    if os.path.exists(yaml_path):
+                        with open(yaml_path) as f:
+                            io_params = yaml.safe_load(f)
+                        break
+                
+                if io_params is None:
+                    raise FileNotFoundError("aws_io_params.yaml not found in any expected location")
+                
+                # Extract unique instance classes from the yaml file
+                instance_classes = set()
+                for instance_type in io_params.keys():
+                    # Extract instance class (e.g., 'i3' from 'i3.large' or 'i3.ALL')
+                    instance_class = instance_type.split('.')[0]
+                    instance_classes.add(instance_class)
+                cls._supported_instance_classes_cache = instance_classes
+            except Exception as e:
+                logging.warning(f"Failed to load aws_io_params.yaml: {e}")
+                # Fallback to empty set if file cannot be loaded
+                cls._supported_instance_classes_cache = set()
+        return cls._supported_instance_classes_cache
 
     def __disk_name(self, dev):
         name = re.compile(r"(?:/dev/)?(?P<devname>[a-zA-Z]+)\d*")
@@ -812,9 +847,9 @@ class aws_instance(cloud_instance):
         return self._type.split(".")[0]
 
     def is_supported_instance_class(self):
-        if self.instance_class() in ['i2', 'i3', 'i3en', 'c5d', 'm5d', 'm5ad', 'r5d', 'z1d', 'c6gd', 'm6gd', 'r6gd', 'x2gd', 'im4gn', 'is4gen', 'i4i', 'i4g', 'i7i', 'i7ie', 'i8g', 'i8ge']:
-            return True
-        return False
+        """Check if instance class is supported by checking aws_io_params.yaml"""
+        supported_classes = self._get_supported_instance_classes()
+        return self.instance_class() in supported_classes
 
     def is_dev_instance_type(self):
         if self.instancetype in ['t3.micro']:
@@ -822,12 +857,24 @@ class aws_instance(cloud_instance):
         return False
 
     def get_en_interface_type(self):
+        """Get the enhanced networking interface type for this instance.
+        
+        This method is deprecated and only kept for backward compatibility.
+        Enhanced networking should be checked by verifying the actual NIC driver
+        (ena or ixgbevf) instead of relying on instance type lists.
+        
+        Returns the expected enhanced networking type based on instance class,
+        or None if enhanced networking is not expected to be supported.
+        """
         instance_class = self.instance_class()
         instance_size = self.instance_size()
+        # Legacy instance types that use ixgbevf
         if instance_class in ['c3', 'c4', 'd2', 'i2', 'r3']:
             return 'ixgbevf'
+        # Modern instance types that use ena
         if instance_class in ['a1', 'c5', 'c5a', 'c5d', 'c5n', 'c6g', 'c6gd', 'f1', 'g3', 'g4', 'h1', 'i3', 'i3en', 'inf1', 'm5', 'm5a', 'm5ad', 'm5d', 'm5dn', 'm5n', 'm6g', 'm6gd', 'p2', 'p3', 'r4', 'r5', 'r5a', 'r5ad', 'r5b', 'r5d', 'r5dn', 'r5n', 't3', 't3a', 'u-6tb1', 'u-9tb1', 'u-12tb1', 'u-18tn1', 'u-24tb1', 'x1', 'x1e', 'z1d', 'c6g', 'c6gd', 'm6g', 'm6gd', 't4g', 'r6g', 'r6gd', 'x2gd', 'im4gn', 'is4gen', 'i4i', 'i4g', 'i7i', 'i7ie', 'i8g', 'i8ge']:
             return 'ena'
+        # Special case for m4
         if instance_class == 'm4':
             if instance_size == '16xlarge':
                 return 'ena'

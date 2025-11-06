@@ -25,25 +25,26 @@ if __name__ == '__main__':
         sys.exit(1)
 
     aws = aws_instance()
-    instance_class = aws.instance_class()
-    en = aws.get_en_interface_type()
     match = re.search(r'^driver: (\S+)$', out(f'ethtool -i {args.nic}'), flags=re.MULTILINE)
+    if not match:
+        colorprint('{red}Unable to determine NIC driver!{nocolor}')
+        sys.exit(1)
+    
     driver = match.group(1)
-
-    if not en:
-        colorprint('{red}{instance_class} doesn\'t support enhanced networking!{nocolor}', instance_class=instance_class)
-        print('''To enable enhanced networking, please use the instance type which supports it.
+    
+    # Check if enhanced networking is enabled by verifying the driver
+    if driver not in ['ena', 'ixgbevf']:
+        colorprint('{red}{nic} doesn\'t support enhanced networking!{nocolor}', nic=args.nic)
+        print(f'Current driver: {driver}')
+        print('''Enhanced networking requires ena or ixgbevf driver.
+To enable enhanced networking, please use an instance type that supports it.
 More documentation available at:
 http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking.html#enabling_enhanced_networking''')
         sys.exit(1)
-    elif not aws.is_vpc_enabled(args.nic):
+    
+    if not aws.is_vpc_enabled(args.nic):
         colorprint('{red}VPC is not enabled!{nocolor}')
         print('To enable enhanced networking, please enable VPC.')
-        sys.exit(1)
-    elif driver != en:
-        colorprint('{red}Enhanced networking is disabled!{nocolor}')
-        print('''More documentation available at:
-http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking.html''')
         sys.exit(1)
 
     colorprint('{green}This EC2 instance is optimized for Scylla.{nocolor}')
