@@ -280,6 +280,24 @@ class TestAwsInstance(TestCase, AwsMetadata):
         self.httpretty_aws_metadata(instance_type='t3.nano')
         ins = aws_instance()
         assert not ins.is_supported_instance_class()
+    
+    def test_supported_instance_classes_loaded_from_yaml(self):
+        """Test that supported instance classes are loaded from aws_io_params.yaml"""
+        # Reset cache to force reload
+        aws_instance._supported_instance_classes_cache = None
+        
+        classes = aws_instance._get_supported_instance_classes()
+        
+        # Verify that classes is a set
+        assert isinstance(classes, set)
+        
+        # Verify some known instance classes from aws_io_params.yaml are present
+        expected_classes = {'i3', 'i3en', 'i4i', 'c5d', 'm5d', 'r5d', 'z1d'}
+        assert expected_classes.issubset(classes), f"Expected classes {expected_classes} not all found in {classes}"
+        
+        # Verify that unsupported classes are not present
+        unsupported_classes = {'t3', 'm5', 'r5'}  # These don't have local disks so shouldn't be in aws_io_params.yaml
+        assert not unsupported_classes.intersection(classes), f"Unsupported classes {unsupported_classes.intersection(classes)} found"
 
     def test_get_en_interface_type_ena(self):
         self.httpretty_aws_metadata()
