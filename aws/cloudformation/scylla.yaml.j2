@@ -249,7 +249,15 @@ Resources:
                 - ''
                 - - !Sub |
                     #!/bin/bash -ex
-                    /usr/local/bin/cfn-signal --exit-code 0 --resource Node{{ node_index }} --region ${AWS::Region} --stack ${AWS::StackName}
+                    # Install CloudFormation Python tools using uv tool
+                    if ! command -v cfn-signal &> /dev/null; then
+                        curl -LsSf https://astral.sh/uv/install.sh | sh
+                        . /root/.local/bin/env
+                        uv tool install --force -p 3.11 https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
+                    fi
+                    # Ensure path includes uv tool binaries
+                    . /root/.local/bin/env
+                    cfn-signal --exit-code 0 --resource Node{{ node_index }} --region ${AWS::Region} --stack ${AWS::StackName}
             - '", '
             - '"post_start_script": "'
             - !Base64
@@ -282,7 +290,15 @@ Resources:
                 - ''
                 - - !Sub |
                     #!/bin/bash -ex
-                    /usr/local/bin/cfn-signal --exit-code 0 --resource Node{{ node_index }} --region ${AWS::Region} --stack ${AWS::StackName}
+                    # Install CloudFormation Python tools using uv tool
+                    if ! command -v cfn-signal &> /dev/null; then
+                        curl -LsSf https://astral.sh/uv/install.sh | sh
+                        . /root/.local/bin/env
+                        uv tool install --force -p 3.11 https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
+                    fi
+                    # Ensure path includes uv tool binaries
+                    . /root/.local/bin/env
+                    cfn-signal --exit-code 0 --resource Node{{ node_index }} --region ${AWS::Region} --stack ${AWS::StackName}
             - '"}'
 {%- endif %}
       NetworkInterfaces:

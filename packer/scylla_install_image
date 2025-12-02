@@ -88,9 +88,6 @@ if __name__ == '__main__':
         run(f'curl -L -o /etc/apt/sources.list.d/scylla.list {args.repo_for_update}', shell=True, check=True)
 
     if args.target_cloud == 'aws':
-        run('apt-get install -y pipx', shell=True, check=True)
-        run('pipx install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-2.0-18.tar.gz', shell=True, check=True)
-
         # install .deb version of ssm-agent since we dropped snapd version
         run(f'curl -L -o /tmp/amazon-ssm-agent.deb https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_{deb_arch()}/amazon-ssm-agent.deb', shell=True, check=True)
         run('dpkg -i /tmp/amazon-ssm-agent.deb', shell=True, check=True)
