@@ -224,6 +224,43 @@ elif [ "$TARGET" = "azure" ]; then
     SSH_USERNAME=azureuser
     SCYLLA_IMAGE_DESCRIPTION="scylla-$SCYLLA_FULL_VERSION scylla-machine-image-$SCYLLA_MACHINE_IMAGE_VERSION scylla-python3-$SCYLLA_FULL_VERSION"
 
+    RESOURCE_GROUP="SCYLLA-IMAGES"
+    GALLERY_NAME="scylladb_dev"
+    LOCATION="eastus"
+    DEF_NAME=$BRANCH
+    # check if AZURE_CLIENT_ID and AZURE_CLIENT_SECRET and AZURE_TENANT_ID is set, before doing az login
+    if [ -n "$AZURE_CLIENT_ID" ] && [ -n "$AZURE_CLIENT_SECRET" ] && [ -n "$AZURE_TENANT_ID" ] ; then
+      az login --service-principal --username $AZURE_CLIENT_ID --password $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID
+
+      az sig create \
+        --resource-group "$RESOURCE_GROUP" \
+        --gallery-name "$GALLERY_NAME" \
+        --location "$LOCATION" \
+        --output none 2>/dev/null || echo "   -> Gallery '$GALLERY_NAME' already exists (or created)."
+
+      az sig image-definition create \
+        --resource-group "$RESOURCE_GROUP" \
+        --gallery-name "$GALLERY_NAME" \
+        --gallery-image-definition "$DEF_NAME" \
+        --publisher "ScyllaDB" \
+        --offer "scylla" \
+        --sku "$DEF_NAME" \
+        --os-type Linux \
+        --os-state Generalized \
+        --hyper-v-generation V2 \
+        --features "DiskControllerTypes=SCSI,NVMe" \
+        --location "$LOCATION" \
+        --output none || echo "   -> Image definition '$DEF_NAME' already exists (or created)."
+    fi
+    # data base versioning issue workaround
+    # see: https://github.com/hashicorp/packer-plugin-azure/issues/447
+    GALLERY_IMAGE_VERSION=$(date +'%Y.%m%d.%H%M%S')
+
+    PACKER_ARGS+=(-var azure_gallery_resource_group="$RESOURCE_GROUP")
+    PACKER_ARGS+=(-var azure_gallery_name="$GALLERY_NAME")
+    PACKER_ARGS+=(-var azure_gallery_image_name="$DEF_NAME")
+    PACKER_ARGS+=(-var azure_gallery_image_version="$GALLERY_IMAGE_VERSION")
+    
     PACKER_ARGS+=(-var scylla_image_description="${SCYLLA_IMAGE_DESCRIPTION:0:255}")
     PACKER_ARGS+=(-var client_id="$AZURE_CLIENT_ID")
     PACKER_ARGS+=(-var client_secret="$AZURE_CLIENT_SECRET")
