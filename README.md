@@ -56,7 +56,6 @@ Spinning a new node connecting to “10.0.219.209” as a seed, and installing c
 {
      "scylla_yaml": {
          "cluster_name": "test-cluster",
-         "experimental": true,
          "seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider",
                             "parameters": [{"seeds": "10.0.219.209"}]}],
      },
@@ -69,7 +68,6 @@ Spinning a new node connecting to “10.0.219.209” as a seed, and installing c
 ```yaml
 scylla_yaml:
   cluster_name: test-cluster
-  experimental: true
   seed_provider:
     - class_name: org.apache.cassandra.locator.SimpleSeedProvider
       parameters:
@@ -98,7 +96,6 @@ Content-Disposition: attachment; filename="scylla_machine_image.yaml"
 
 scylla_yaml:
   cluster_name: test-cluster
-  experimental: true
   seed_provider:
     - class_name: org.apache.cassandra.locator.SimpleSeedProvider
       parameters:
