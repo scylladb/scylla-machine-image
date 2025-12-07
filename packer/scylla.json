@@ -146,13 +146,20 @@
       "client_secret": "{{user `client_secret`}}",
       "tenant_id": "{{user `tenant_id`}}",
       "subscription_id": "{{user `subscription_id`}}",
-      "managed_image_resource_group_name": "scylla-images",
-      "managed_image_name": "{{user `image_name`| clean_resource_name}}",
       "os_type": "Linux",
       "image_publisher": "Canonical",
       "image_offer": "ubuntu-24_04-lts-daily",
       "image_sku": "minimal",
+      "shared_image_gallery_destination": {
+        "resource_group": "{{user `azure_gallery_resource_group`}}",
+        "gallery_name": "{{user `azure_gallery_name`}}",
+        "image_name": "{{user `azure_gallery_image_name`}}",
+        "image_version": "{{user `azure_gallery_image_version`}}",
+        "replication_regions": "{{user `azure_replication_regions`}}",
+        "storage_account_type": "{{user `azure_storage_account_type`}}"
+      },
       "azure_tags": {
+        "name": "{{user `image_name`| clean_resource_name}}",
         "scylla_version": "{{user `scylla_full_version`}}",
         "scylla_machine_image_version": "{{user `scylla_machine_image_version`}}",
         "scylla_python3_version": "{{user `scylla_python3_version`}}",
@@ -247,6 +254,12 @@
     "project_id": "",
     "zone": "",
     "image_storage_location": "",
-    "source_image_family": ""
+    "source_image_family": "",
+    "azure_gallery_resource_group": "scylla-images",
+    "azure_gallery_name": "",
+    "azure_gallery_image_name": "",
+    "azure_gallery_image_version": "",
+    "azure_replication_regions": "",
+    "azure_storage_account_type": "Standard_LRS"
   }
 }
