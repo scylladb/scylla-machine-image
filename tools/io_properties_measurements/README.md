@@ -23,10 +23,17 @@ This Python script launches AWS EC2 instances with a specified AMI and instance 
 
 ## Installation
 
-1. Install dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
+### Using uv 
+From the root of the scylla-machine-image repository:
+
+```bash
+# Install all dependencies including io-properties tools
+uv sync --extra io-properties
+
+# Or install as part of dev dependencies
+uv sync --extra dev
+```
+
 
 ## Usage
 
