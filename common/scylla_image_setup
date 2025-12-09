@@ -4,73 +4,74 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import os
-import sys
 import logging
-import subprocess
+import os
 import re
+import subprocess
 from pathlib import Path
-from lib.log import setup_logging
-from lib.scylla_cloud import get_cloud_instance, is_ec2, is_gce, is_azure, is_redhat_variant
 from subprocess import run
 
+from lib.log import setup_logging
+from lib.scylla_cloud import get_cloud_instance, is_azure, is_ec2, is_gce
+
+
 LOGGER = logging.getLogger(__name__)
+
 
 def disable_perftune():
     # There is no way to disable SET_CLOCKSOURCE from scylla_sysconfig_setup
     # once it enabled, so we have to directly editing the sysconfig file
-    with open('/etc/default/scylla-server') as f:
+    with open("/etc/default/scylla-server") as f:
         sysconfig = f.read()
-    sysconfig = re.sub(r'^SET_CLOCKSOURCE=.*$', 'SET_CLOCKSOURCE=no', sysconfig, flags=re.MULTILINE)
-    with open('/etc/default/scylla-server', 'w') as f:
+    sysconfig = re.sub(r"^SET_CLOCKSOURCE=.*$", "SET_CLOCKSOURCE=no", sysconfig, flags=re.MULTILINE)
+    with open("/etc/default/scylla-server", "w") as f:
         f.write(sysconfig)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     setup_logging()
     if is_azure():
-        swap_directory = Path('/mnt')
-        swap_unit = Path('/etc/systemd/system/mnt-swapfile.swap')
+        swap_directory = Path("/mnt")
+        swap_unit = Path("/etc/systemd/system/mnt-swapfile.swap")
     else:
-        swap_directory = Path('/')
-        swap_unit = Path('/etc/systemd/system/swapfile.swap')
-    swapfile = swap_directory / 'swapfile'
+        swap_directory = Path("/")
+        swap_unit = Path("/etc/systemd/system/swapfile.swap")
+    swapfile = swap_directory / "swapfile"
     if not swapfile.exists():
         swap_unit.unlink(missing_ok=True)
-        run(f'/opt/scylladb/scripts/scylla_swap_setup --swap-directory {swap_directory}', shell=True, check=True)
-    machine_image_configured = Path('/etc/scylla/machine_image_configured')
+        run(f"/opt/scylladb/scripts/scylla_swap_setup --swap-directory {swap_directory}", shell=True, check=True)
+    machine_image_configured = Path("/etc/scylla/machine_image_configured")
     if not machine_image_configured.exists():
-        run('/opt/scylladb/scripts/scylla_cpuscaling_setup', shell=True, check=True)
+        run("/opt/scylladb/scripts/scylla_cpuscaling_setup", shell=True, check=True)
         cloud_instance = get_cloud_instance()
-        run('/opt/scylladb/scylla-machine-image/scylla_configure.py', shell=True, check=True)
+        run("/opt/scylladb/scylla-machine-image/scylla_configure.py", shell=True, check=True)
 
         try:
-            run('/opt/scylladb/scripts/scylla_sysconfig_setup --nic eth0 --setup-nic', shell=True, check=True)
+            run("/opt/scylladb/scripts/scylla_sysconfig_setup --nic eth0 --setup-nic", shell=True, check=True)
         except subprocess.CalledProcessError as e:
             # There are kernel bug on some aarch64 instance types on EC2, it does not provide NUMA topology
             # information, perftune crashes because of that.
             # Only possible workaround is disable perftune for these instance types, for now.
             # see: scylladb/seastar#2925
-            affected_instance_types = ['im4gn.8xlarge', 'im4gn.16xlarge']
+            affected_instance_types = ["im4gn.8xlarge", "im4gn.16xlarge"]
             if e.returncode == 3 and is_ec2() and cloud_instance.instancetype in affected_instance_types:
                 disable_perftune()
-                LOGGER.warning('Failed to enable perftune.py, continue without using it')
+                LOGGER.warning("Failed to enable perftune.py, continue without using it")
             else:
                 raise e
-        if os.path.ismount('/var/lib/scylla'):
-            if cloud_instance.is_supported_instance_class():
-                # We run io_setup only when ehpemeral disks are available
-                if is_gce():
-                    nr_disks = cloud_instance.nvme_disk_count
-                    if nr_disks > 0:
-                        cloud_instance.io_setup()
-                else:
+        if os.path.ismount("/var/lib/scylla") and cloud_instance.is_supported_instance_class():
+            # We run io_setup only when ehpemeral disks are available
+            if is_gce():
+                if cloud_instance.nvme_disk_count > 0:
                     cloud_instance.io_setup()
-                run('systemctl daemon-reload', shell=True, check=True)
-                run('systemctl enable var-lib-systemd-coredump.mount', shell=True, check=True)
-                run('systemctl start var-lib-systemd-coredump.mount', shell=True, check=True)
-                # some distro has fstrim enabled by default, since we are using XFS with online discard, we don't need fstrim
-                run('systemctl is-active -q fstrim.timer && systemctl disable fstrim.timer', shell=True, check=True)
+            else:
+                cloud_instance.io_setup()
+            run("systemctl daemon-reload", shell=True, check=True)
+            run("systemctl enable var-lib-systemd-coredump.mount", shell=True, check=True)
+            run("systemctl start var-lib-systemd-coredump.mount", shell=True, check=True)
+            # some distro has fstrim enabled by default, since we are using XFS with online discard, we don't need fstrim
+            run("systemctl is-active -q fstrim.timer && systemctl disable fstrim.timer", shell=True, check=True)
 
-        if not os.path.ismount('/var/lib/scylla') and not cloud_instance.is_dev_instance_type():
-            LOGGER.error('Failed to initialize RAID volume!')
+        if not os.path.ismount("/var/lib/scylla") and not cloud_instance.is_dev_instance_type():
+            LOGGER.error("Failed to initialize RAID volume!")
         machine_image_configured.touch()

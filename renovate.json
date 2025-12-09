@@ -3,5 +3,44 @@
   "extends": [
     "config:recommended"
   ],
-  "schedule": ["every weekend"]
+  "ignorePresets": [
+    "group:monorepos",
+    "group:recommended"
+  ],
+  "schedule": [
+    "every weekend"
+  ],
+  "enabledManagers": [
+    "pep621",
+    "github-actions"
+  ],
+  "packageRules": [
+    {
+      "groupName": "All pip dependencies",
+      "matchManagers": ["pep621"],
+      "enabled": true
+    },
+    {
+      "groupName": "all non-major dependencies",
+      "groupSlug": "all-minor-patch",
+      "matchPackageNames": [
+        "*"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "matchManagers": [
+        "pep621"
+      ],
+      "enabled": false
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true
+  },
+  "osvVulnerabilityAlerts": true,
+  "github-actions": {
+    "enabled": true
+  }
 }
