@@ -4,9 +4,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import sys
 import logging
 import pathlib
+import sys
 
 
 class ExitOnExceptionHandler(logging.StreamHandler):
