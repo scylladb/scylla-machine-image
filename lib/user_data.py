@@ -7,6 +7,7 @@ from email import message_from_string
 
 import yaml
 
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -19,6 +20,7 @@ class UserData:
     def cloud_instance(self):
         if not self._cloud_instance:
             from lib.scylla_cloud import get_cloud_instance
+
             self._cloud_instance = get_cloud_instance()
         return self._cloud_instance
 
@@ -34,7 +36,7 @@ class UserData:
                 message = message_from_string(raw_user_data)
                 if message.is_multipart():
                     for part in message.walk():
-                        if part.get_content_type() in ('x-scylla/json', 'x-scylla/yaml'):
+                        if part.get_content_type() in ("x-scylla/json", "x-scylla/yaml"):
                             # we'll pick here the last seen json or yaml file,
                             # if multiple of them exists the last one wins, we are not merging them together
                             raw_user_data = part.get_payload()
