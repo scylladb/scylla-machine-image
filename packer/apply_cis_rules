@@ -1,54 +1,51 @@
 #!/usr/bin/python3
-# -*- coding: utf-8 -*-
 #
 # Copyright 2020 ScyllaDB
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import os
-import sys
-import re
 import argparse
-import pwd
 import glob
+import os
+import pwd
+import re
 import stat
-from subprocess import run
+import sys
 from pathlib import Path
+from subprocess import run
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     if os.getuid() > 0:
-        print('Requires root permission.')
+        print("Requires root permission.")
         sys.exit(1)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--target-cloud', choices=['aws', 'gce', 'azure'], help='specify target cloud')
+    parser.add_argument("--target-cloud", choices=["aws", "gce", "azure"], help="specify target cloud")
     args = parser.parse_args()
 
     env_noninteractive = os.environ.copy()
-    env_noninteractive['DEBIAN_FRONTEND'] = 'noninteractive'
-    run(['apt-get', 'update'])
+    env_noninteractive["DEBIAN_FRONTEND"] = "noninteractive"
+    run(["apt-get", "update"])
 
     # xccdf_org.ssgproject.content_rule_grub2_audit_argument
-    kernel_opt = 'audit=1'
+    kernel_opt = "audit=1"
     # xccdf_org.ssgproject.content_rule_grub2_audit_backlog_limit_argument
-    kernel_opt += ' audit_backlog_limit=8192'
-    if args.target_cloud == 'aws' or args.target_cloud == 'gce':
-        grub_variable = 'GRUB_CMDLINE_LINUX_DEFAULT'
-    elif args.target_cloud == 'azure':
-        grub_variable = 'GRUB_CMDLINE_LINUX'
-    with open('/etc/default/grub.d/50-cloudimg-settings.cfg') as f:
+    kernel_opt += " audit_backlog_limit=8192"
+    if args.target_cloud == "aws" or args.target_cloud == "gce":
+        grub_variable = "GRUB_CMDLINE_LINUX_DEFAULT"
+    elif args.target_cloud == "azure":
+        grub_variable = "GRUB_CMDLINE_LINUX"
+    with open("/etc/default/grub.d/50-cloudimg-settings.cfg") as f:
         grub = f.read()
-    grub = re.sub(fr'^{grub_variable}="(.+)"$',
-                  fr'{grub_variable}="\1 {kernel_opt}"', grub,
-                  flags=re.MULTILINE)
-    with open('/etc/default/grub.d/50-cloudimg-settings.cfg', 'w') as f:
+    grub = re.sub(rf'^{grub_variable}="(.+)"$', rf'{grub_variable}="\1 {kernel_opt}"', grub, flags=re.MULTILINE)
+    with open("/etc/default/grub.d/50-cloudimg-settings.cfg", "w") as f:
         f.write(grub)
-    run('update-grub2', shell=True, check=True)
+    run("update-grub2", shell=True, check=True)
 
+    run("apt-get install -y auditd", shell=True, check=True)
 
-    run('apt-get install -y auditd', shell=True, check=True)
-
-    auditd_rules = '''
+    auditd_rules = """
 ## xccdf_org.ssgproject.content_rule_audit_rules_privileged_commands_insmod
 -w /sbin/insmod -p x -k modules
 
@@ -81,25 +78,24 @@ if __name__ == '__main__':
 -a always,exit -F arch=b32 -S execve -C gid!=egid -F egid=0 -k setgid
 -a always,exit -F arch=b64 -S execve -C gid!=egid -F egid=0 -k setgid
 
-'''[1:-1]
-    with open('/etc/audit/rules.d/70-cis-rules.rules', 'w') as f:
+"""[1:-1]
+    with open("/etc/audit/rules.d/70-cis-rules.rules", "w") as f:
         f.write(auditd_rules)
-    os.chmod('/etc/audit/rules.d/70-cis-rules.rules', 0o640)
-    run('augenrules --load', shell=True, check=True)
+    os.chmod("/etc/audit/rules.d/70-cis-rules.rules", 0o640)
+    run("augenrules --load", shell=True, check=True)
 
-    with open('/etc/audit/auditd.conf') as f:
+    with open("/etc/audit/auditd.conf") as f:
         auditd = f.read()
     # xccdf_org.ssgproject.content_rule_auditd_data_retention_max_log_file_action
-    auditd = re.sub(r'^max_log_file_action = .+$', 'max_log_file_action = KEEP_LOGS', auditd, flags=re.MULTILINE)
+    auditd = re.sub(r"^max_log_file_action = .+$", "max_log_file_action = KEEP_LOGS", auditd, flags=re.MULTILINE)
     # xccdf_org.ssgproject.content_rule_auditd_data_retention_space_left_action
-    auditd = re.sub(r'^space_left_action = .+$', 'space_left_action = EMAIL', auditd, flags=re.MULTILINE)
+    auditd = re.sub(r"^space_left_action = .+$", "space_left_action = EMAIL", auditd, flags=re.MULTILINE)
     # xccdf_org.ssgproject.content_rule_auditd_data_retention_admin_space_left_action
-    auditd = re.sub(r'^admin_space_left_action = .+$', 'admin_space_left_action = suspend', auditd, flags=re.MULTILINE)
-    with open('/etc/audit/auditd.conf', 'w') as f:
+    auditd = re.sub(r"^admin_space_left_action = .+$", "admin_space_left_action = suspend", auditd, flags=re.MULTILINE)
+    with open("/etc/audit/auditd.conf", "w") as f:
         f.write(auditd)
 
-
-    sysctl_conf = '''
+    sysctl_conf = """
 # xccdf_org.ssgproject.content_rule_sysctl_net_ipv6_conf_all_accept_ra
 net.ipv6.conf.all.accept_ra = 0
 
@@ -174,17 +170,16 @@ fs.suid_dumpable = 0
 
 # xccdf_org.ssgproject.content_rule_sysctl_kernel_randomize_va_space
 kernel.randomize_va_space = 2
-'''[1:-1]
-    with open('/etc/sysctl.d/99-cis-rules.conf', 'w') as f:
+"""[1:-1]
+    with open("/etc/sysctl.d/99-cis-rules.conf", "w") as f:
         f.write(sysctl_conf)
-    run('sysctl -p /etc/sysctl.d/99-cis-rules.conf', shell=True, check=True)
-
+    run("sysctl -p /etc/sysctl.d/99-cis-rules.conf", shell=True, check=True)
 
     # xccdf_org.ssgproject.content_rule_partition_for_tmp
     # xccdf_org.ssgproject.content_rule_mount_option_tmp_nodev
     # xccdf_org.ssgproject.content_rule_mount_option_tmp_noexec
     # xccdf_org.ssgproject.content_rule_mount_option_tmp_nosuid
-    tmp_dot_mount = '''
+    tmp_dot_mount = """
 [Unit]
 ConditionPathIsSymbolicLink=!/tmp
 DefaultDependencies=no
@@ -200,20 +195,19 @@ Options=mode=1777,strictatime,nosuid,nodev,noexec,size=50%%,nr_inodes=1m
 
 [Install]
 WantedBy=local-fs.target
-'''[1:-1]
-    with open('/etc/systemd/system/tmp.mount', 'w') as f:
+"""[1:-1]
+    with open("/etc/systemd/system/tmp.mount", "w") as f:
         f.write(tmp_dot_mount)
-    run('systemctl daemon-reload', shell=True, check=True)
-    run('systemctl enable tmp.mount', shell=True, check=True)
-
+    run("systemctl daemon-reload", shell=True, check=True)
+    run("systemctl enable tmp.mount", shell=True, check=True)
 
     # xccdf_org.ssgproject.content_rule_mount_option_var_tmp_nodev
     # xccdf_org.ssgproject.content_rule_mount_option_var_tmp_noexec
     # xccdf_org.ssgproject.content_rule_mount_option_var_tmp_nosuid
-    run('fallocate -l 1024MiB /vartmpfile', shell=True, check=True)
-    os.chmod('/vartmpfile', 0o600)
-    run('mke2fs -t ext4 /vartmpfile', shell=True, check=True)
-    var_tmp_dot_mount = '''
+    run("fallocate -l 1024MiB /vartmpfile", shell=True, check=True)
+    os.chmod("/vartmpfile", 0o600)
+    run("mke2fs -t ext4 /vartmpfile", shell=True, check=True)
+    var_tmp_dot_mount = """
 [Unit]
 Before=local-fs.target
 Requires=-.mount
@@ -228,48 +222,46 @@ ReadWriteOnly=True
 
 [Install]
 WantedBy=multi-user.target
-    '''[1:-1]
-    with open('/etc/systemd/system/var-tmp.mount', 'w') as f:
+    """[1:-1]
+    with open("/etc/systemd/system/var-tmp.mount", "w") as f:
         f.write(var_tmp_dot_mount)
-    run('systemctl daemon-reload', shell=True, check=True)
-    run('systemctl enable var-tmp.mount', shell=True, check=True)
-
+    run("systemctl daemon-reload", shell=True, check=True)
+    run("systemctl enable var-tmp.mount", shell=True, check=True)
 
     # xccdf_org.ssgproject.content_rule_sshd_use_strong_ciphers
     # xccdf_org.ssgproject.content_rule_sshd_use_strong_kex
     # xccdf_org.ssgproject.content_rule_sshd_use_strong_macs
-    sshd_config = '''
+    sshd_config = """
 Ciphers aes128-ctr,aes192-ctr,aes256-ctr,chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com
 KexAlgorithms ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group-exchange-sha256,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,diffie-hellman-group14-sha256
 MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256
-    '''[1:-1]
-    with open('/etc/ssh/sshd_config.d/99-cis-rules.conf', 'w') as f:
+    """[1:-1]
+    with open("/etc/ssh/sshd_config.d/99-cis-rules.conf", "w") as f:
         f.write(sshd_config)
-    run('systemctl restart ssh.service', shell=True, check=True)
+    run("systemctl restart ssh.service", shell=True, check=True)
 
     # xccdf_org.ssgproject.content_rule_accounts_tmout
-    var_accounts_tmout = '900'
-    with open('/etc/profile.d/tmout.sh', 'w') as file:
+    var_accounts_tmout = "900"
+    with open("/etc/profile.d/tmout.sh", "w") as file:
         file.write(f"\n# Set TMOUT to {var_accounts_tmout} per security requirements\n")
         file.write(f"TMOUT={var_accounts_tmout}\n")
         file.write("readonly TMOUT\n")
         file.write("export TMOUT\n")
-    os.chmod('/etc/profile.d/tmout.sh', 0o755)
+    os.chmod("/etc/profile.d/tmout.sh", 0o755)
 
     # xccdf_org.ssgproject.content_rule_sudo_custom_logfile
-    var_sudo_logfile = '/var/log/sudo.log'
-    with open('/etc/sudoers.d/99_logfile', 'w') as f:
+    var_sudo_logfile = "/var/log/sudo.log"
+    with open("/etc/sudoers.d/99_logfile", "w") as f:
         f.write(f"Defaults logfile={var_sudo_logfile}\n")
-    os.chmod('/etc/sudoers.d/99_logfile', 0o660)
-    run('visudo -cf /etc/sudoers.d/99_logfile', shell=True, check=True)
+    os.chmod("/etc/sudoers.d/99_logfile", 0o660)
+    run("visudo -cf /etc/sudoers.d/99_logfile", shell=True, check=True)
 
     # xccdf_org.ssgproject.content_rule_sudo_require_reauthentication
-    var_sudo_timestamp_timeout = '15'
-    with open('/etc/sudoers.d/99_timestamp_timeout', 'w') as f:
+    var_sudo_timestamp_timeout = "15"
+    with open("/etc/sudoers.d/99_timestamp_timeout", "w") as f:
         f.write(f"Defaults timestamp_timeout={var_sudo_timestamp_timeout}\n")
-    os.chmod('/etc/sudoers.d/99_timestamp_timeout', 0o660)
-    run('visudo -cf /etc/sudoers.d/99_timestamp_timeout', shell=True, check=True)
-
+    os.chmod("/etc/sudoers.d/99_timestamp_timeout", 0o660)
+    run("visudo -cf /etc/sudoers.d/99_timestamp_timeout", shell=True, check=True)
 
     # xccdf_org.ssgproject.content_rule_accounts_password_pam_dcredit
     # xccdf_org.ssgproject.content_rule_accounts_password_pam_dictcheck
@@ -284,7 +276,7 @@ MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,h
     # xccdf_org.ssgproject.content_rule_accounts_password_pam_ocredit
     # xccdf_org.ssgproject.content_rule_accounts_password_pam_pwquality_enabled
     # xccdf_org.ssgproject.content_rule_accounts_password_pam_ucredit
-    run(['apt-get', 'install', '-y', 'libpam-pwquality'], env=env_noninteractive)
+    run(["apt-get", "install", "-y", "libpam-pwquality"], env=env_noninteractive)
     pwquality_path = "/etc/security/pwquality.conf"
     pwquality_content = """dcredit = -1
 dictcheck = 1
@@ -299,89 +291,92 @@ minlen = 14
 ocredit = -1
 ucredit = -1
 """
-    with open(pwquality_path, 'w') as f:
+    with open(pwquality_path, "w") as f:
         f.write(pwquality_content)
     os.chmod(pwquality_path, 0o644)
 
-
     # xccdf_org.ssgproject.content_rule_ensure_pam_wheel_group_empty
-    var_pam_wheel_group_for_su = 'sugroup'
+    var_pam_wheel_group_for_su = "sugroup"
 
-    with open('/etc/group', 'r') as f:
+    with open("/etc/group") as f:
         group_content = f.read()
 
     group_pattern = f"^{var_pam_wheel_group_for_su}:[^:]*:[^:]*:[^:]*"
     group_exists = any(line.startswith(f"{var_pam_wheel_group_for_su}:") for line in group_content.splitlines())
 
     if not group_exists:
-        run(['groupadd', var_pam_wheel_group_for_su])
+        run(["groupadd", var_pam_wheel_group_for_su])
 
     # group must be empty
-    run(['gpasswd', '-M', '', var_pam_wheel_group_for_su])
-
+    run(["gpasswd", "-M", "", var_pam_wheel_group_for_su])
 
     # xccdf_org.ssgproject.content_rule_use_pam_wheel_group_for_su
-    var_pam_wheel_group_for_su = 'sugroup'
+    var_pam_wheel_group_for_su = "sugroup"
 
-    PAM_CONF = '/etc/pam.d/su'
+    PAM_CONF = "/etc/pam.d/su"
 
     # Read the PAM configuration file
-    with open(PAM_CONF, 'r') as f:
+    with open(PAM_CONF) as f:
         content = f.read()
 
     # Look for the specific pam_wheel.so line pattern
-    pamstr_match = re.search(r'^auth\s+required\s+pam_wheel\.so\s+(?=[^#]*\buse_uid\b)(?=[^#]*\bgroup=).*$', content, re.MULTILINE)
+    pamstr_match = re.search(
+        r"^auth\s+required\s+pam_wheel\.so\s+(?=[^#]*\buse_uid\b)(?=[^#]*\bgroup=).*$", content, re.MULTILINE
+    )
     pamstr = pamstr_match.group(0) if pamstr_match else ""
 
     if not pamstr:
         # Remove any remaining uncommented pam_wheel.so line
-        content = re.sub(r'^auth\b.*\brequired\b.*\bpam_wheel\.so.*$', '', content, flags=re.MULTILINE)
+        content = re.sub(r"^auth\b.*\brequired\b.*\bpam_wheel\.so.*$", "", content, flags=re.MULTILINE)
         # Add the new line after pam_rootok.so
-        content = re.sub(r'^(auth\s+sufficient\s+pam_rootok\.so.*$)',
-                       fr'\1\nauth             required        pam_wheel.so use_uid group={var_pam_wheel_group_for_su}',
-                       content, flags=re.MULTILINE)
+        content = re.sub(
+            r"^(auth\s+sufficient\s+pam_rootok\.so.*$)",
+            rf"\1\nauth             required        pam_wheel.so use_uid group={var_pam_wheel_group_for_su}",
+            content,
+            flags=re.MULTILINE,
+        )
     else:
         # Extract group value
-        group_match = re.search(r'\bgroup=([_a-z][-0-9_a-z]*)', pamstr)
+        group_match = re.search(r"\bgroup=([_a-z][-0-9_a-z]*)", pamstr)
         group_val = group_match.group(1) if group_match else ""
 
         if not group_val or group_val != var_pam_wheel_group_for_su:
-            content = re.sub(r'(^auth\s+required\s+pam_wheel\.so\s+[^#]*group=)[_a-z][-0-9_a-z]*',
-                           fr'\1{var_pam_wheel_group_for_su}', content, flags=re.MULTILINE)
+            content = re.sub(
+                r"(^auth\s+required\s+pam_wheel\.so\s+[^#]*group=)[_a-z][-0-9_a-z]*",
+                rf"\1{var_pam_wheel_group_for_su}",
+                content,
+                flags=re.MULTILINE,
+            )
 
     # Write the modified content back to the file
-    with open(PAM_CONF, 'w') as f:
+    with open(PAM_CONF, "w") as f:
         f.write(content)
 
-
     # xccdf_org.ssgproject.content_rule_accounts_maximum_age_login_defs
-    var_accounts_maximum_age_login_defs = '365'
+    var_accounts_maximum_age_login_defs = "365"
 
     # Check if PASS_MAX_DAYS exists in /etc/login.defs
-    with open('/etc/login.defs', 'r') as f:
+    with open("/etc/login.defs") as f:
         content = f.read()
 
-    if re.search(r'^PASS_MAX_DAYS', content, re.MULTILINE):
+    if re.search(r"^PASS_MAX_DAYS", content, re.MULTILINE):
         # Replace existing PASS_MAX_DAYS line
-        new_content = re.sub(r'PASS_MAX_DAYS.*',
-                           f'PASS_MAX_DAYS     {var_accounts_maximum_age_login_defs}',
-                           content)
-        with open('/etc/login.defs', 'w') as f:
+        new_content = re.sub(r"PASS_MAX_DAYS.*", f"PASS_MAX_DAYS     {var_accounts_maximum_age_login_defs}", content)
+        with open("/etc/login.defs", "w") as f:
             f.write(new_content)
         success = True
     else:
         success = False
 
     if not success:
-        with open('/etc/login.defs', 'a') as f:
+        with open("/etc/login.defs", "a") as f:
             f.write(f"PASS_MAX_DAYS      {var_accounts_maximum_age_login_defs}\n")
 
-
     # xccdf_org.ssgproject.content_rule_account_disable_post_pw_expiration
-    var_account_disable_post_pw_expiration = '45'
+    var_account_disable_post_pw_expiration = "45"
     config_file = "/etc/default/useradd"
-    with open(config_file, 'a') as f:
-        f.write('\n')
+    with open(config_file, "a") as f:
+        f.write("\n")
         f.write(f"INACTIVE={var_account_disable_post_pw_expiration}\n")
 
     # xccdf_org.ssgproject.content_rule_accounts_user_dot_user_ownership
@@ -389,37 +384,33 @@ ucredit = -1
         uid = user_entry.pw_uid
         home = user_entry.pw_dir
         if uid >= 1000 and uid != 65534:
-            pattern = os.path.join(home, '.[!.]*')
+            pattern = os.path.join(home, ".[!.]*")
             for filepath in glob.glob(pattern):
                 if os.path.isfile(filepath):
                     os.lchown(filepath, uid, -1)
-
 
     # xccdf_org.ssgproject.content_rule_accounts_user_dot_group_ownership
     for user_entry in pwd.getpwall():
         gid = user_entry.pw_gid
         home = user_entry.pw_dir
         if gid >= 1000 and gid != 65534:
-            pattern = os.path.join(home, '.[!.]*')
+            pattern = os.path.join(home, ".[!.]*")
             for filepath in glob.glob(pattern):
                 if os.path.isfile(filepath):
                     os.lchown(filepath, -1, gid)
 
-
     # xccdf_org.ssgproject.content_rule_file_permission_user_init_files
-    var_user_initialization_files_regex = re.compile(r'^\.[\w\- ]+$')
+    var_user_initialization_files_regex = re.compile(r"^\.[\w\- ]+$")
 
     # Get all interactive users with UID >= 1000 (equivalent to readarray commands)
     interactive_users = [entry.pw_name for entry in pwd.getpwall() if entry.pw_uid >= 1000]
     interactive_users_home = [entry.pw_dir for entry in pwd.getpwall() if entry.pw_uid >= 1000]
     interactive_users_shell = [entry.pw_shell for entry in pwd.getpwall() if entry.pw_uid >= 1000]
 
-    USERS_IGNORED_REGEX = re.compile(r'nobody|nfsnobody')
+    USERS_IGNORED_REGEX = re.compile(r"nobody|nfsnobody")
 
     for i in range(len(interactive_users)):
-        if not USERS_IGNORED_REGEX.search(interactive_users[i]) and \
-            interactive_users_shell[i] != "/sbin/nologin":
-
+        if not USERS_IGNORED_REGEX.search(interactive_users[i]) and interactive_users_shell[i] != "/sbin/nologin":
             # Find initialization files in user's home directory (equivalent to find + grep)
             init_files = []
             try:
@@ -438,12 +429,10 @@ ucredit = -1
                 new_mode = current_mode & ~stat.S_ISUID & ~stat.S_IWGRP & ~stat.S_IXGRP & ~stat.S_ISGID & ~stat.S_IRWXO
                 file_path.chmod(new_mode)
 
-
     # xccdf_org.ssgproject.content_rule_accounts_user_interactive_home_directory_exists
     for entry in pwd.getpwall():
         if entry.pw_uid >= 1000 and entry.pw_uid != 65534:
-            run(['mkhomedir_helper', entry.pw_name, '0077'], check=True)
-
+            run(["mkhomedir_helper", entry.pw_name, "0077"], check=True)
 
     # xccdf_org.ssgproject.content_rule_file_groupownership_home_directories
     for user_entry in pwd.getpwall():
@@ -459,7 +448,6 @@ ucredit = -1
         home_dir = user_entry.pw_dir
         if uid >= 1000 and uid != 65534:
             os.chown(home_dir, uid, -1)
-
 
     # xccdf_org.ssgproject.content_rule_accounts_password_pam_pwhistory_enabled
     # xccdf_org.ssgproject.content_rule_accounts_password_pam_pwhistory_enforce_root
@@ -485,18 +473,17 @@ Password-Initial: requisite pam_pwhistory.so remember=24 enforce_for_root try_fi
     # Run pam-auth-update noninteractively
     run(["pam-auth-update"], env=env_noninteractive)
 
-
     # xccdf_org.ssgproject.content_rule_accounts_passwords_pam_faillock_deny
     # xccdf_org.ssgproject.content_rule_accounts_passwords_pam_faillock_enabled
     # xccdf_org.ssgproject.content_rule_accounts_passwords_pam_faillock_unlock_time
-    var_accounts_passwords_pam_faillock_deny = '4'
-    var_accounts_passwords_pam_faillock_unlock_time = '900'
+    var_accounts_passwords_pam_faillock_deny = "4"
+    var_accounts_passwords_pam_faillock_unlock_time = "900"
 
-    conf_name = 'cac_faillock'
+    conf_name = "cac_faillock"
     conf_path = "/usr/share/pam-configs"
     conf_file = os.path.join(conf_path, conf_name)
     if not os.path.isfile(conf_file):
-        with open(conf_file, 'w') as f:
+        with open(conf_file, "w") as f:
             f.write(
                 """Name: Enable pam_faillock to deny access
 Default: yes
@@ -508,11 +495,11 @@ Auth:
 """
             )
 
-    conf_name = 'cac_faillock_notify'
+    conf_name = "cac_faillock_notify"
     conf_path = "/usr/share/pam-configs"
     conf_file = os.path.join(conf_path, conf_name)
     if not os.path.isfile(conf_file):
-        with open(conf_file, 'w') as f:
+        with open(conf_file, "w") as f:
             f.write(
                 """Name: Notify of failed login attempts and reset count upon success
 Default: yes
@@ -534,30 +521,29 @@ Account:
     faillock_content = f"""deny = {var_accounts_passwords_pam_faillock_deny}
 unlock_time = {var_accounts_passwords_pam_faillock_unlock_time}
 """
-    with open(faillock_conf, 'a') as f:
+    with open(faillock_conf, "a") as f:
         f.write(faillock_content)
 
-
     # xccdf_org.ssgproject.content_rule_accounts_umask_etc_bashrc
-    bash_bashrc = '''
+    bash_bashrc = """
 
 umask 027
-    '''[1:-1]
-    with open('/etc/bash.bashrc', 'a') as f:
+    """[1:-1]
+    with open("/etc/bash.bashrc", "a") as f:
         f.write(bash_bashrc)
 
     # xccdf_org.ssgproject.content_rule_accounts_umask_etc_login_defs
-    with open('/etc/login.defs') as f:
+    with open("/etc/login.defs") as f:
         login_defs = f.read()
-    login_defs = re.sub(r'^UMASK\s+022', 'UMASK           027', login_defs, flags=re.MULTILINE)
-    with open('/etc/login.defs', 'w') as f:
+    login_defs = re.sub(r"^UMASK\s+022", "UMASK           027", login_defs, flags=re.MULTILINE)
+    with open("/etc/login.defs", "w") as f:
         f.write(login_defs)
 
     # xccdf_org.ssgproject.content_rule_accounts_umask_etc_profile
-    umask_sh = '''
+    umask_sh = """
 #!/bin/bash
 umask 027
-    '''[1:-1]
-    with open('/etc/profile.d/99-umask.sh', 'w') as f:
+    """[1:-1]
+    with open("/etc/profile.d/99-umask.sh", "w") as f:
         f.write(umask_sh)
-    os.chmod('/etc/profile.d/99-umask.sh', 0o755)
+    os.chmod("/etc/profile.d/99-umask.sh", 0o755)

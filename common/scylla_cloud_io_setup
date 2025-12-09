@@ -1,52 +1,53 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 #
 # Copyright 2022 ScyllaDB
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import logging
 import os
 import subprocess
-import yaml
-import logging
 import sys
 from abc import ABCMeta, abstractmethod
-from lib.scylla_cloud import get_cloud_instance, is_ec2, is_gce, is_azure
+
+import yaml
+
+from lib.scylla_cloud import get_cloud_instance, is_azure, is_ec2, is_gce
 
 
 class UnsupportedInstanceClassError(Exception):
     pass
 
 
-class cloud_io_setup(metaclass=ABCMeta):
+class CloudIoSetup(metaclass=ABCMeta):
     @abstractmethod
     def generate(self):
         pass
 
     def save(self):
         assert "read_iops" in self.disk_properties
-        properties_file = open("/etc/scylla.d/io_properties.yaml", "w")
-        yaml.dump({"disks": [self.disk_properties]}, properties_file,  default_flow_style=False)
-        ioconf = open("/etc/scylla.d/io.conf", "w")
-        ioconf.write("SEASTAR_IO=\"--io-properties-file={}\"\n".format(properties_file.name))
-        os.chmod('/etc/scylla.d/io_properties.yaml', 0o644)
-        os.chmod('/etc/scylla.d/io.conf', 0o644)
+        with open("/etc/scylla.d/io_properties.yaml", "w") as properties_file:
+            yaml.dump({"disks": [self.disk_properties]}, properties_file, default_flow_style=False)
+        with open("/etc/scylla.d/io.conf", "w") as ioconf:
+            ioconf.write('SEASTAR_IO="--io-properties-file=/etc/scylla.d/io_properties.yaml"\n')
+        os.chmod("/etc/scylla.d/io_properties.yaml", 0o644)
+        os.chmod("/etc/scylla.d/io.conf", 0o644)
 
 
-class aws_io_setup(cloud_io_setup):
+class AwsIoSetup(CloudIoSetup):
     def __init__(self, idata):
         self.idata = idata
         self.disk_properties = {}
 
     def generate(self):
         if not self.idata.is_supported_instance_class():
-            logging.error('This is not a recommended EC2 instance setup for auto local disk tuning.')
+            logging.error("This is not a recommended EC2 instance setup for auto local disk tuning.")
             raise UnsupportedInstanceClassError()
-        self.disk_properties["mountpoint"] = '/var/lib/scylla'
+        self.disk_properties["mountpoint"] = "/var/lib/scylla"
         nr_disks = len(self.idata.get_local_disks())
         instance_type = self.idata.instancetype
-        instance_class_all = self.idata.instance_class() + '.ALL'
-        with open('/opt/scylladb/scylla-machine-image/aws_io_params.yaml') as f:
+        instance_class_all = self.idata.instance_class() + ".ALL"
+        with open("/opt/scylladb/scylla-machine-image/aws_io_params.yaml") as f:
             io_params = yaml.safe_load(f)
 
         t = None
@@ -61,31 +62,31 @@ class aws_io_setup(cloud_io_setup):
         else:
             logging.warning("This is a supported instance but with no pre-configured io, scylla_io_setup will be run")
             try:
-                result = subprocess.run('scylla_io_setup', shell=True, check=True, capture_output=True, timeout=300)
+                subprocess.run("scylla_io_setup", shell=True, check=True, capture_output=True, timeout=300)
             except subprocess.CalledProcessError as e:
                 logging.error(f"scylla_io_setup failed with error: {e.stderr.decode().strip()}")
                 raise
 
 
-class gcp_io_setup(cloud_io_setup):
+class GcpIoSetup(CloudIoSetup):
     def __init__(self, idata):
         self.idata = idata
         self.disk_properties = {}
 
     def generate(self):
         if not self.idata.is_supported_instance_class():
-            logging.error('This is not a recommended Google Cloud instance setup for auto local disk tuning.')
+            logging.error("This is not a recommended Google Cloud instance setup for auto local disk tuning.")
             raise UnsupportedInstanceClassError()
-        self.disk_properties["mountpoint"] = '/var/lib/scylla'
-        
+        self.disk_properties["mountpoint"] = "/var/lib/scylla"
+
         instance_type = self.idata.instancetype
         nr_disks = self.idata.nvme_disk_count
-        
+
         # Try to load instance-specific parameters from YAML file
         try:
-            with open('/opt/scylladb/scylla-machine-image/gcp_io_params.yaml') as f:
+            with open("/opt/scylladb/scylla-machine-image/gcp_io_params.yaml") as f:
                 io_params = yaml.safe_load(f)
-            
+
             t = None
             if instance_type in io_params:
                 t = instance_type
@@ -99,12 +100,12 @@ class gcp_io_setup(cloud_io_setup):
             logging.warning("GCP I/O parameters file not found, falling back to disk-count-based logic")
         except Exception as e:
             logging.warning(f"Error loading GCP I/O parameters: {e}, falling back to disk-count-based logic")
-        
+
         # Fallback to original disk-count-based logic for instances not in YAML
         # below is based on https://cloud.google.com/compute/docs/disks/local-ssd#performance
         # and https://cloud.google.com/compute/docs/disks/local-ssd#nvme
         # note that scylla iotune might measure more, this is GCP recommended
-        mbs=1024*1024
+        mbs = 1024 * 1024
         if nr_disks >= 1 and nr_disks < 4:
             self.disk_properties["read_iops"] = 170000 * nr_disks
             self.disk_properties["read_bandwidth"] = 660 * mbs * nr_disks
@@ -118,46 +119,46 @@ class gcp_io_setup(cloud_io_setup):
         elif nr_disks == 16:
             self.disk_properties["read_iops"] = 1600000
             self.disk_properties["read_bandwidth"] = 4521251328
-            #below is google, above is our measured
-            #self.disk_properties["read_bandwidth"] = 6240 * mbs
+            # below is google, above is our measured
+            # self.disk_properties["read_bandwidth"] = 6240 * mbs
             self.disk_properties["write_iops"] = 800000
             self.disk_properties["write_bandwidth"] = 2759452672
-            #below is google, above is our measured
-            #self.disk_properties["write_bandwidth"] = 3120 * mbs
+            # below is google, above is our measured
+            # self.disk_properties["write_bandwidth"] = 3120 * mbs
         elif nr_disks == 24:
             self.disk_properties["read_iops"] = 2400000
             self.disk_properties["read_bandwidth"] = 5921532416
-            #below is google, above is our measured
-            #self.disk_properties["read_bandwidth"] = 9360 * mbs
+            # below is google, above is our measured
+            # self.disk_properties["read_bandwidth"] = 9360 * mbs
             self.disk_properties["write_iops"] = 1200000
             self.disk_properties["write_bandwidth"] = 4663037952
-            #below is google, above is our measured
-            #self.disk_properties["write_bandwidth"] = 4680 * mbs
+            # below is google, above is our measured
+            # self.disk_properties["write_bandwidth"] = 4680 * mbs
 
         if "read_iops" in self.disk_properties:
             self.save()
         else:
             logging.warning("This is a supported instance but with no pre-configured io, scylla_io_setup will be run")
-            subprocess.run('scylla_io_setup', shell=True, check=True, capture_output=True, timeout=300)
+            subprocess.run("scylla_io_setup", shell=True, check=True, capture_output=True, timeout=300)
 
 
-class azure_io_setup(cloud_io_setup):
+class AzureIoSetup(CloudIoSetup):
     def __init__(self, idata):
         self.idata = idata
         self.disk_properties = {}
 
     def generate(self):
         if not self.idata.is_supported_instance_class():
-            logging.error('This is not a recommended Azure Cloud instance setup for auto local disk tuning.')
+            logging.error("This is not a recommended Azure Cloud instance setup for auto local disk tuning.")
             raise UnsupportedInstanceClassError()
 
         self.disk_properties = {}
-        self.disk_properties["mountpoint"] = '/var/lib/scylla'
+        self.disk_properties["mountpoint"] = "/var/lib/scylla"
         nr_disks = self.idata.nvme_disk_count
         # below is based on https://docs.microsoft.com/en-us/azure/virtual-machines/lsv2-series
         # note that scylla iotune might measure more, this is Azure recommended
         # since write properties are not defined, they come from our iotune tests
-        mbs = 1024*1024
+        mbs = 1024 * 1024
         if nr_disks == 1:
             self.disk_properties["read_iops"] = 400000
             self.disk_properties["read_bandwidth"] = 2000 * mbs
@@ -193,21 +194,21 @@ class azure_io_setup(cloud_io_setup):
             self.save()
         else:
             logging.warning("This is a supported instance but with no pre-configured io, scylla_io_setup will be run")
-            subprocess.run('scylla_io_setup', shell=True, check=True, capture_output=True, timeout=300)
+            subprocess.run("scylla_io_setup", shell=True, check=True, capture_output=True, timeout=300)
 
 
-if __name__ == '__main__':
-    if not os.path.ismount('/var/lib/scylla'):
-       logging.error('RAID volume not mounted')
-       sys.exit(1)
+if __name__ == "__main__":
+    if not os.path.ismount("/var/lib/scylla"):
+        logging.error("RAID volume not mounted")
+        sys.exit(1)
     cloud_instance = get_cloud_instance()
     if is_ec2():
-        io = aws_io_setup(cloud_instance)
+        io = AwsIoSetup(cloud_instance)
     elif is_gce():
-        io = gcp_io_setup(cloud_instance)
+        io = GcpIoSetup(cloud_instance)
     elif is_azure():
-        io = azure_io_setup(cloud_instance)
+        io = AzureIoSetup(cloud_instance)
     try:
         io.generate()
-    except UnsupportedInstanceClassError as e:
+    except UnsupportedInstanceClassError:
         sys.exit(1)
