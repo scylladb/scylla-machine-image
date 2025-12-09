@@ -23,11 +23,20 @@ jobs:
           python-version: 3.14
           architecture: x64
 
-      - name: unittest
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
+      - name: sync dependencies
         run: |
-            pip install -r test-requirements.txt
-            pytest ./tests
+            uv sync --all-extras
+            
+      - name: Run pre-commit
+        run: |
+            uv run pre-commit run --all-files
+
+      - name: unittest
+        run: |
+            uv run pytest ./tests
 
       - name: Build RPM (Rockylinux:8)
         run: docker run -v `pwd`:/scylla-machine-image -w /scylla-machine-image  --rm rockylinux:8 bash -c 'dnf update -y; dnf install -y git ; git config --global --add safe.directory "*"; ./dist/redhat/build_rpm.sh -t centos8'
