@@ -222,7 +222,7 @@ WantedBy=multi-user.target
         with open('/etc/hosts', 'a') as f:
             f.write('\n\n169.254.169.254    metadata.azure.internal\n')
         with open('/etc/ssh/sshd_config.d/50-cloudimg-settings.conf', 'w') as f:
-            f.write('ClientAliveInterval 180 \nHostKeyAlgorithms +ssh-rsa \nPubkeyAcceptedKeyTypes +ssh-rsa')
+            f.write('ClientAliveInterval 180 \n')
 
     kver = run('uname -r', shell=True, check=True, capture_output=True, encoding='utf-8').stdout.strip()
     with open('/tmp/{}-{}-kernel-{}-{}.txt'.format(args.product, args.target_cloud, args.scylla_version, arch()), 'a+') as f:
