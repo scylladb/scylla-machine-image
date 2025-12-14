@@ -9,9 +9,25 @@ RPM/DEB package that is pre-installed in the image.
 Responsible for configuring Scylla during first boot of the instance.
 
 ## Create an image
+
 ### AWS
 ```shell script
 aws/ami/build_ami.sh
+```
+
+### GCE (Google Cloud)
+```shell script
+packer/build_image.sh --target gce ...
+```
+
+### Azure
+```shell script
+packer/build_image.sh --target azure ...
+```
+
+### OCI (Oracle Cloud Infrastructure)
+```shell script
+packer/build_image.sh --target oci ...
 ```
 
 ## Scylla AMI user-data Format v2
@@ -31,6 +47,7 @@ User Data that can pass when create EC2 instances
     * **post_configuration_script** ([*string*](https://docs.python.org/library/stdtypes.html#str)) – A script to run once AMI first configuration is finished, can be a string encoded in base64. (*default=’’*)
     * **post_configuration_script_timeout** ([*int*](https://docs.python.org/library/stdtypes.html#int)) – Time in seconds to limit the post_configuration_script (*default=’600’*)
     * **start_scylla_on_first_boot** ([*boolean*](https://docs.python.org/library/stdtypes.html#boolean-values)) – If true, scylla-server would boot at AMI boot (*default=’true’*)
+    * **device_wait_seconds** ([*int*](https://docs.python.org/library/stdtypes.html#int)) – Maximum seconds to wait for storage devices to appear before configuring RAID. Useful in cloud environments where device attachment may be delayed (*default=’0’*)
 
 ### <a href="scylla_yaml"></a>Scylla YAML
 All fields that would pass down to scylla.yaml configuration file
@@ -152,6 +169,50 @@ msg.attach(part)
 
 print(msg)
 ```
+
+## Device Wait Mechanism
+
+The `wait_for_devices` functionality provides resilience when configuring storage in cloud environments where block device attachment may be delayed. This is particularly important during instance initialization when storage devices might not be immediately available.
+
+### How It Works
+
+The `scylla_create_devices` script includes a `wait_for_devices` function that:
+
+1. **Polls for device availability** - Repeatedly checks for storage devices at 5-second intervals
+2. **Waits up to a configurable timeout** - Controlled by the `device_wait_seconds` parameter
+3. **Returns immediately when devices are found** - Stops waiting as soon as any device appears
+4. **Provides logging** - Outputs status messages during the wait process
+
+### Configuration
+
+You can configure the wait timeout via user-data:
+
+```json
+{
+    "device_wait_seconds": 300,
+    "scylla_yaml": {
+        "cluster_name": "my-cluster"
+    }
+}
+```
+
+Or in YAML format:
+
+```yaml
+device_wait_seconds: 300
+scylla_yaml:
+  cluster_name: my-cluster
+```
+
+**Default**: `0` (no waiting - devices must be available immediately)
+**Recommended for cloud environments**: `300` seconds (5 minutes)
+
+### Use Cases
+
+- **OCI (Oracle Cloud Infrastructure)** - Block volume attachment can't be delayed during instance launch
+- **AWS with EBS volumes** - Attached volumes may take time to appear
+- **Azure with managed disks** - Disk attachment timing can vary
+- **GCE with persistent disks** - Similar attachment delays may occur
 
 ## Creating a Scylla cluster using the Machine Image
 ### AWS - CloudFormation

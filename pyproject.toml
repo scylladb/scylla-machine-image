@@ -32,6 +32,7 @@ dependencies = [
 [project.optional-dependencies]
 test = [
     "pytest>=9.0.1",
+    "pytest-asyncio>=0.24.0",
     "pytest-timeout>=2.3.1",
     "pytest-xdist>=3.6.1",
     "httpretty>=1.1.4",
@@ -49,6 +50,7 @@ io-properties = [
     "paramiko>=4.0.0",
     "PyYAML>=6.0.3",
     "tabulate>=0.9.0",
+    "oci>=2.164.2",
 ]
 
 dev = [
@@ -71,6 +73,9 @@ python_functions = ["test_*"]
 
 # Test paths
 testpaths = ["tests"]
+
+# Asyncio configuration
+asyncio_mode = "auto"
 
 # Markers for test categorization
 markers = [
@@ -169,6 +174,7 @@ select = [
 
 ignore = [
     "E501",   # line too long (handled by formatter)
+    "ISC001", # implicit string concatenation (conflicts with formatter)
     "B008",   # do not perform function calls in argument defaults
     "B904",   # raise from exception
     "ARG001", # unused function argument

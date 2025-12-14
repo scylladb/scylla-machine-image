@@ -178,6 +178,49 @@
       "keep_os_disk": true,
       "virtual_network_name": "scylla-images",
       "private_virtual_network_with_public_ip": true
+    },
+    {
+      "name": "oci",
+      "type": "oracle-oci",
+      "ssh_username": "{{user `ssh_username`}}",
+      "ssh_timeout": "5m",
+      "ssh_read_write_timeout": "5m",
+      "region": "{{user `oci_region`}}",
+      "tenancy_ocid": "{{user `oci_tenancy_ocid`}}",
+      "user_ocid": "{{user `oci_user_ocid`}}",
+      "key_file": "{{user `oci_key_file`}}",
+      "fingerprint": "{{user `oci_fingerprint`}}",
+      "availability_domain": "{{user `oci_availability_domain`}}",
+      "compartment_ocid": "{{user `oci_compartment_ocid`}}",
+      "subnet_ocid": "{{user `oci_subnet_ocid`}}",
+      "base_image_filter": {
+        "operating_system": "Canonical Ubuntu",
+        "operating_system_version": "24.04",
+        "display_name_search": "Canonical-Ubuntu-24.04-*"
+      },
+      "shape": "{{user `oci_instance_shape`}}",
+      "shape_config": {
+        "ocpus": "{{user `oci_instance_shape_config_ocpus`}}",
+        "memory_in_gbs": "{{user `oci_instance_shape_config_memory_in_gbs`}}"
+      },
+      "image_name": "{{user `image_name`}}",
+      "use_private_ip": false,
+      "defined_tags": {
+        "scylla": {
+          "scylla_version": "{{user `scylla_full_version`}}",
+          "machine_image_version": "{{user `scylla_machine_image_version`}}",
+          "scylla_python3_version": "{{user `scylla_python3_version`}}",
+          "user_data_format_version": "3",
+          "creation_timestamp": "{{user `creation_timestamp`}}",
+          "branch": "{{user `branch`}}",
+          "operating_system": "{{user `operating_system`}}",
+          "scylla_build_sha_id": "{{user `scylla_build_sha_id`}}",
+          "arch": "{{user `arch`}}",
+          "build_tag": "{{user `build_tag`}}",
+          "environment": "{{user `environment`}}",
+          "build_mode": "{{user `build_mode`}}"
+        }
+      }
     }
   ],
   "provisioners": [
@@ -235,7 +278,7 @@
     },
     {
         "inline": [
-            "if [ {{build_name}} = gce -o {{build_name}} = azure ]; then sudo userdel -r -f {{user `ssh_username`}}; fi"
+            "if [ {{build_name}} = gce -o {{build_name}} = azure -o {{build_name}} = oci ]; then sudo userdel -r -f {{user `ssh_username`}}; fi"
         ],
         "type": "shell"
     }
@@ -260,6 +303,12 @@
     "azure_gallery_image_name": "",
     "azure_gallery_image_version": "",
     "azure_replication_regions": "",
-    "azure_storage_account_type": "Standard_LRS"
+    "azure_storage_account_type": "Standard_LRS",
+    "oci_availability_domain": "",
+    "oci_compartment_ocid": "",
+    "oci_subnet_ocid": "",
+    "oci_instance_shape": "",
+    "oci_instance_shape_config_ocpus": "",
+    "oci_instance_shape_config_memory_in_gbs": ""
   }
 }

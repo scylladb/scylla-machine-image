@@ -30,15 +30,17 @@ from lib.log import setup_logging
 LOGGER = logging.getLogger(__name__)
 
 
-SNITCHS = ["GoogleCloudSnitch", "Ec2Snitch"]
+SNITCHS = ["GoogleCloudSnitch", "Ec2Snitch", "Ec2MultiRegionSnitch", "AzureSnitch", "GossipingPropertyFileSnitch"]
 
 
 class DummyCloudInstance:
     ENDPOINT_SNITCH = random.choice(SNITCHS)
 
-    def __init__(self, user_data, private_ipv4):
+    def __init__(self, user_data, private_ipv4, region=None, availability_zone=None):
         self._user_data = user_data
         self.private_ip_v4 = private_ipv4
+        self.region = region
+        self.availability_zone = availability_zone
 
     def private_ipv4(self):
         return self.private_ip_v4
@@ -74,8 +76,10 @@ class TestScyllaConfigurator(TestCase):
         assert self.configurator.scylla_yaml_example_path.exists(), "scylla.yaml example file not created"
         assert self.configurator.scylla_yaml_path.exists(), "scylla.yaml file not created"
 
-    def run_scylla_configure(self, user_data, private_ipv4):
-        self.configurator._cloud_instance = DummyCloudInstance(user_data=user_data, private_ipv4=private_ipv4)
+    def run_scylla_configure(self, user_data, private_ipv4, region=None, availability_zone=None):
+        self.configurator._cloud_instance = DummyCloudInstance(
+            user_data=user_data, private_ipv4=private_ipv4, region=region, availability_zone=availability_zone
+        )
         self.configurator.configure_scylla_yaml()
 
     @staticmethod
@@ -236,3 +240,63 @@ class TestScyllaConfigurator(TestCase):
         with unittest.mock.patch("subprocess.run") as mocked_run:
             self.configurator.create_devices()
             assert "--raid-level 5" in str(mocked_run.call_args)
+
+    @unittest.mock.patch("common.scylla_configure.estimate_streaming_bandwidth", return_value=0)
+    def test_cassandra_rackdc_for_gossipingpropertyfilesnitch(self, mock_bandwidth):
+        """Test cassandra-rackdc.properties generation for GossipingPropertyFileSnitch."""
+        region = "us-phoenix-1"
+        az = "AD-2"
+
+        # Set up user data with GossipingPropertyFileSnitch
+        raw_user_data = json.dumps({"scylla_yaml": {"endpoint_snitch": "GossipingPropertyFileSnitch"}})
+
+        self.run_scylla_configure(
+            user_data=raw_user_data, private_ipv4=self.private_ip, region=region, availability_zone=az
+        )
+
+        # Run the cassandra-rackdc configuration
+        # Mock the Path to write to our temp directory
+        with unittest.mock.patch("common.scylla_configure.Path") as mock_path_cls:
+
+            def path_side_effect(p):
+                if "cassandra-rackdc.properties" in str(p):
+                    return self.temp_dir_path / "cassandra-rackdc.properties"
+                return Path(p)
+
+            mock_path_cls.side_effect = path_side_effect
+            self.configurator.configure_cassandra_rackdc()
+
+        # Check that cassandra-rackdc.properties was created
+        rackdc_path = self.temp_dir_path / "cassandra-rackdc.properties"
+        assert rackdc_path.exists(), "cassandra-rackdc.properties was not created"
+
+        # Check the content
+        with rackdc_path.open() as rackdc_file:
+            content = rackdc_file.read()
+            assert f"dc={region}" in content, f"Expected dc={region} in cassandra-rackdc.properties"
+            assert f"rack={az}" in content, f"Expected rack={az} in cassandra-rackdc.properties"
+
+    @unittest.mock.patch("common.scylla_configure.estimate_streaming_bandwidth", return_value=0)
+    def test_cassandra_rackdc_skipped_for_other_snitch(self, mock_bandwidth):
+        """Test that cassandra-rackdc.properties is not generated for other snitches."""
+        # Use Ec2Snitch
+        raw_user_data = json.dumps({"scylla_yaml": {"endpoint_snitch": "Ec2Snitch"}})
+
+        self.run_scylla_configure(
+            user_data=raw_user_data, private_ipv4=self.private_ip, region="us-west-1", availability_zone="us-west-1a"
+        )
+
+        # Mock the rackdc path to our temp directory
+        rackdc_path = self.temp_dir_path / "cassandra-rackdc.properties"
+        with unittest.mock.patch("pathlib.Path") as mock_path:
+
+            def path_side_effect(p):
+                if "cassandra-rackdc.properties" in str(p):
+                    return self.temp_dir_path / "cassandra-rackdc.properties"
+                return Path(p)
+
+            mock_path.side_effect = path_side_effect
+            self.configurator.configure_cassandra_rackdc()
+
+        # Check that cassandra-rackdc.properties was NOT created
+        assert not rackdc_path.exists(), "cassandra-rackdc.properties should not be created for Ec2Snitch"

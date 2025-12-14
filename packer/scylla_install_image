@@ -43,7 +43,7 @@ if __name__ == "__main__":
     parser.add_argument("--repo", help="repository for both install and update, specify .repo/.list file URL")
     parser.add_argument("--repo-for-install", help="repository for install, specify .repo/.list file URL")
     parser.add_argument("--repo-for-update", help="repository for update, specify .repo/.list file URL")
-    parser.add_argument("--target-cloud", choices=["aws", "gce", "azure"], help="specify target cloud")
+    parser.add_argument("--target-cloud", choices=["aws", "gce", "azure", "oci"], help="specify target cloud")
     parser.add_argument("--scylla-version", help="Scylla version to be added to manifest file")
     args = parser.parse_args()
 
@@ -127,6 +127,12 @@ if __name__ == "__main__":
         kernel_opt = " rootdelay=300"
         grub_variable = "GRUB_CMDLINE_LINUX"
         run("systemctl mask walinuxagent", shell=True, check=True)
+    elif args.target_cloud == "oci":
+        kernel_opt = ""
+        grub_variable = "GRUB_CMDLINE_LINUX_DEFAULT"
+        # Mask OCI monitoring agent if present
+        run("systemctl mask oracle-cloud-agent || true", shell=True, check=True)
+        run("systemctl mask oracle-cloud-agent-updater || true", shell=True, check=True)
 
     run(
         "systemctl disable apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer motd-news.timer esm-cache.service apt-news.service dailyaidecheck.timer",
@@ -194,7 +200,7 @@ WantedBy=multi-user.target
     # However, on GCE and Azure ssh user is dynamically created at instance startup
     # time, and username is specified while launching the instance, we have nothing
     # to do.
-    if args.target_cloud == "aws":
+    if args.target_cloud in ("aws", "oci"):
         with open("/etc/cloud/cloud.cfg") as f:
             y = yaml.safe_load(f)
         groups = ",".join(y["system_info"]["default_user"]["groups"])
@@ -261,11 +267,20 @@ WantedBy=multi-user.target
             yaml.dump(y, f, Dumper=NoAliasDumper)
 
         # before deleting home directory, need to change current directory
+
         os.chdir("/tmp")
-        run("userdel -r -f ubuntu", shell=True, check=True)
+        if args.target_cloud == "oci":
+            run("userdel -r -f opc", shell=True, check=True)
+            # FIX: in OCI, cloud-init init command always return non-zero exit code, cause failing to create user,
+            # but still when image boots the user is created correctly
+            # leaving it like this for the time being
+            check_init_command = False
+        elif args.target_cloud == "aws":
+            run("userdel -r -f ubuntu", shell=True, check=True)
+            check_init_command = True
         run("cloud-init clean", shell=True, check=True)
         run("rm -f /etc/netplan/50-cloud-init.yaml", shell=True, check=True)
-        run("cloud-init init", shell=True, check=True)
+        run("cloud-init init", shell=True, check=check_init_command)
         for skel in glob.glob("/etc/skel/.*"):
             shutil.copy(skel, "/home/scyllaadm")
             os.chown(skel, 1000, 1000)
