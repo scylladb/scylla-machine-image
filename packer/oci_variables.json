@@ -1,0 +1,7 @@
+{
+  "oci_availability_domain": "",
+  "oci_subnet_ocid": "",
+  "oci_instance_shape": "VM.Standard3.Flex",
+  "oci_instance_shape_config_ocpus": "2",
+  "oci_instance_shape_config_memory_in_gbs": "16"
+}

@@ -21,7 +21,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--target-cloud", choices=["aws", "gce", "azure"], help="specify target cloud")
+    parser.add_argument("--target-cloud", choices=["aws", "gce", "azure", "oci"], help="specify target cloud")
     args = parser.parse_args()
 
     env_noninteractive = os.environ.copy()
@@ -32,7 +32,7 @@ if __name__ == "__main__":
     kernel_opt = "audit=1"
     # xccdf_org.ssgproject.content_rule_grub2_audit_backlog_limit_argument
     kernel_opt += " audit_backlog_limit=8192"
-    if args.target_cloud == "aws" or args.target_cloud == "gce":
+    if args.target_cloud == "aws" or args.target_cloud == "gce" or args.target_cloud == "oci":
         grub_variable = "GRUB_CMDLINE_LINUX_DEFAULT"
     elif args.target_cloud == "azure":
         grub_variable = "GRUB_CMDLINE_LINUX"

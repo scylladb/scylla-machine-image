@@ -1,0 +1,30 @@
+VM.DenseIO.E5.Flex-8:
+  read_bandwidth: 6965937664
+  read_iops: 1112606
+  write_bandwidth: 4079220992
+  write_iops: 608448
+VM.DenseIO.E5.Flex-16:
+  read_bandwidth: 14401178624
+  read_iops: 2215123
+  write_bandwidth: 8231124480
+  write_iops: 1216146
+VM.DenseIO.E5.Flex-24:
+  read_bandwidth: 21728638976
+  read_iops: 3320561
+  write_bandwidth: 11270992896
+  write_iops: 1849816
+VM.DenseIO.E5.Flex-32:
+  read_bandwidth: 29354006528
+  read_iops: 4426269
+  write_bandwidth: 12606187520
+  write_iops: 2335691
+VM.DenseIO.E5.Flex-40:
+  read_bandwidth: 36502331392
+  read_iops: 5529792
+  write_bandwidth: 18778742784
+  write_iops: 3034318
+VM.DenseIO.E5.Flex-48:
+  read_bandwidth: 43794403328
+  read_iops: 6507473
+  write_bandwidth: 21627578368
+  write_iops: 3495315

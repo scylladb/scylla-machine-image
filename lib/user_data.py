@@ -50,3 +50,7 @@ class UserData:
                 LOGGER.warning("Error getting user data: %s. Will use defaults!", e)
                 self._instance_user_data = {}
         return self._instance_user_data
+
+    @property
+    def device_wait_seconds(self):
+        return self.instance_user_data.get("device_wait_seconds", 0)

@@ -6,10 +6,13 @@
 
 import argparse
 import sys
+import time
+from collections.abc import Callable
 from pathlib import Path
 from subprocess import run
 
-from lib.scylla_cloud import get_cloud_instance, is_azure, is_ec2, is_gce, out
+from lib.scylla_cloud import get_cloud_instance, is_azure, is_ec2, is_gce, is_oci, out
+from lib.user_data import UserData
 
 
 class DiskIsNotEmptyError(Exception):
@@ -26,6 +29,53 @@ class NoDiskFoundError(Exception):
 
     def __str__(self):
         return "No data disk found, abort setup"
+
+
+def wait_for_devices(device_names_getter: Callable[[], list[str]], wait_seconds: int) -> None:
+    """
+    Wait for any disk to be found by repeatedly calling device_names_getter.
+
+    Args:
+        device_names_getter: A callable that returns a list of device names to check,
+                           or a list of device names (for backward compatibility)
+        wait_seconds: Maximum seconds to wait for devices to appear
+    """
+    if not wait_seconds:
+        return
+
+    print(f"Waiting for any device to appear, for up to {wait_seconds} seconds...")
+    start_time = time.time()
+
+    while time.time() - start_time < wait_seconds:
+        device_names: list[str] = device_names_getter()
+        if device_names:
+            print(f"Found devices: {device_names}")
+            return
+        print("No device names available yet, retrying...")
+        time.sleep(5)
+
+    # Final check
+    device_names = device_names_getter()
+    if not device_names:
+        print(f"Warning: No device names discovered after {wait_seconds} seconds")
+
+
+def _get_fresh_remote_disks() -> list[str]:
+    """Get remote disks from a fresh cloud instance."""
+    instance = get_cloud_instance()
+    if not instance:
+        return []
+    disks = instance.get_remote_disks()
+    return disks if disks else []
+
+
+def _get_fresh_local_disks() -> list[str]:
+    """Get local disks from a fresh cloud instance."""
+    instance = get_cloud_instance()
+    if not instance:
+        return []
+    disks = instance.get_local_disks()
+    return disks if disks else []
 
 
 def create_raid(devices, raid_level=0):
@@ -63,29 +113,36 @@ def check_persistent_disks_are_empty(disks):
             raise DiskIsNotEmptyError(f"/dev/{disk}")
 
 
-def get_disk_devices(instance, device_type):
+def get_disk_devices(instance, device_type, wait_seconds=0):
     if is_ec2():
         devices = []
         if device_type == "attached":
-            check_persistent_disks_are_empty(instance.get_remote_disks())
-            devices = [str(Path("/dev", name)) for name in instance.get_remote_disks() if Path("/dev", name).exists()]
+            wait_for_devices(_get_fresh_remote_disks, wait_seconds)
+            remote_disks = instance.get_remote_disks()
+            check_persistent_disks_are_empty(remote_disks)
+            devices = [str(Path("/dev", name)) for name in remote_disks if Path("/dev", name).exists()]
         if not devices or device_type == "instance_store":
-            devices = [str(Path("/dev", name)) for name in instance.get_local_disks()]
+            wait_for_devices(_get_fresh_local_disks, wait_seconds)
+            local_disks = instance.get_local_disks()
+            devices = [str(Path("/dev", name)) for name in local_disks if Path("/dev", name).exists()]
         if not devices:
             raise Exception(f"No block devices were found for '{device_type}' device type")
         return devices
-    if is_gce() or is_azure():
-        return get_default_devices(instance)
+    if is_gce() or is_azure() or is_oci():
+        return get_default_devices(instance, wait_seconds)
     raise Exception("Running in unknown cloud environment")
 
 
-def get_default_devices(instance):
+def get_default_devices(instance, wait_seconds=0):
     disk_names = []
+    wait_for_devices(_get_fresh_local_disks, wait_seconds)
     disk_names = instance.get_local_disks()
     if not disk_names:
+        wait_for_devices(_get_fresh_remote_disks, wait_seconds)
         disk_names = instance.get_remote_disks()
-        check_persistent_disks_are_empty(disk_names)
-    return [str(Path("/dev", name)) for name in disk_names]
+        if disk_names:
+            check_persistent_disks_are_empty(disk_names)
+    return [str(Path("/dev", name)) for name in disk_names if Path("/dev", name).exists()]
 
 
 if __name__ == "__main__":
@@ -109,12 +166,14 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     instance = get_cloud_instance()
+    user_data = UserData()
+    wait_seconds = user_data.device_wait_seconds
 
     try:
         if not args.data_device or args.data_device == "auto":
-            disk_devices = get_default_devices(instance)
+            disk_devices = get_default_devices(instance, wait_seconds)
         else:
-            disk_devices = get_disk_devices(instance, args.data_device)
+            disk_devices = get_disk_devices(instance, args.data_device, wait_seconds)
         create_raid(disk_devices, args.raid_level)
     except (DiskIsNotEmptyError, NoDiskFoundError) as e:
         print(e)

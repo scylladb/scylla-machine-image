@@ -31,11 +31,30 @@ print_usage() {
     echo "  [--build-mode]          Choose which build mode to use for Scylla installation. Default: release. Valid options: release|debug"
     echo "  [--debug]               Build debug image with special prefix for image name. Default: false."
     echo "  [--log-file]            Path for log. Default build/ami.log on current dir. Default: build/packer.log"
-    echo "  --target                Target cloud (aws/gce/azure), mandatory when using this script directly, and not by soft links"
+    echo "  --target                Target cloud (aws/gce/azure/oci), mandatory when using this script directly, and not by soft links"
     echo "  --arch                  Set the image build architecture. Valid options: x86_64 | aarch64 . if use didn't pass this parameter it will use local node architecture"
     echo "  --ec2-instance-type     Set EC2 instance type to use while building the AMI. If empty will use defaults per architecture"
+    echo "  --json-file             Additional JSON variables file to use alongside the default target JSON file"
     exit 1
 }
+
+run_post_processor() {
+    if [ "$TARGET" = "oci" ]; then
+        echo "Running post-processor for OCI"
+        IMAGE_OCID=$(grep 'An image was created:' "$PACKER_LOG_PATH" | grep -o 'ocid1.image.oc1.[^ )]*' | tail -n 1)
+        if [ -n "$IMAGE_OCID" ]; then
+            echo "Found image OCID: $IMAGE_OCID"
+            if [ -f "$DIR/oci/setup_oci_image_capability_schema.sh" ]; then
+                "$DIR/oci/setup_oci_image_capability_schema.sh" --image-id "$IMAGE_OCID"
+            else
+                echo "Warning: setup_oci_image_capability_schema.sh not found."
+            fi
+        else
+            echo "Warning: Could not find image OCID in packer log."
+        fi
+    fi
+}
+
 PACKER_SUB_CMD="build"
 REPO_FOR_INSTALL=
 PACKER_LOG_PATH=build/packer.log
@@ -99,7 +118,7 @@ while [ $# -gt 0 ]; do
             echo "--branch parameter: BRANCH |$BRANCH|"
             shift 2
             ;;
-        "--ami-regions"):
+        "--ami-regions")
             AMI_REGIONS=$2
             echo "--ami-regions parameter: AMI_REGIONS |$AMI_REGIONS|"
             shift 2
@@ -138,6 +157,9 @@ while [ $# -gt 0 ]; do
               "azure")
                 JSON_FILE="azure_variables.json"
                 ;;
+              "oci")
+                JSON_FILE="oci_variables.json"
+                ;;
               *)
                 print_usage
                 ;;
@@ -149,6 +171,16 @@ while [ $# -gt 0 ]; do
             ;;
         "--ec2-instance-type")
             INSTANCE_TYPE="$2"
+            shift 2
+            ;;
+        "--json-file")
+            EXTRA_JSON_FILE="$2"
+            # Validate JSON file path - reject dangerous characters
+            if [[ "$EXTRA_JSON_FILE" =~ [\`\$\;\&\|\<\>\(\)] ]] || [[ -z "$EXTRA_JSON_FILE" ]]; then
+                echo "ERROR: Invalid JSON file path: $EXTRA_JSON_FILE"
+                exit 1
+            fi
+            echo "--json-file parameter: EXTRA_JSON_FILE |$EXTRA_JSON_FILE|"
             shift 2
             ;;
         *)
@@ -166,7 +198,7 @@ INSTALL_ARGS="$INSTALL_ARGS --product $PRODUCT"
 echo "INSTALL_ARGS: |$INSTALL_ARGS|"
 
 if [ -z "$TARGET" ]; then
-    echo "Missing --target parameter. Please specify target cloud (aws/gce/azure)"
+    echo "Missing --target parameter. Please specify target cloud (aws/gce/azure/oci)"
     exit 1
 fi
 
@@ -266,6 +298,21 @@ elif [ "$TARGET" = "azure" ]; then
     PACKER_ARGS+=(-var client_secret="$AZURE_CLIENT_SECRET")
     PACKER_ARGS+=(-var tenant_id="$AZURE_TENANT_ID")
     PACKER_ARGS+=(-var subscription_id="$AZURE_SUBSCRIPTION_ID")
+elif [ "$TARGET" = "oci" ]; then
+    SSH_USERNAME=ubuntu
+
+    # OCI uses Ubuntu 24.04 Minimal as base image
+    # The base_image_ocid needs to be set in oci_variables.json or passed as environment variable
+    # You can find the latest Ubuntu images in OCI console or using OCI CLI:
+    # oci compute image list --compartment-id <compartment-ocid> --operating-system "Canonical Ubuntu" --operating-system-version "24.04 Minimal"
+    
+    if [ -n "$OCI_BASE_IMAGE_OCID" ]; then
+        PACKER_ARGS+=(-var oci_base_image_ocid="$OCI_BASE_IMAGE_OCID")
+    fi
+    if [ -n "$OCI_CLI_KEY_FILE" ]; then
+        PACKER_ARGS+=(-var oci_key_file="$OCI_CLI_KEY_FILE")
+    fi
+
 fi
 
 if [ "$TARGET" = "azure" ]; then
@@ -285,9 +332,21 @@ if $DEBUG ; then
 fi
 
 if [ ! -f $JSON_FILE ]; then
-    echo "'$JSON_FILE not found. Please create it before start building Image."
+    echo "$JSON_FILE not found. Please create it before start building Image."
     echo "See variables.json.example"
     exit 1
+fi
+
+if [ -n "$EXTRA_JSON_FILE" ] && [ ! -f "$EXTRA_JSON_FILE" ]; then
+    echo "$EXTRA_JSON_FILE not found. Please create it before start building Image."
+    exit 1
+fi
+
+# Add extra JSON file to packer args if provided
+if [ -n "$EXTRA_JSON_FILE" ]; then
+    EXTRA_VAR_FILE_ARG="-var-file=$EXTRA_JSON_FILE"
+else
+    EXTRA_VAR_FILE_ARG=""
 fi
 
 mkdir -p build
@@ -299,6 +358,7 @@ set -x
 /usr/bin/packer ${PACKER_SUB_CMD} \
   -only="$TARGET" \
   -var-file="$JSON_FILE" \
+  ${EXTRA_VAR_FILE_ARG:+"$EXTRA_VAR_FILE_ARG"} \
   -var install_args="$INSTALL_ARGS" \
   -var ssh_username="$SSH_USERNAME" \
   -var scylla_full_version="$SCYLLA_FULL_VERSION" \
@@ -338,6 +398,10 @@ else
       grep "Builds finished. The artifacts of successful builds are:" $PACKER_LOG_PATH
       GREP_STATUS=$?
       ;;
+    "oci")
+      grep "An image was created:" $PACKER_LOG_PATH
+      GREP_STATUS=$?
+      ;;
     *)
       echo "No Target is defined"
       exit 1
@@ -350,5 +414,7 @@ else
     echo "Success: image line found on log"
   fi
 fi
+
+run_post_processor
 
 exit $EXIT_STATUS

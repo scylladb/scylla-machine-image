@@ -12,7 +12,7 @@ from abc import ABCMeta, abstractmethod
 
 import yaml
 
-from lib.scylla_cloud import get_cloud_instance, is_azure, is_ec2, is_gce
+from lib.scylla_cloud import get_cloud_instance, is_azure, is_ec2, is_gce, is_oci
 
 
 class UnsupportedInstanceClassError(Exception):
@@ -197,6 +197,60 @@ class AzureIoSetup(CloudIoSetup):
             subprocess.run("scylla_io_setup", shell=True, check=True, capture_output=True, timeout=300)
 
 
+class OciIoSetup(CloudIoSetup):
+    def __init__(self, idata):
+        self.idata = idata
+        self.disk_properties = {}
+
+    def generate(self):
+        if not self.idata.is_supported_instance_class():
+            logging.error("This is not a recommended OCI instance setup for auto local disk tuning.")
+            raise UnsupportedInstanceClassError()
+
+        self.disk_properties["mountpoint"] = "/var/lib/scylla"
+        instance_type = self.idata.instancetype
+        ocpus = self.idata.ocpus
+
+        # Try to load instance-specific parameters from YAML file
+        try:
+            with open("/opt/scylladb/scylla-machine-image/oci_io_params.yaml") as f:
+                io_params = yaml.safe_load(f)
+
+            lookup_key = None
+            if "Flex" in instance_type and ocpus:
+                flex_key = f"{instance_type}-{ocpus}"
+                if flex_key in io_params:
+                    lookup_key = flex_key
+
+            if not lookup_key and instance_type in io_params:
+                lookup_key = instance_type
+
+            if lookup_key:
+                for p in ["read_iops", "read_bandwidth", "write_iops", "write_bandwidth"]:
+                    self.disk_properties[p] = io_params[lookup_key][p]
+                self.save()
+                return
+
+        except FileNotFoundError:
+            logging.warning("OCI I/O parameters file not found, falling back to scylla_io_setup logic")
+        except Exception as e:
+            logging.warning(f"Error loading OCI I/O parameters: {e}, falling back to scylla_io_setup logic")
+
+        if "read_iops" in self.disk_properties:
+            self.save()
+        else:
+            logging.warning("This is a supported instance but with no pre-configured io, scylla_io_setup will be run")
+            try:
+                subprocess.run("scylla_io_setup", shell=True, check=True, capture_output=True, timeout=300)
+            except subprocess.TimeoutExpired as e:
+                stderr = e.stderr.decode().strip() if e.stderr else ""
+                logging.error(f"scylla_io_setup timed out after {e.timeout} seconds. Stderr: {stderr}")
+                raise
+            except subprocess.CalledProcessError as e:
+                logging.error(f"scylla_io_setup failed with error: {e.stderr.decode().strip()}")
+                raise
+
+
 if __name__ == "__main__":
     if not os.path.ismount("/var/lib/scylla"):
         logging.error("RAID volume not mounted")
@@ -208,6 +262,8 @@ if __name__ == "__main__":
         io = GcpIoSetup(cloud_instance)
     elif is_azure():
         io = AzureIoSetup(cloud_instance)
+    elif is_oci():
+        io = OciIoSetup(cloud_instance)
     try:
         io.generate()
     except UnsupportedInstanceClassError:
