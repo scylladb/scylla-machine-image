@@ -14,7 +14,7 @@ from abc import ABCMeta, abstractmethod
 from lib.scylla_cloud import get_cloud_instance, is_ec2, is_gce, is_azure
 
 
-def UnsupportedInstanceClassError(Exception):
+class UnsupportedInstanceClassError(Exception):
     pass
 
 
