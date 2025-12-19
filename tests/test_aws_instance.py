@@ -8,7 +8,6 @@ from subprocess import CalledProcessError
 from collections import namedtuple
 
 sys.path.append(str(Path(__file__).parent.parent))
-import lib.scylla_cloud
 from lib.scylla_cloud import aws_instance
 
 LOGGER = logging.getLogger(__name__)
