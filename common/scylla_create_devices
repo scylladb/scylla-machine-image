@@ -13,7 +13,6 @@ from lib.scylla_cloud import is_ec2, is_gce, is_azure, get_cloud_instance, out
 class DiskIsNotEmptyError(Exception):
     def __init__(self, disk):
         self.disk = disk
-        pass
 
     def __str__(self):
         return f"{self.disk} is not empty, abort setup"

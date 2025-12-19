@@ -9,8 +9,7 @@ from collections import namedtuple
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).parent.parent))
-import lib.scylla_cloud
-from lib.scylla_cloud import azure_instance
+from lib.scylla_cloud import azure_instance, aiocurl as real_curl
 
 LOGGER = logging.getLogger(__name__)
 
@@ -115,8 +114,6 @@ class TestAsyncAzureInstance(IsolatedAsyncioTestCase, AzureMetadata):
     # httpretty)
     async def test_not_identify_metadata(self):
         self.httpretty_no_azure_metadata()
-        real_curl = lib.scylla_cloud.aiocurl
-
         async def mocked_curl(*args, **kwargs):
             kwargs['timeout'] = 0.001
             kwargs['retry_interval'] = 0.0001
@@ -381,7 +378,7 @@ class TestAzureInstance(TestCase, AzureMetadata):
                 unittest.mock.patch('os.path.exists', return_value=True),\
                 unittest.mock.patch('os.path.realpath', return_value='/dev/sdb'):
             ins = azure_instance()
-            assert ['nvme2n1', 'nvme3n1', 'nvme0n1', 'nvme1n1']
+            assert ins.get_local_disks() == ['nvme2n1', 'nvme3n1', 'nvme0n1', 'nvme1n1']
 
     def test_get_remote_disks_standard_l16s_v2(self):
         self.httpretty_azure_metadata()

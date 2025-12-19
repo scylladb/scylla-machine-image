@@ -8,8 +8,7 @@ from subprocess import CalledProcessError
 from collections import namedtuple
 
 sys.path.append(str(Path(__file__).parent.parent))
-import lib.scylla_cloud
-from lib.scylla_cloud import aws_instance
+from lib.scylla_cloud import aws_instance, aiocurl as real_curl
 
 LOGGER = logging.getLogger(__name__)
 
@@ -218,8 +217,6 @@ class TestAsyncAwsInstance(IsolatedAsyncioTestCase, AwsMetadata):
 
     async def test_not_identify_metadata(self):
         httpretty.disable()
-        real_curl = lib.scylla_cloud.aiocurl
-
         async def mocked_curl(*args, **kwargs):
             kwargs['timeout'] = 0.1
             kwargs['retry_interval'] = 0.001

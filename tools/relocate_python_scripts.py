@@ -60,7 +60,6 @@ def fixup_script(output, script_name):
     '''
 
     script = os.path.realpath(script_name)
-    newpath = "libexec"
     orig_stat = os.stat(script)
 
     if not os.access(script, os.X_OK):
