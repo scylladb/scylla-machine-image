@@ -18,13 +18,11 @@ import sys
 import time
 import traceback
 import urllib.error
-import urllib.parse
 import urllib.request
 from abc import ABCMeta, abstractmethod
 from datetime import timezone
 from subprocess import CalledProcessError, run
 
-import distro
 import psutil
 import traceback_with_variables
 
@@ -1015,7 +1013,3 @@ def colorprint(msg, **kwargs):
     fmt = dict(CONCOLORS)
     fmt.update(kwargs)
     print(msg.format(**fmt))
-
-
-def is_redhat_variant():
-    return "rhel" in distro.like().split()
