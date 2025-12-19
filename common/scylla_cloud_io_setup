@@ -61,7 +61,7 @@ class aws_io_setup(cloud_io_setup):
         else:
             logging.warning("This is a supported instance but with no pre-configured io, scylla_io_setup will be run")
             try:
-                result = subprocess.run('scylla_io_setup', shell=True, check=True, capture_output=True, timeout=300)
+                subprocess.run('scylla_io_setup', shell=True, check=True, capture_output=True, timeout=300)
             except subprocess.CalledProcessError as e:
                 logging.error(f"scylla_io_setup failed with error: {e.stderr.decode().strip()}")
                 raise

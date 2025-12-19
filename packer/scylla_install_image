@@ -10,13 +10,10 @@ import sys
 import glob
 import re
 import shutil
-import shlex
-import tarfile
 import argparse
 import platform
 import yaml
-from io import StringIO
-from subprocess import run, PIPE, STDOUT
+from subprocess import run
 
 my_env = os.environ.copy()
 my_env['DEBIAN_FRONTEND']='noninteractive'

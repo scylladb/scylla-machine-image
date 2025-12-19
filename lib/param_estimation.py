@@ -1,5 +1,4 @@
 import json
-import yaml
 from lib.scylla_cloud import get_cloud_instance, is_ec2
 
 def estimate_streaming_bandwidth():

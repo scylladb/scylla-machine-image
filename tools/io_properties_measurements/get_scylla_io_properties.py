@@ -18,7 +18,6 @@ import time
 import yaml
 import os
 import concurrent.futures
-import threading
 import sys
 import stat
 import re

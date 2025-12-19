@@ -11,12 +11,10 @@ import os
 import re
 import time
 import urllib.error
-import urllib.parse
 import urllib.request
 import psutil
 import socket
 import glob
-import distro
 import base64
 import datetime
 import asyncio
@@ -44,7 +42,6 @@ Command '{cmd}' returned non-zero exit status: {e.returncode}
 import sys
 import traceback
 import traceback_with_variables
-import logging
 
 
 def scylla_excepthook(etype, value, tb):
@@ -414,6 +411,7 @@ class gcp_instance(cloud_instance):
                 if diskCount >= 16 and self.cpu < 32:
                     logging.warning(
                         "This machine doesn't have enough CPUs for allocated number of NVMEs (at least 32 cpus for >=16 disks). Performance will suffer.")
+                    return False
                 if diskCount < 1:
                     logging.warning("No ephemeral disks were found.")
                     return False
@@ -728,8 +726,6 @@ class aws_instance(cloud_instance):
             return model == 'Amazon Elastic Block Store'
 
     def _non_root_nvmes(self):
-        nvme_re = re.compile(r"nvme\d+n\d+$")
-
         root_dev_candidates = [ x for x in psutil.disk_partitions() if x.mountpoint == "/" ]
         if len(root_dev_candidates) != 1:
             raise Exception("found more than one disk mounted at root'".format(root_dev_candidates))
@@ -925,9 +921,7 @@ async def identify_cloud_async():
 
 @functools.cache
 def identify_cloud():
-    time_start = datetime.datetime.now()
     result = asyncio.run(identify_cloud_async())
-    time_end = datetime.datetime.now()
     return result
 
 
@@ -952,6 +946,3 @@ def colorprint(msg, **kwargs):
     fmt = dict(CONCOLORS)
     fmt.update(kwargs)
     print(msg.format(**fmt))
-
-def is_redhat_variant():
-    return 'rhel' in distro.like().split()
