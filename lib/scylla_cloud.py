@@ -698,6 +698,18 @@ class oci_instance(cloud_instance):
         self.__nvmeDiskCount = None
         self.__firstNvmeSize = None
         self.__osDisks = None
+        self.__ocpus = None
+
+    @property
+    def ocpus(self):
+        """Get the number of OCPUs for the instance."""
+        if self.__ocpus is None:
+            try:
+                instance_data = json.loads(self.__instance_metadata(''))
+                self.__ocpus = instance_data.get('ocpus')
+            except Exception:
+                self.__ocpus = None
+        return self.__ocpus
 
     @property
     def endpoint_snitch(self):
