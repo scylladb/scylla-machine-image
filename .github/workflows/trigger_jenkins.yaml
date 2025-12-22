@@ -8,6 +8,8 @@ on:
 jobs:
   trigger-jenkins:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Determine Jenkins Job Name
         run: |
