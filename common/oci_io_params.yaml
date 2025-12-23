@@ -1,0 +1,10 @@
+VM.DenseIO.E5.Flex-16:
+  read_bandwidth: 14401178624
+  read_iops: 2215123
+  write_bandwidth: 8231124480
+  write_iops: 1216146
+VM.DenseIO.E5.Flex-8:
+  read_bandwidth: 6965937664
+  read_iops: 1112606
+  write_bandwidth: 4079220992
+  write_iops: 608448

@@ -681,6 +681,215 @@ class azure_instance(cloud_instance):
         return base64.b64decode(encoded_user_data).decode()
 
 
+class oci_instance(cloud_instance):
+    """Describe several aspects of the current OCI instance"""
+
+    EPHEMERAL = "ephemeral"
+    PERSISTENT = "persistent"
+    ROOT = "root"
+    META_DATA_BASE_URL = "http://169.254.169.254/opc/v2/instance/"
+    META_DATA_VNICS_BASE_URL = "http://169.254.169.254/opc/v2/vnics/"
+    ENDPOINT_SNITCH = "SimpleSnitch"  # TODO: Need to implement OCISnitch if required
+
+    def __init__(self):
+        self.__type = None
+        self.__cpu = None
+        self.__memoryGB = None
+        self.__nvmeDiskCount = None
+        self.__firstNvmeSize = None
+        self.__osDisks = None
+        self.__ocpus = None
+
+    @property
+    def ocpus(self):
+        """Get the number of OCPUs for the instance."""
+        if self.__ocpus is None:
+            try:
+                instance_data = json.loads(self.__instance_metadata(''))
+                self.__ocpus = instance_data.get('ocpus')
+            except Exception:
+                self.__ocpus = None
+        return self.__ocpus
+
+    @property
+    def endpoint_snitch(self):
+        return self.ENDPOINT_SNITCH
+
+    @classmethod
+    def identify_dmi(cls):
+        """Check if this is an OCI instance via DMI info."""
+        try:
+            product_name = read_one_line('/sys/class/dmi/id/chassis_asset_tag')
+            if product_name == "OracleCloud.com":
+                return cls
+        except Exception:
+            pass
+        return None
+
+    @classmethod
+    async def identify_metadata(cls):
+        """Check if it's an OCI instance via metadata server."""
+        try:
+            # OCI metadata server requires specific headers
+            await aiocurl(cls.META_DATA_BASE_URL,
+                         headers={"Authorization": "Bearer Oracle"})
+            return cls
+        except Exception:
+            return None
+
+    def __instance_metadata(self, path):
+        """Get instance metadata from OCI metadata service."""
+        url = self.META_DATA_BASE_URL.rstrip('/') + '/' + path.lstrip('/')
+        return curl(url, headers={"Authorization": "Bearer Oracle"})
+
+    def __vnics_metadata(self, path):
+        """Get vnic metadata from OCI metadata service."""
+        url = self.META_DATA_VNICS_BASE_URL.rstrip('/') + '/' + path.lstrip('/')
+        return curl(url, headers={"Authorization": "Bearer Oracle"})
+
+
+    def is_in_root_devs(self, x, root_devs):
+        for root_dev in root_devs:
+            if root_dev.startswith(os.path.join("/dev/", x)):
+                return True
+        return False
+
+    def _non_root_nvmes(self):
+        """get list of nvme disks from os, filter away if one of them is root"""
+        nvme_re = re.compile(r"nvme\d+n\d+$")
+
+        root_dev_candidates = [x for x in psutil.disk_partitions() if x.mountpoint == "/"]
+
+        root_devs = [x.device for x in root_dev_candidates]
+
+        nvmes_present = list(filter(nvme_re.match, os.listdir("/dev")))
+        return {self.ROOT: root_devs, self.EPHEMERAL: [x for x in nvmes_present if not self.is_in_root_devs(x, root_devs)]}
+
+    def _non_root_disks(self):
+        """get list of disks from os, filter away if one of them is root"""
+        disk_re = re.compile(r"/dev/sd[b-z]+$")
+
+        root_dev_candidates = [x for x in psutil.disk_partitions() if x.mountpoint == "/"]
+
+        root_devs = [x.device for x in root_dev_candidates]
+
+        disks_present = list(filter(disk_re.match, glob.glob("/dev/sd*")))
+        return {self.PERSISTENT: [x.lstrip('/dev/') for x in disks_present if not self.is_in_root_devs(x.lstrip('/dev/'), root_devs)]}
+
+
+    def get_en_interface_type(self):
+        """Get ethernet interface type for OCI."""
+        # OCI typically uses virtio-based network interfaces
+        return 'virtio'
+
+    @property
+    def nvme_disk_count(self):
+        """Get the count of NVMe disks."""
+        return len(self._non_root_nvmes()[self.EPHEMERAL])
+
+    def get_local_disks(self):
+        """Returns all ephemeral/local NVMe disks."""
+        non_root_nvmes = self._non_root_nvmes()[self.EPHEMERAL]
+        return [f'/dev/{x}' for x in non_root_nvmes]
+
+    def get_remote_disks(self):
+        """Returns all persistent/remote disks."""
+        non_root_disks = self._non_root_disks()[self.PERSISTENT]
+        return non_root_disks
+
+    def get_disk_config(self):
+        """Get disk configuration for OCI instance."""
+        non_root_nvmes = self._non_root_nvmes()[self.EPHEMERAL]
+        non_root_disks = self._non_root_disks()[self.PERSISTENT]
+        
+        return {
+            'nvme': len(non_root_nvmes) > 0,
+            'disks': [f'/dev/{x}' for x in non_root_nvmes] + non_root_disks
+        }
+
+    @property
+    def instancetype(self):
+        """Returns which instance shape we are running in. i.e.: VM.Standard3.Flex"""
+        try:
+            shape_data = json.loads(self.__instance_metadata(''))
+            return shape_data.get('shape', 'unknown')
+        except Exception:
+            return 'unknown'
+
+    def instance_size(self):
+        """Get the instance size/shape."""
+        return self.instancetype
+
+    def instance_class(self):
+        """Returns the class of the instance (e.g., VM.Standard)."""
+        size = self.instance_size()
+        # Extract the base shape class (e.g., VM.Standard from VM.Standard3.Flex)
+        # OCI shapes format: VM.Family#.Size or BM.Family#.Size
+        parts = size.split('.')
+        if len(parts) >= 2:
+            # Remove version numbers from family name (e.g., Standard3 -> Standard)
+            family = parts[1]
+            # Remove trailing digits from family name
+
+            family_base = re.sub(r'\d+$', '', family)
+            return f"{parts[0]}.{family_base}"
+        return size
+
+    def is_supported_instance_class(self):
+        """Returns if this instance type belongs to supported ones for NVMe."""
+        # OCI VM.Standard, VM.DenseIO, and BM.DenseIO shapes support NVMe
+        instance_class = self.instance_class()
+        # Check if the base family matches supported types
+        if instance_class in ['VM.Standard', 'VM.DenseIO', 'BM.DenseIO', 'VM.Optimized']:
+            return True
+        # Also check the full shape name for patterns
+        shape = self.instance_size()
+        if 'DenseIO' in shape or 'Standard' in shape or 'Optimized' in shape:
+            return True
+        return False
+
+    def is_dev_instance_type(self):
+        """Returns if this is a development/small instance type."""
+        # Consider smaller shapes as dev instances
+        shape = self.instancetype
+        if 'Micro' in shape or shape.startswith('VM.Standard.E2.1'):
+            return True
+        return False
+
+    @staticmethod
+    def check():
+        """Perform instance check."""
+        return run('/opt/scylladb/scylla-machine-image/scylla_ec2_check --nic eth0', shell=True)
+
+    def io_setup(self):
+        """Setup I/O configuration."""
+        run('/opt/scylladb/scylla-machine-image/scylla_cloud_io_setup', check=True, shell=True)
+
+    @property
+    def user_data(self):
+        """Get user data for the instance."""
+        try:
+            encoded_user_data = self.__instance_metadata('metadata/user_data')
+            return base64.b64decode(encoded_user_data).decode()
+        except:
+            return ''
+
+    def public_ipv4(self):
+        """Get the public IPv4 address."""
+
+        # OCI does not provide public IP in instance metadata by default.
+        # https://www.ateam-oracle.com/how-to-include-the-public-ip-address-information-in-the-oci-vm-metadata
+
+        return None
+
+    def private_ipv4(self):
+        """Get the private IPv4 address."""
+        try:
+            return self.__vnics_metadata('0/privateIp')
+        except:
+            return None
+
+
 class aws_instance(cloud_instance):
     """Describe several aspects of the current AWS instance"""
     META_DATA_BASE_URL = "http://169.254.169.254/latest/"
@@ -911,7 +1120,8 @@ async def identify_cloud_async():
     tasks = [
         asyncio.create_task(aws_instance.identify()),
         asyncio.create_task(gcp_instance.identify()),
-        asyncio.create_task(azure_instance.identify())
+        asyncio.create_task(azure_instance.identify()),
+        asyncio.create_task(oci_instance.identify())
     ]
     result = None
     for task in asyncio.as_completed(tasks):
@@ -939,6 +1149,9 @@ def is_gce():
 
 def is_azure():
     return identify_cloud() == azure_instance
+
+def is_oci():
+    return identify_cloud() == oci_instance
 
 def get_cloud_instance():
     cls = identify_cloud()

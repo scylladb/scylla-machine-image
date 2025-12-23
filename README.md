@@ -9,10 +9,28 @@ RPM/DEB package that is pre-installed in the image.
 Responsible for configuring Scylla during first boot of the instance.
 
 ## Create an image
+
 ### AWS
 ```shell script
 aws/ami/build_ami.sh
 ```
+
+### GCE (Google Cloud)
+```shell script
+packer/build_image.sh --target gce ...
+```
+
+### Azure
+```shell script
+packer/build_image.sh --target azure ...
+```
+
+### OCI (Oracle Cloud Infrastructure)
+```shell script
+packer/build_image.sh --target oci ...
+```
+
+For detailed OCI build instructions, see [packer/OCI_BUILD_GUIDE.md](packer/OCI_BUILD_GUIDE.md)
 
 ## Scylla AMI user-data Format v2
 
