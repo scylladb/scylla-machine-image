@@ -22,5 +22,11 @@ def estimate_streaming_bandwidth():
 >>>>>>> 8b18f70 (fix: incorrect Gb to bits conversion)
     # TODO: other clouds
 
+<<<<<<< HEAD
     return int((.75 * net_bw) / (8 * 1024*1024)) # MB/s
 
+||||||| parent of 84eacac (fix: comment)
+    return int((0.75 * net_bw) / (8 * 1024 * 1024))  # MB/s
+=======
+    return int((0.75 * net_bw) / (8 * 1024 * 1024))  # MiB/s
+>>>>>>> 84eacac (fix: comment)
