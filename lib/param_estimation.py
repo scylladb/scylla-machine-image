@@ -17,4 +17,4 @@ def estimate_streaming_bandwidth():
                 net_bw = int(instance_info[0][2] * 1000 * 1000 * 1000)  # Gbps -> bps
     # TODO: other clouds
 
-    return int((0.75 * net_bw) / (8 * 1024 * 1024))  # MB/s
+    return int((0.75 * net_bw) / (8 * 1024 * 1024))  # MiB/s
