@@ -14,7 +14,7 @@ def estimate_streaming_bandwidth():
             netinfo = json.load(f)
             instance_info = [info for info in netinfo if info[0] == instance_type]
             if len(instance_info) != 0:
-                net_bw = int(instance_info[0][2] * 1024 * 1024 * 1024)  # gbps -> bps
+                net_bw = int(instance_info[0][2] * 1000 * 1000 * 1000)  # Gbps -> bps
     # TODO: other clouds
 
     return int((0.75 * net_bw) / (8 * 1024 * 1024))  # MB/s
