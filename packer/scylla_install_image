@@ -12,6 +12,7 @@ import re
 import shutil
 import sys
 from subprocess import run
+from textwrap import dedent
 
 import yaml
 
@@ -229,6 +230,29 @@ WantedBy=multi-user.target
             ["sudo", "-u", "ubuntu", "/opt/scylladb/scylla-machine-image/download_authorized_keys"],
         ]
 
+        # Enable ENA driver in initramfs
+        run("echo 'ena' | tee -a /etc/initramfs-tools/modules", shell=True, check=True)
+        run("update-initramfs -u", shell=True, check=True)
+
+        # Create systemd override to wait for eth0 before cloud-init-local
+        # so that cloud-init won't fail reading from metadata service
+        override_dir = "/etc/systemd/system/cloud-init-local.service.d"
+        override_file = os.path.join(override_dir, "wait-for-eth0.conf")
+
+        systemd_config = dedent("""
+            [Unit]
+            # Hard dependency: block cloud-init-local until eth0 is recognized by udev
+            BindsTo=sys-subsystem-net-devices-eth0.device
+            After=sys-subsystem-net-devices-eth0.device
+        """)
+
+        # 1. Create the directory
+        os.makedirs(override_dir, mode=0o755, exist_ok=True)
+
+        # 2. Write the configuration file
+        with open(override_file, "w") as f:
+            f.write(systemd_config)
+
         class NoAliasDumper(yaml.Dumper):
             def ignore_aliases(self, data):
                 return True
@@ -240,6 +264,7 @@ WantedBy=multi-user.target
         os.chdir("/tmp")
         run("userdel -r -f ubuntu", shell=True, check=True)
         run("cloud-init clean", shell=True, check=True)
+        run("rm -f /etc/netplan/50-cloud-init.yaml", shell=True, check=True)
         run("cloud-init init", shell=True, check=True)
         for skel in glob.glob("/etc/skel/.*"):
             shutil.copy(skel, "/home/scyllaadm")
