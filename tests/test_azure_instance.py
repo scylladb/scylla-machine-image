@@ -320,12 +320,12 @@ class TestAzureInstance(TestCase, AzureMetadata):
     def test_instance_class_standard_l16s_v2(self):
         self.httpretty_azure_metadata()
         ins = AzureInstance()
-        assert ins.instance_class() == "L16s"
+        assert ins.instance_class() == "L16s_v2"
 
     def test_instance_class_standard_ds1_v2(self):
         self.httpretty_azure_metadata(instance_type="Standard_DS1_v2")
         ins = AzureInstance()
-        assert ins.instance_class() == "DS1"
+        assert ins.instance_class() == "DS1_v2"
 
     def test_is_supported_instance_class_standard_l16s_v2(self):
         self.httpretty_azure_metadata()
@@ -664,12 +664,12 @@ class TestAzureInstance(TestCase, AzureMetadata):
     def test_get_nvme_disks_count_from_metadata_standard_l16s_v2(self):
         self.httpretty_azure_metadata()
         ins = AzureInstance()
-        assert ins._AzureInstance__get_nvme_disks_count_from_metadata() == 2
+        assert ins._AzureInstance__get_nvme_disks_count_from_metadata() == 1
 
     def test_get_nvme_disks_count_from_metadata_standard_l32s_v2(self):
         self.httpretty_azure_metadata(instance_type="Standard_L32s_v2")
         ins = AzureInstance()
-        assert ins._AzureInstance__get_nvme_disks_count_from_metadata() == 4
+        assert ins._AzureInstance__get_nvme_disks_count_from_metadata() == 1
 
     def test_nvme_disk_count_standard_l16s_v2(self):
         self.httpretty_azure_metadata()
@@ -679,7 +679,7 @@ class TestAzureInstance(TestCase, AzureMetadata):
             unittest.mock.patch("glob.glob", return_value=mock_glob_glob_dev_standard_l16s_v2),
         ):
             ins = AzureInstance()
-            assert ins.nvme_disk_count == 2
+            assert ins.nvme_disk_count == 1
 
     def test_nvme_disk_count_standard_l32s_v2(self):
         self.httpretty_azure_metadata(instance_type="Standard_L32s_v2")
@@ -689,4 +689,4 @@ class TestAzureInstance(TestCase, AzureMetadata):
             unittest.mock.patch("glob.glob", return_value=mock_glob_glob_dev_standard_l32s_v2),
         ):
             ins = AzureInstance()
-            assert ins.nvme_disk_count == 4
+            assert ins.nvme_disk_count == 1
