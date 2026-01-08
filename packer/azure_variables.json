@@ -5,7 +5,7 @@
   "subscription_id": "",
   "security_group_id": "",
   "region": "EAST US",
-  "vm_size": "Standard_D4_v4",
+  "vm_size": "",
   "azure_gallery_resource_group": "",
   "azure_gallery_name": "",
   "azure_gallery_image_name": "",
