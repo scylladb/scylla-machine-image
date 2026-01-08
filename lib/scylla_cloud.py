@@ -564,21 +564,47 @@ class AzureInstance(CloudInstance):
             print(e)
             count_os_disks = 0
         count_metadata_nvme_disks = self.__get_nvme_disks_count_from_metadata()
-        return count_os_disks if count_os_disks < count_metadata_nvme_disks else count_metadata_nvme_disks
+        return min(count_os_disks, count_metadata_nvme_disks)
 
     instance_to_disk_count = {
-        "L8s": 1,
-        "L16s": 2,
-        "L32s": 4,
-        "L48s": 6,
-        "L64s": 8,
-        "L80s": 10,
-        "L8as": 1,
-        "L16as": 2,
-        "L32as": 4,
-        "L48as": 6,
-        "L64as": 8,
-        "L80as": 10,
+        # as per https://docs.microsoft.com/en-us/azure/virtual-machines/lsv2-series
+        "L8s_v2": 1,
+        "L16s_v2": 1,
+        "L32s_v2": 1,
+        "L48s_v2": 1,
+        "L64s_v2": 1,
+        "L80s_v2": 1,
+        # as per https://docs.microsoft.com/en-us/azure/virtual-machines/lsv3-series
+        "L8s_v3": 1,
+        "L16s_v3": 1,
+        "L32s_v3": 1,
+        "L48s_v3": 1,
+        "L64s_v3": 1,
+        "L80s_v3": 1,
+        # as per https://docs.microsoft.com/en-us/azure/virtual-machines/lasv3-series
+        "L8as_v3": 1,
+        "L16as_v3": 1,
+        "L32as_v3": 1,
+        "L48as_v3": 1,
+        "L64as_v3": 1,
+        "L80as_v3": 1,
+        # as per https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/general-purpose/dpdsv5-series
+        "D2pds_v5": 1,
+        "D4pds_v5": 1,
+        "D8pds_v5": 1,
+        "D16pds_v5": 1,
+        "D32pds_v5": 1,
+        "D48pds_v5": 1,
+        "D64pds_v5": 1,
+        # as per https://docs.microsoft.com/en-us/azure/virtual-machines/dpdsv6-series
+        "D2pds_v6": 1,
+        "D4pds_v6": 1,
+        "D8pds_v6": 1,
+        "D16pds_v6": 2,
+        "D32pds_v6": 4,
+        "D48pds_v6": 6,
+        "D64pds_v6": 4,
+        "D96pds_v6": 6,
     }
 
     def __get_nvme_disks_count_from_metadata(self):
@@ -612,11 +638,11 @@ class AzureInstance(CloudInstance):
 
     def instance_purpose(self):
         """Returns the class of the instance we are running in. i.e.: Standard"""
-        return self.instancetype.split("_")[0]
+        return self.instancetype.split("_", 1)[0]
 
     def instance_class(self):
         """Returns the purpose of the instance we are running in. i.e.: L8s"""
-        return self.instancetype.split("_")[1]
+        return self.instancetype.split("_", 1)[1]
 
     def is_supported_instance_class(self):
         """Returns if this instance type belongs to supported ones for nvmes"""
