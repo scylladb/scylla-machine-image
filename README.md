@@ -52,6 +52,7 @@ packer/build_image.sh \
   "instance_type": "n2-standard-2"
 }
 ```
+`build_image.sh` overrides `instance_type` with a default per `--arch` (`n2-standard-2` for x86_64, `c4a-highcpu-2` for aarch64). Pass `--ec2-instance-type` to pick another one.
 
 #### Azure
 ```bash
