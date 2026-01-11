@@ -117,6 +117,7 @@
       "preemptible": true,
       "omit_external_ip": false,
       "disk_size": 30,
+      "disk_type": "{{user `disk_type`}}",
       "image_labels":  {
           "scylla_version": "{{user `scylla_full_version`| clean_resource_name}}",
           "scylla_machine_image_version": "{{user `scylla_machine_image_version`| clean_resource_name}}",
@@ -255,6 +256,7 @@
     "zone": "",
     "image_storage_location": "",
     "source_image_family": "",
+    "disk_type": "",
     "azure_gallery_resource_group": "scylla-images",
     "azure_gallery_name": "",
     "azure_gallery_image_name": "",

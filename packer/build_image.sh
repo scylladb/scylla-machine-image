@@ -216,9 +216,29 @@ if [ "$TARGET" = "aws" ]; then
     PACKER_ARGS+=(-var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}")
 elif [ "$TARGET" = "gce" ]; then
     SSH_USERNAME=ubuntu
-    SOURCE_IMAGE_FAMILY="ubuntu-minimal-2404-lts-amd64"
-
+    arch="$ARCH"
+    case "$arch" in
+      "x86_64"|"amd64")
+        SOURCE_IMAGE_FAMILY="ubuntu-minimal-2404-lts-amd64"
+        if [ -z "$INSTANCE_TYPE" ]; then
+          INSTANCE_TYPE="n2-standard-2"
+          DISK_TYPE="pd-standard"
+        fi
+        ;;
+      "aarch64"|"arm64")
+        SOURCE_IMAGE_FAMILY="ubuntu-minimal-2404-lts-arm64"
+        if [ -z "$INSTANCE_TYPE" ]; then
+          INSTANCE_TYPE="c4a-highcpu-2"
+          DISK_TYPE="hyperdisk-balanced"
+        fi
+        ;;
+      *)
+        echo "Unsupported architecture: $arch"
+        exit 1
+    esac
     PACKER_ARGS+=(-var source_image_family="$SOURCE_IMAGE_FAMILY")
+    PACKER_ARGS+=(-var instance_type="$INSTANCE_TYPE")
+    PACKER_ARGS+=(-var disk_type="$DISK_TYPE")
 elif [ "$TARGET" = "azure" ]; then
     REGION="EAST US"
     SSH_USERNAME=azureuser
