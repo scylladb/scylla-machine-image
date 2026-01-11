@@ -253,7 +253,29 @@ if [ "$TARGET" = "aws" ]; then
     PACKER_ARGS+=(-var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}")
 elif [ "$TARGET" = "gce" ]; then
     SSH_USERNAME=ubuntu
-    SOURCE_IMAGE_FAMILY="ubuntu-minimal-2604-lts-amd64"
+    arch="$ARCH"
+    case "$arch" in
+      "x86_64"|"amd64"|"")
+        SOURCE_IMAGE_FAMILY="ubuntu-minimal-2604-lts-amd64"
+        DISK_TYPE="pd-standard"
+        if [ -z "$INSTANCE_TYPE" ]; then
+          INSTANCE_TYPE="n2-standard-2"
+        fi
+        ;;
+      "aarch64"|"arm64")
+        SOURCE_IMAGE_FAMILY="ubuntu-minimal-2604-lts-arm64"
+        # c4a only supports hyperdisk
+        DISK_TYPE="hyperdisk-balanced"
+        # keep arm64 out of the "scylla" family, so x86 users resolving the family never get an arm64 image
+        PACKER_ARGS+=(-var gce_image_family="scylla-arm64")
+        if [ -z "$INSTANCE_TYPE" ]; then
+          INSTANCE_TYPE="c4a-highcpu-2"
+        fi
+        ;;
+      *)
+        echo "Unsupported architecture: $arch"
+        exit 1
+    esac
 
     SCYLLA_GCE_IMAGE_DESCRIPTION="Official ScyllaDB image v-$VERSION
 scylla_version: $SCYLLA_FULL_VERSION
@@ -262,6 +284,8 @@ scylla_python3_version: $SCYLLA_FULL_VERSION"
 
     PACKER_ARGS+=(-var source_image_family="$SOURCE_IMAGE_FAMILY")
     PACKER_ARGS+=(-var scylla_gce_image_description="$SCYLLA_GCE_IMAGE_DESCRIPTION")
+    PACKER_ARGS+=(-var instance_type="$INSTANCE_TYPE")
+    PACKER_ARGS+=(-var disk_type="$DISK_TYPE")
 elif [ "$TARGET" = "azure" ]; then
     REGION="EAST US"
     SSH_USERNAME=azureuser
