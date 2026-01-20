@@ -152,49 +152,28 @@ class AzureIoSetup(CloudIoSetup):
             logging.error("This is not a recommended Azure Cloud instance setup for auto local disk tuning.")
             raise UnsupportedInstanceClassError()
 
-        self.disk_properties = {}
         self.disk_properties["mountpoint"] = "/var/lib/scylla"
-        nr_disks = self.idata.nvme_disk_count
-        # below is based on https://docs.microsoft.com/en-us/azure/virtual-machines/lsv2-series
-        # note that scylla iotune might measure more, this is Azure recommended
-        # since write properties are not defined, they come from our iotune tests
-        mbs = 1024 * 1024
-        if nr_disks == 1:
-            self.disk_properties["read_iops"] = 400000
-            self.disk_properties["read_bandwidth"] = 2000 * mbs
-            self.disk_properties["write_iops"] = 271696
-            self.disk_properties["write_bandwidth"] = 1314 * mbs
-        elif nr_disks == 2:
-            self.disk_properties["read_iops"] = 800000
-            self.disk_properties["read_bandwidth"] = 4000 * mbs
-            self.disk_properties["write_iops"] = 552434
-            self.disk_properties["write_bandwidth"] = 2478 * mbs
-        elif nr_disks == 4:
-            self.disk_properties["read_iops"] = 1500000
-            self.disk_properties["read_bandwidth"] = 8000 * mbs
-            self.disk_properties["write_iops"] = 1105063
-            self.disk_properties["write_bandwidth"] = 4948 * mbs
-        elif nr_disks == 6:
-            self.disk_properties["read_iops"] = 2200000
-            self.disk_properties["read_bandwidth"] = 14000 * mbs
-            self.disk_properties["write_iops"] = 1616847
-            self.disk_properties["write_bandwidth"] = 7892 * mbs
-        elif nr_disks == 8:
-            self.disk_properties["read_iops"] = 2900000
-            self.disk_properties["read_bandwidth"] = 16000 * mbs
-            self.disk_properties["write_iops"] = 2208081
-            self.disk_properties["write_bandwidth"] = 9694 * mbs
-        elif nr_disks == 10:
-            self.disk_properties["read_iops"] = 3800000
-            self.disk_properties["read_bandwidth"] = 20000 * mbs
-            self.disk_properties["write_iops"] = 2546511
-            self.disk_properties["write_bandwidth"] = 11998 * mbs
+        instance_type = self.idata.instancetype
 
-        if "read_iops" in self.disk_properties:
-            self.save()
-        else:
-            logging.warning("This is a supported instance but with no pre-configured io, scylla_io_setup will be run")
-            subprocess.run("scylla_io_setup", shell=True, check=True, capture_output=True, timeout=300)
+        # Try to load instance-specific parameters from YAML file
+        try:
+            with open("/opt/scylladb/scylla-machine-image/azure_io_params.yaml") as f:
+                io_params = yaml.safe_load(f)
+
+            if instance_type in io_params:
+                disk_params = io_params[instance_type]["disks"][0]
+                for p in ["read_iops", "read_bandwidth", "write_iops", "write_bandwidth"]:
+                    self.disk_properties[p] = disk_params[p]
+                self.save()
+                return
+        except FileNotFoundError:
+            logging.warning("Azure I/O parameters file not found, falling back to scylla_io_setup")
+        except Exception as e:
+            logging.warning(f"Error loading Azure I/O parameters: {e}, falling back to scylla_io_setup")
+
+        # Fallback to scylla_io_setup for instances not in YAML
+        logging.warning("This is a supported instance but with no pre-configured io, scylla_io_setup will be run")
+        subprocess.run("scylla_io_setup", shell=True, check=True, capture_output=True, timeout=300)
 
 
 class OciIoSetup(CloudIoSetup):
