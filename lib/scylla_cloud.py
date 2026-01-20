@@ -563,27 +563,19 @@ class AzureInstance(CloudInstance):
             print("Problem when parsing disks from OS:")
             print(e)
             count_os_disks = 0
-        count_metadata_nvme_disks = self.__get_nvme_disks_count_from_metadata()
-        return count_os_disks if count_os_disks < count_metadata_nvme_disks else count_metadata_nvme_disks
+        return count_os_disks
 
-    instance_to_disk_count = {
-        "L8s": 1,
-        "L16s": 2,
-        "L32s": 4,
-        "L48s": 6,
-        "L64s": 8,
-        "L80s": 10,
-        "L8as": 1,
-        "L16as": 2,
-        "L32as": 4,
-        "L48as": 6,
-        "L64as": 8,
-        "L80as": 10,
-    }
-
-    def __get_nvme_disks_count_from_metadata(self):
-        # storageProfile in VM metadata lacks the number of NVMEs, it's hardcoded based on VM type
-        return self.instance_to_disk_count.get(self.instance_class(), 0)
+    supported_classes = [
+        # storage optimized
+        r"L\d+s_v2",  # https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/storage-optimized/lsv2-series
+        r"L\d+s_v3",  # https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/storage-optimized/lsv3-series
+        r"L\d+as_v3",  # https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/storage-optimized/lasv3-series
+        r"L\d+s_v4",  # https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/storage-optimized/lsv4-series
+        r"L\d+as_v4",  # https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/storage-optimized/lasv4-series
+        # general purpose
+        r"D\d+pds_v5",  # https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/general-purpose/dpdsv5-series
+        r"D\d+pds_v6",  # https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/general-purpose/dpdsv6-series
+    ]
 
     @functools.cached_property
     def instancelocation(self):
@@ -612,15 +604,16 @@ class AzureInstance(CloudInstance):
 
     def instance_purpose(self):
         """Returns the class of the instance we are running in. i.e.: Standard"""
-        return self.instancetype.split("_")[0]
+        return self.instancetype.split("_", 1)[0]
 
     def instance_class(self):
         """Returns the purpose of the instance we are running in. i.e.: L8s"""
-        return self.instancetype.split("_")[1]
+        return self.instancetype.split("_", 1)[1]
 
     def is_supported_instance_class(self):
         """Returns if this instance type belongs to supported ones for nvmes"""
-        return self.instance_class() in list(self.instance_to_disk_count.keys())
+        instance_class = self.instance_class()
+        return any(re.match(pattern, instance_class) for pattern in self.supported_classes)
 
     def is_recommended_instance_size(self):
         """if this instance has at least 2 cpus, it has a recommended size"""

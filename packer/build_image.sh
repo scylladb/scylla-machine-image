@@ -227,7 +227,30 @@ elif [ "$TARGET" = "azure" ]; then
     RESOURCE_GROUP="SCYLLA-IMAGES"
     GALLERY_NAME="scylladb_dev"
     LOCATION="eastus"
-    DEF_NAME=$BRANCH
+
+    # Map input $ARCH to canonical Azure representation
+    # User wants to map 'aarch64' input to 'Arm64' output, and 'x64' input to 'x86_64'.
+    # This ensures the case statement below uses the correct values for Azure definitions.
+    case "$ARCH" in
+        "x86_64")
+            AZURE_ARCH="x64"
+            VM_SIZE="Standard_D4_v4"
+            IMAGE_OFFER="ubuntu-24_04-lts"
+            IMAGE_SKU="server"
+            ;;
+        "aarch64")
+            AZURE_ARCH="Arm64" # Map aarch64 input to Arm64 for Azure definitions
+            VM_SIZE="Standard_D4ps_v5"
+            IMAGE_OFFER="ubuntu-24_04-lts"
+            IMAGE_SKU="server-arm64"
+            ;;
+        "Arm64") # If input is already Arm64, keep it.
+            : # No operation needed
+            ;;
+    esac
+
+    DEF_NAME="$BRANCH-$AZURE_ARCH" # Use the potentially updated ARCH
+
     # check if AZURE_CLIENT_ID and AZURE_CLIENT_SECRET and AZURE_TENANT_ID is set, before doing az login
     if [ -n "$AZURE_CLIENT_ID" ] && [ -n "$AZURE_CLIENT_SECRET" ] && [ -n "$AZURE_TENANT_ID" ] ; then
       az login --service-principal --username $AZURE_CLIENT_ID --password $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID
@@ -248,6 +271,7 @@ elif [ "$TARGET" = "azure" ]; then
         --os-type Linux \
         --os-state Generalized \
         --hyper-v-generation V2 \
+        --architecture "$AZURE_ARCH" \
         --features "DiskControllerTypes=SCSI,NVMe" \
         --location "$LOCATION" \
         --output none || echo "   -> Image definition '$DEF_NAME' already exists (or created)."
@@ -260,6 +284,9 @@ elif [ "$TARGET" = "azure" ]; then
     PACKER_ARGS+=(-var azure_gallery_name="$GALLERY_NAME")
     PACKER_ARGS+=(-var azure_gallery_image_name="$DEF_NAME")
     PACKER_ARGS+=(-var azure_gallery_image_version="$GALLERY_IMAGE_VERSION")
+    PACKER_ARGS+=(-var vm_size="$VM_SIZE")
+    PACKER_ARGS+=(-var image_offer="$IMAGE_OFFER")
+    PACKER_ARGS+=(-var image_sku="$IMAGE_SKU")
     
     PACKER_ARGS+=(-var scylla_image_description="${SCYLLA_IMAGE_DESCRIPTION:0:255}")
     PACKER_ARGS+=(-var client_id="$AZURE_CLIENT_ID")

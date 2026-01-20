@@ -148,8 +148,8 @@
       "subscription_id": "{{user `subscription_id`}}",
       "os_type": "Linux",
       "image_publisher": "Canonical",
-      "image_offer": "ubuntu-24_04-lts-daily",
-      "image_sku": "minimal",
+      "image_offer": "{{user `image_offer`}}",
+      "image_sku": "{{user `image_sku`}}",
       "shared_image_gallery_destination": {
         "resource_group": "{{user `azure_gallery_resource_group`}}",
         "gallery_name": "{{user `azure_gallery_name`}}",
@@ -260,6 +260,9 @@
     "azure_gallery_image_name": "",
     "azure_gallery_image_version": "",
     "azure_replication_regions": "",
-    "azure_storage_account_type": "Standard_LRS"
+    "azure_storage_account_type": "Standard_LRS",
+    "image_offer": "",
+    "image_sku": "",
+    "vm_size": ""
   }
 }
