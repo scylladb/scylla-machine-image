@@ -1,0 +1,210 @@
+Standard_L2aos_v4:
+  disks:
+  - read_iops: 180090
+    read_bandwidth: 1102184576
+    write_iops: 71901
+    write_bandwidth: 549928448
+Standard_L2as_v4:
+  disks:
+  - read_iops: 137524
+    read_bandwidth: 750002048
+    write_iops: 55001
+    write_bandwidth: 375014912
+Standard_L2s_v4:
+  disks:
+  - read_iops: 137498
+    read_bandwidth: 749575680
+    write_iops: 54999
+    write_bandwidth: 374778560
+Standard_L4aos_v4:
+  disks:
+  - read_iops: 359714
+    read_bandwidth: 2201909248
+    write_iops: 143825
+    write_bandwidth: 1100611072
+Standard_L4as_v4:
+  disks:
+  - read_iops: 274932
+    read_bandwidth: 1502213248
+    write_iops: 110143
+    write_bandwidth: 750941120
+Standard_L4s_v4:
+  disks:
+  - read_iops: 274828
+    read_bandwidth: 1499190144
+    write_iops: 109951
+    write_bandwidth: 749365312
+Standard_L8aos_v4:
+  disks:
+  - read_iops: 162204
+    read_bandwidth: 4401689600
+    write_iops: 62388
+    write_bandwidth: 2061798528
+Standard_L8as_v3:
+  disks:
+  - read_iops: 620172
+    read_bandwidth: 3497561088
+    write_iops: 438644
+    write_bandwidth: 1847654144
+Standard_L8as_v4:
+  disks:
+  - read_iops: 549474
+    read_bandwidth: 2998234112
+    write_iops: 219735
+    write_bandwidth: 1499555072
+Standard_L8s_v3:
+  disks:
+  - read_iops: 14245
+    read_bandwidth: 3734856960
+    write_iops: 10017
+    write_bandwidth: 2612137984
+Standard_L8s_v4:
+  disks:
+  - read_iops: 549031
+    read_bandwidth: 2993360384
+    write_iops: 219651
+    write_bandwidth: 1498326912
+Standard_L12aos_v4:
+  disks:
+  - read_iops: 1078629
+    read_bandwidth: 6589214208
+    write_iops: 431447
+    write_bandwidth: 3301979904
+Standard_L16aos_v4:
+  disks:
+  - read_iops: 1439176
+    read_bandwidth: 8797494272
+    write_iops: 575315
+    write_bandwidth: 4398589440
+Standard_L16as_v3:
+  disks:
+  - read_iops: 1233572
+    read_bandwidth: 7024942592
+    write_iops: 875966
+    write_bandwidth: 3697230080
+Standard_L16as_v4:
+  disks:
+  - read_iops: 1099518
+    read_bandwidth: 5973518336
+    write_iops: 439540
+    write_bandwidth: 3000305920
+Standard_L16s_v3:
+  disks:
+  - read_iops: 28489
+    read_bandwidth: 7467323392
+    write_iops: 20005
+    write_bandwidth: 5135863296
+Standard_L16s_v4:
+  disks:
+  - read_iops: 1098789
+    read_bandwidth: 5994220544
+    write_iops: 439356
+    write_bandwidth: 2996842496
+Standard_L32as_v3:
+  disks:
+  - read_iops: 2488360
+    read_bandwidth: 14166191104
+    write_iops: 1760270
+    write_bandwidth: 7390219264
+Standard_L32as_v4:
+  disks:
+  - read_iops: 2197869
+    read_bandwidth: 11990258688
+    write_iops: 879237
+    write_bandwidth: 6001781760
+Standard_L32s_v3:
+  disks:
+  - read_iops: 3563899
+    read_bandwidth: 14912331776
+    write_iops: 2362130
+    write_bandwidth: 9766223872
+Standard_L32s_v4:
+  disks:
+  - read_iops: 2193105
+    read_bandwidth: 11946768384
+    write_iops: 874581
+    write_bandwidth: 5993276928
+Standard_L48as_v3:
+  disks:
+  - read_iops: 4840524
+    read_bandwidth: 21256421376
+    write_iops: 3367669
+    write_bandwidth: 13845145600
+Standard_L48as_v4:
+  disks:
+  - read_iops: 3299380
+    read_bandwidth: 17924665344
+    write_iops: 1319680
+    write_bandwidth: 9004469248
+Standard_L48s_v3:
+  disks:
+  - read_iops: 85440
+    read_bandwidth: 22391074816
+    write_iops: 59385
+    write_bandwidth: 15443830784
+Standard_L48s_v4:
+  disks:
+  - read_iops: 3280604
+    read_bandwidth: 17644552192
+    write_iops: 1298941
+    write_bandwidth: 8984570880
+Standard_L64as_v3:
+  disks:
+  - read_iops: 7000165
+    read_bandwidth: 29779765248
+    write_iops: 4714977
+    write_bandwidth: 19616075776
+Standard_L64as_v4:
+  disks:
+  - read_iops: 1115399
+    read_bandwidth: 23921129472
+    write_iops: 1759073
+    write_bandwidth: 12010074112
+Standard_L64s_v3:
+  disks:
+  - read_iops: 5506751
+    read_bandwidth: 29780275200
+    write_iops: 3603432
+    write_bandwidth: 14851149824
+Standard_L64s_v4:
+  disks:
+  - read_iops: 4395739
+    read_bandwidth: 23891388416
+    write_iops: 1758438
+    write_bandwidth: 11974060032
+Standard_L80as_v3:
+  disks:
+  - read_iops: 8389333
+    read_bandwidth: 34759397376
+    write_iops: 5745663
+    write_bandwidth: 23792476160
+Standard_L80as_v4:
+  disks:
+  - read_iops: 5480340
+    read_bandwidth: 26868676608
+    write_iops: 2192266
+    write_bandwidth: 13712851968
+Standard_L80s_v3:
+  disks:
+  - read_iops: 6872371
+    read_bandwidth: 35930718208
+    write_iops: 4496411
+    write_bandwidth: 17878478848
+Standard_L80s_v4:
+  disks:
+  - read_iops: 4539406
+    read_bandwidth: 27448158208
+    write_iops: 2144735
+    write_bandwidth: 11821709312
+Standard_L96as_v4:
+  disks:
+  - read_iops: 6414682
+    read_bandwidth: 35906560000
+    write_iops: 2618186
+    write_bandwidth: 17567614976
+Standard_L96s_v4:
+  disks:
+  - read_iops: 5659657
+    read_bandwidth: 35697717248
+    write_iops: 2637499
+    write_bandwidth: 17943207936

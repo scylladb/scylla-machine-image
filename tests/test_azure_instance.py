@@ -1,4 +1,5 @@
 import base64
+import importlib.util
 import logging
 import re
 import sys
@@ -8,11 +9,23 @@ from pathlib import Path
 from unittest import IsolatedAsyncioTestCase, TestCase
 
 import httpretty
+import pytest
+import yaml
 
 
 sys.path.append(str(Path(__file__).parent.parent))
 import lib.scylla_cloud
 from lib.scylla_cloud import AzureInstance
+
+
+# Load scylla_cloud_io_setup module (file without .py extension)
+_io_setup_path = Path(__file__).parent.parent / "common" / "scylla_cloud_io_setup"
+_spec = importlib.util.spec_from_loader("scylla_cloud_io_setup", loader=None, origin=str(_io_setup_path))
+scylla_cloud_io_setup = importlib.util.module_from_spec(_spec)
+with open(_io_setup_path) as _f:
+    exec(_f.read(), scylla_cloud_io_setup.__dict__)
+AzureIoSetup = scylla_cloud_io_setup.AzureIoSetup
+UnsupportedInstanceClassError = scylla_cloud_io_setup.UnsupportedInstanceClassError
 
 
 LOGGER = logging.getLogger(__name__)
@@ -680,3 +693,129 @@ class TestAzureInstance(TestCase, AzureMetadata):
         ):
             ins = AzureInstance()
             assert ins.nvme_disk_count == 4
+
+
+# Sample Azure IO params for testing
+MOCK_AZURE_IO_PARAMS = {
+    "Standard_L16s_v2": {
+        "disks": [
+            {
+                "read_iops": 1098789,
+                "read_bandwidth": 5994220544,
+                "write_iops": 439356,
+                "write_bandwidth": 2996842496,
+            }
+        ]
+    },
+    "Standard_L8s_v3": {
+        "disks": [
+            {
+                "read_iops": 14245,
+                "read_bandwidth": 3734856960,
+                "write_iops": 10017,
+                "write_bandwidth": 2612137984,
+            }
+        ]
+    },
+}
+
+
+class MockAzureInstance:
+    """Mock Azure instance for testing AzureIoSetup."""
+
+    def __init__(self, instance_type="Standard_L16s_v2", supported=True):
+        self.instancetype = instance_type
+        self._supported = supported
+
+    def is_supported_instance_class(self):
+        return self._supported
+
+
+class TestAzureIoSetup(TestCase, AzureMetadata):
+    """Tests for AzureIoSetup class."""
+
+    def setUp(self):
+        httpretty.enable(verbose=True, allow_net_connect=False)
+
+    def tearDown(self):
+        httpretty.disable()
+        httpretty.reset()
+
+    def test_azure_io_setup_with_known_instance_type(self):
+        """Test that AzureIoSetup correctly loads IO params from YAML file."""
+        mock_instance = MockAzureInstance(instance_type="Standard_L16s_v2")
+        io_setup = AzureIoSetup(mock_instance)
+
+        mock_yaml_content = yaml.dump(MOCK_AZURE_IO_PARAMS)
+
+        with (
+            unittest.mock.patch("builtins.open", unittest.mock.mock_open(read_data=mock_yaml_content)),
+            unittest.mock.patch.object(io_setup, "save") as mock_save,
+        ):
+            io_setup.generate()
+
+            # Verify disk properties were set correctly
+            assert io_setup.disk_properties["mountpoint"] == "/var/lib/scylla"
+            assert io_setup.disk_properties["read_iops"] == 1098789
+            assert io_setup.disk_properties["read_bandwidth"] == 5994220544
+            assert io_setup.disk_properties["write_iops"] == 439356
+            assert io_setup.disk_properties["write_bandwidth"] == 2996842496
+            mock_save.assert_called_once()
+
+    def test_azure_io_setup_with_different_instance_type(self):
+        """Test AzureIoSetup with Standard_L8s_v3 instance type."""
+        mock_instance = MockAzureInstance(instance_type="Standard_L8s_v3")
+        io_setup = AzureIoSetup(mock_instance)
+
+        mock_yaml_content = yaml.dump(MOCK_AZURE_IO_PARAMS)
+
+        with (
+            unittest.mock.patch("builtins.open", unittest.mock.mock_open(read_data=mock_yaml_content)),
+            unittest.mock.patch.object(io_setup, "save") as mock_save,
+        ):
+            io_setup.generate()
+
+            assert io_setup.disk_properties["mountpoint"] == "/var/lib/scylla"
+            assert io_setup.disk_properties["read_iops"] == 14245
+            assert io_setup.disk_properties["read_bandwidth"] == 3734856960
+            assert io_setup.disk_properties["write_iops"] == 10017
+            assert io_setup.disk_properties["write_bandwidth"] == 2612137984
+            mock_save.assert_called_once()
+
+    def test_azure_io_setup_fallback_when_file_not_found(self):
+        """Test that AzureIoSetup falls back to scylla_io_setup when YAML file is not found."""
+        mock_instance = MockAzureInstance(instance_type="Standard_L16s_v2")
+        io_setup = AzureIoSetup(mock_instance)
+
+        with (
+            unittest.mock.patch("builtins.open", side_effect=FileNotFoundError("File not found")),
+            unittest.mock.patch("subprocess.run") as mock_run,
+        ):
+            io_setup.generate()
+            mock_run.assert_called_once_with(
+                "scylla_io_setup", shell=True, check=True, capture_output=True, timeout=300
+            )
+
+    def test_azure_io_setup_fallback_when_instance_not_in_yaml(self):
+        """Test that AzureIoSetup falls back to scylla_io_setup when instance type is not in YAML."""
+        mock_instance = MockAzureInstance(instance_type="Standard_L999s_v99")
+        io_setup = AzureIoSetup(mock_instance)
+
+        mock_yaml_content = yaml.dump(MOCK_AZURE_IO_PARAMS)
+
+        with (
+            unittest.mock.patch("builtins.open", unittest.mock.mock_open(read_data=mock_yaml_content)),
+            unittest.mock.patch("subprocess.run") as mock_run,
+        ):
+            io_setup.generate()
+            mock_run.assert_called_once_with(
+                "scylla_io_setup", shell=True, check=True, capture_output=True, timeout=300
+            )
+
+    def test_azure_io_setup_raises_for_unsupported_instance_class(self):
+        """Test that AzureIoSetup raises UnsupportedInstanceClassError for unsupported instances."""
+        mock_instance = MockAzureInstance(instance_type="Standard_L16s_v2", supported=False)
+        io_setup = AzureIoSetup(mock_instance)
+
+        with pytest.raises(UnsupportedInstanceClassError):
+            io_setup.generate()
