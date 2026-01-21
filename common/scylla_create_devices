@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+import os
 import sys
 import time
 from collections.abc import Callable
@@ -82,10 +83,22 @@ def create_raid(devices, raid_level=0):
     if len(devices) == 0:
         raise (NoDiskFoundError)
     scylla_path = Path("/var/lib/scylla")
+    mount_file = Path("/etc/systemd/system/var-lib-scylla.mount")
     print(f"Devices: {devices}")
     if scylla_path.is_mount():
         print(f"{scylla_path} is already mounted. Will not run 'scylla_raid_setup'!")
         sys.exit(0)
+
+    # If the mount file exists but the mount point is not mounted, remove the mount file
+    # to allow scylla_raid_setup to recreate it properly
+    if mount_file.exists():
+        print(f"{mount_file} exists but {scylla_path} is not mounted. Removing the mount file.")
+        try:
+            os.remove(mount_file)
+        except OSError as e:
+            print(f"Failed to remove {mount_file}: {e}")
+            raise
+
     run(
         [
             "/opt/scylladb/scripts/scylla_raid_setup",
