@@ -57,6 +57,11 @@ io-properties = [
     "azure-mgmt-resource>=23.1.0",
 ]
 
+scraping = [
+    "pandas>=2.0.0",
+    "lxml>=5.0.0",
+]
+
 dev = [
     "scylla-machine-image[test,aws,io-properties]",
     "ruff>=0.8.0",

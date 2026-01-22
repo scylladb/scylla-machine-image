@@ -1,6 +1,6 @@
 import json
 
-from lib.scylla_cloud import get_cloud_instance, is_ec2, is_oci
+from lib.scylla_cloud import get_cloud_instance, is_azure, is_ec2, is_oci
 
 
 def estimate_streaming_bandwidth():
@@ -39,6 +39,16 @@ def estimate_streaming_bandwidth():
 
                 if net_bw_gbps:
                     net_bw = int(net_bw_gbps * 1000 * 1000 * 1000)  # Gbps -> bps
+
+    elif is_azure():
+        instance_type = cloud_instance.instancetype
+        # Data from Azure documentation for L-series VMs
+        # https://docs.microsoft.com/en-us/azure/virtual-machines/sizes/
+        with open("/opt/scylladb/scylla-machine-image/azure_net_params.json") as f:
+            netinfo = json.load(f)
+            if instance_type in netinfo:
+                net_bw_gbps = netinfo[instance_type]["Network_Limit_Gbps"]
+                net_bw = int(net_bw_gbps * 1000 * 1000 * 1000)  # Gbps -> bps
 
     # TODO: other clouds
 
