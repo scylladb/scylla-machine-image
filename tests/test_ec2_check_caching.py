@@ -30,10 +30,9 @@ class TestEc2CheckCaching(TestCase):
 
     def tearDown(self):
         """Clean up test fixtures."""
-        if os.path.exists(self.cache_file):
-            os.remove(self.cache_file)
+        import shutil
         if os.path.exists(self.temp_cache_dir):
-            os.rmdir(self.temp_cache_dir)
+            shutil.rmtree(self.temp_cache_dir)
 
     def test_cache_file_creation(self):
         """Test that cache file is created when checks pass."""
