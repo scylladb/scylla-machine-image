@@ -7,6 +7,7 @@ import unittest.mock
 from pathlib import Path
 from unittest import TestCase
 
+
 sys.path.append(str(Path(__file__).parent.parent))
 
 
@@ -20,10 +21,10 @@ class TestEc2CheckCaching(TestCase):
         """Set up test fixtures."""
         self.temp_cache_dir = tempfile.mkdtemp()
         self.cache_file = os.path.join(self.temp_cache_dir, "ec2_check_cache.json")
-        
+
         # Mock the CACHE_FILE constant in the scylla_ec2_check module
         self.cache_file_patch = unittest.mock.patch(
-            "common.scylla_ec2_check.CACHE_FILE", 
+            "common.scylla_ec2_check.CACHE_FILE",
             self.cache_file
         )
 
@@ -43,16 +44,16 @@ class TestEc2CheckCaching(TestCase):
             },
             "check_passed": True,
         }
-        
+
         os.makedirs(os.path.dirname(self.cache_file), exist_ok=True)
         with open(self.cache_file, "w") as f:
             json.dump(cache_data, f)
-        
+
         self.assertTrue(os.path.exists(self.cache_file))
-        
-        with open(self.cache_file, "r") as f:
+
+        with open(self.cache_file) as f:
             loaded_data = json.load(f)
-        
+
         self.assertEqual(loaded_data["check_passed"], True)
         self.assertEqual(loaded_data["instance_identity"]["instance_id"], "i-1234567890abcdef0")
 
@@ -66,28 +67,28 @@ class TestEc2CheckCaching(TestCase):
             },
             "check_passed": True,
         }
-        
+
         os.makedirs(os.path.dirname(self.cache_file), exist_ok=True)
         with open(self.cache_file, "w") as f:
             json.dump(cache_data_1, f)
-        
+
         # Simulate instance change
         current_identity = {
             "instance_id": "i-0fedcba9876543210",  # Different instance
             "instance_type": "i3.2xlarge",
         }
-        
+
         # Load cache
-        with open(self.cache_file, "r") as f:
+        with open(self.cache_file) as f:
             cached_data = json.load(f)
-        
+
         # Verify cache is not valid for new instance
         cached_identity = cached_data.get("instance_identity", {})
         is_valid = (
             cached_identity.get("instance_id") == current_identity.get("instance_id")
             and cached_data.get("check_passed", False)
         )
-        
+
         self.assertFalse(is_valid)
 
     def test_cache_invalidation_on_instance_type_change(self):
@@ -100,28 +101,28 @@ class TestEc2CheckCaching(TestCase):
             },
             "check_passed": True,
         }
-        
+
         os.makedirs(os.path.dirname(self.cache_file), exist_ok=True)
         with open(self.cache_file, "w") as f:
             json.dump(cache_data, f)
-        
+
         # Simulate instance type change (e.g., after stop/resize/start)
         current_identity = {
             "instance_id": "i-1234567890abcdef0",  # Same instance
             "instance_type": "i3.4xlarge",  # Different type
         }
-        
+
         # Load cache
-        with open(self.cache_file, "r") as f:
+        with open(self.cache_file) as f:
             cached_data = json.load(f)
-        
+
         # Verify cache is not valid for new instance type
         cached_identity = cached_data.get("instance_identity", {})
         is_valid = (
             cached_identity.get("instance_type") == current_identity.get("instance_type")
             and cached_data.get("check_passed", False)
         )
-        
+
         self.assertFalse(is_valid)
 
     def test_cache_valid_on_reboot(self):
@@ -134,21 +135,21 @@ class TestEc2CheckCaching(TestCase):
             },
             "check_passed": True,
         }
-        
+
         os.makedirs(os.path.dirname(self.cache_file), exist_ok=True)
         with open(self.cache_file, "w") as f:
             json.dump(cache_data, f)
-        
+
         # Simulate reboot (same instance)
         current_identity = {
             "instance_id": "i-1234567890abcdef0",
             "instance_type": "i3.2xlarge",
         }
-        
+
         # Load cache
-        with open(self.cache_file, "r") as f:
+        with open(self.cache_file) as f:
             cached_data = json.load(f)
-        
+
         # Verify cache is still valid
         cached_identity = cached_data.get("instance_identity", {})
         is_valid = (
@@ -156,7 +157,7 @@ class TestEc2CheckCaching(TestCase):
             and cached_identity.get("instance_type") == current_identity.get("instance_type")
             and cached_data.get("check_passed", False)
         )
-        
+
         self.assertTrue(is_valid)
 
     def test_missing_cache_file(self):
@@ -164,7 +165,7 @@ class TestEc2CheckCaching(TestCase):
         # Ensure cache file doesn't exist
         if os.path.exists(self.cache_file):
             os.remove(self.cache_file)
-        
+
         self.assertFalse(os.path.exists(self.cache_file))
 
     def test_corrupted_cache_file(self):
@@ -173,10 +174,10 @@ class TestEc2CheckCaching(TestCase):
         os.makedirs(os.path.dirname(self.cache_file), exist_ok=True)
         with open(self.cache_file, "w") as f:
             f.write("{ invalid json content")
-        
+
         # Try to load cache - should handle gracefully
         try:
-            with open(self.cache_file, "r") as f:
+            with open(self.cache_file) as f:
                 json.load(f)
             self.fail("Should have raised JSONDecodeError")
         except json.JSONDecodeError:

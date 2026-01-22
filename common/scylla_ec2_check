@@ -9,7 +9,6 @@ import json
 import os
 import re
 import sys
-from pathlib import Path
 
 from lib.scylla_cloud import AwsInstance, colorprint, is_ec2, out
 
@@ -30,9 +29,9 @@ def load_cache():
     """Load cached check results."""
     try:
         if os.path.exists(CACHE_FILE):
-            with open(CACHE_FILE, "r") as f:
+            with open(CACHE_FILE) as f:
                 return json.load(f)
-    except (json.JSONDecodeError, IOError):
+    except (OSError, json.JSONDecodeError):
         pass
     return None
 
@@ -44,7 +43,7 @@ def save_cache(data):
         os.makedirs(cache_dir, mode=0o755, exist_ok=True)
         with open(CACHE_FILE, "w") as f:
             json.dump(data, f, indent=2)
-    except IOError as e:
+    except OSError as e:
         print(f"Warning: Failed to save cache: {e}", file=sys.stderr)
 
 
@@ -52,14 +51,14 @@ def is_cache_valid(cache_data, current_identity):
     """Check if cached results are still valid."""
     if not cache_data:
         return False
-    
+
     # Check if instance identity matches
     cached_identity = cache_data.get("instance_identity", {})
     if cached_identity.get("instance_id") != current_identity.get("instance_id"):
         return False
     if cached_identity.get("instance_type") != current_identity.get("instance_type"):
         return False
-    
+
     # Check if the check was successful
     return cache_data.get("check_passed", False)
 
@@ -82,11 +81,11 @@ def run_ec2_checks(nic):
 More documentation available at:
 http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking.html#enabling_enhanced_networking""")
         return False
-    elif not aws.is_vpc_enabled(nic):
+    if not aws.is_vpc_enabled(nic):
         colorprint("{red}VPC is not enabled!{nocolor}")
         print("To enable enhanced networking, please enable VPC.")
         return False
-    elif driver != en:
+    if driver != en:
         colorprint("{red}Enhanced networking is disabled!{nocolor}")
         print("""More documentation available at:
 http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking.html""")
@@ -98,10 +97,10 @@ http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking.html""")
 if __name__ == "__main__":
     if not is_ec2():
         sys.exit(0)
-    
+
     parser = argparse.ArgumentParser(description="Verify EC2 configuration is optimized.")
     parser.add_argument("--nic", default="eth0", help="specify NIC")
-    parser.add_argument("--force-check", action="store_true", 
+    parser.add_argument("--force-check", action="store_true",
                         help="force check even if cached results exist")
     args = parser.parse_args()
 
@@ -109,14 +108,14 @@ if __name__ == "__main__":
     if not args.force_check:
         current_identity = get_instance_identity()
         cache_data = load_cache()
-        
+
         if is_cache_valid(cache_data, current_identity):
             colorprint("{green}This EC2 instance is optimized for Scylla (cached result).{nocolor}")
             sys.exit(0)
 
     # Run actual checks
     check_passed = run_ec2_checks(args.nic)
-    
+
     if check_passed:
         # Save successful check to cache
         current_identity = get_instance_identity()
