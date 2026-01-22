@@ -1,3 +1,4 @@
+import importlib.util
 import logging
 import sys
 import unittest.mock
@@ -7,11 +8,23 @@ from subprocess import CalledProcessError
 from unittest import IsolatedAsyncioTestCase, TestCase
 
 import httpretty
+import pytest
+import yaml
 
 
 sys.path.append(str(Path(__file__).parent.parent))
 import lib.scylla_cloud
 from lib.scylla_cloud import AwsInstance
+
+
+# Load scylla_cloud_io_setup module (file without .py extension)
+_io_setup_path = Path(__file__).parent.parent / "common" / "scylla_cloud_io_setup"
+_spec = importlib.util.spec_from_loader("scylla_cloud_io_setup", loader=None, origin=str(_io_setup_path))
+scylla_cloud_io_setup = importlib.util.module_from_spec(_spec)
+with open(_io_setup_path) as _f:
+    exec(_f.read(), scylla_cloud_io_setup.__dict__)
+AwsIoSetup = scylla_cloud_io_setup.AwsIoSetup
+UnsupportedInstanceClassError = scylla_cloud_io_setup.UnsupportedInstanceClassError
 
 
 LOGGER = logging.getLogger(__name__)
@@ -633,3 +646,128 @@ class TestAwsInstance(TestCase, AwsMetadata):
         ):
             ins = AwsInstance()
             assert ins.get_remote_disks() == []
+
+
+# Sample AWS IO params for testing
+MOCK_AWS_IO_PARAMS = {
+    "i3.xlarge": {
+        "read_iops": 200800,
+        "read_bandwidth": 1185106376,
+        "write_iops": 53180,
+        "write_bandwidth": 423621267,
+    },
+    "i3.ALL": {
+        "read_iops": 411200,
+        "read_bandwidth": 2015342735,
+        "write_iops": 181500,
+        "write_bandwidth": 808775652,
+    },
+}
+
+
+class MockAwsInstance:
+    """Mock AWS instance for testing AwsIoSetup."""
+
+    def __init__(self, instance_type="i3.xlarge", instance_class="i3", local_disks=None, supported=True):
+        self.instancetype = instance_type
+        self._instance_class = instance_class
+        self._local_disks = local_disks if local_disks else ["nvme0n1"]
+        self._supported = supported
+
+    def is_supported_instance_class(self):
+        return self._supported
+
+    def instance_class(self):
+        return self._instance_class
+
+    def get_local_disks(self):
+        return self._local_disks
+
+
+class TestAwsIoSetup(TestCase):
+    """Tests for AwsIoSetup class."""
+
+    def test_aws_io_setup_with_known_instance_type(self):
+        """Test that AwsIoSetup correctly loads IO params from YAML file."""
+        mock_instance = MockAwsInstance(instance_type="i3.xlarge", local_disks=["nvme0n1"])
+        io_setup = AwsIoSetup(mock_instance)
+
+        mock_yaml_content = yaml.dump(MOCK_AWS_IO_PARAMS)
+
+        with (
+            unittest.mock.patch("builtins.open", unittest.mock.mock_open(read_data=mock_yaml_content)),
+            unittest.mock.patch.object(io_setup, "save") as mock_save,
+        ):
+            io_setup.generate()
+
+            # Verify disk properties were set correctly (multiplied by nr_disks=1)
+            assert io_setup.disk_properties["mountpoint"] == "/var/lib/scylla"
+            assert io_setup.disk_properties["read_iops"] == 200800
+            assert io_setup.disk_properties["read_bandwidth"] == 1185106376
+            assert io_setup.disk_properties["write_iops"] == 53180
+            assert io_setup.disk_properties["write_bandwidth"] == 423621267
+            mock_save.assert_called_once()
+
+    def test_aws_io_setup_with_multiple_disks(self):
+        """Test AwsIoSetup correctly multiplies IO params by number of disks."""
+        mock_instance = MockAwsInstance(instance_type="i3.xlarge", local_disks=["nvme0n1", "nvme1n1"])
+        io_setup = AwsIoSetup(mock_instance)
+
+        mock_yaml_content = yaml.dump(MOCK_AWS_IO_PARAMS)
+
+        with (
+            unittest.mock.patch("builtins.open", unittest.mock.mock_open(read_data=mock_yaml_content)),
+            unittest.mock.patch.object(io_setup, "save") as mock_save,
+        ):
+            io_setup.generate()
+
+            # Verify disk properties were multiplied by 2 (nr_disks)
+            assert io_setup.disk_properties["read_iops"] == 200800 * 2
+            assert io_setup.disk_properties["read_bandwidth"] == 1185106376 * 2
+            assert io_setup.disk_properties["write_iops"] == 53180 * 2
+            assert io_setup.disk_properties["write_bandwidth"] == 423621267 * 2
+            mock_save.assert_called_once()
+
+    def test_aws_io_setup_fallback_to_instance_class_all(self):
+        """Test AwsIoSetup falls back to instance_class.ALL when specific type not found."""
+        mock_instance = MockAwsInstance(instance_type="i3.8xlarge", instance_class="i3", local_disks=["nvme0n1"])
+        io_setup = AwsIoSetup(mock_instance)
+
+        mock_yaml_content = yaml.dump(MOCK_AWS_IO_PARAMS)
+
+        with (
+            unittest.mock.patch("builtins.open", unittest.mock.mock_open(read_data=mock_yaml_content)),
+            unittest.mock.patch.object(io_setup, "save") as mock_save,
+        ):
+            io_setup.generate()
+
+            # Should use i3.ALL values
+            assert io_setup.disk_properties["read_iops"] == 411200
+            assert io_setup.disk_properties["read_bandwidth"] == 2015342735
+            mock_save.assert_called_once()
+
+    def test_aws_io_setup_fallback_to_scylla_io_setup(self):
+        """Test that AwsIoSetup falls back to scylla_io_setup when instance type not in YAML."""
+        mock_instance = MockAwsInstance(
+            instance_type="unknown.xlarge", instance_class="unknown", local_disks=["nvme0n1"]
+        )
+        io_setup = AwsIoSetup(mock_instance)
+
+        mock_yaml_content = yaml.dump(MOCK_AWS_IO_PARAMS)
+
+        with (
+            unittest.mock.patch("builtins.open", unittest.mock.mock_open(read_data=mock_yaml_content)),
+            unittest.mock.patch("subprocess.run") as mock_run,
+        ):
+            io_setup.generate()
+            mock_run.assert_called_once_with(
+                "scylla_io_setup", shell=True, check=True, capture_output=True, timeout=300
+            )
+
+    def test_aws_io_setup_raises_for_unsupported_instance_class(self):
+        """Test that AwsIoSetup raises UnsupportedInstanceClassError for unsupported instances."""
+        mock_instance = MockAwsInstance(instance_type="i3.xlarge", supported=False)
+        io_setup = AwsIoSetup(mock_instance)
+
+        with pytest.raises(UnsupportedInstanceClassError):
+            io_setup.generate()

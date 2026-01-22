@@ -1,3 +1,4 @@
+import importlib.util
 import json
 import logging
 import sys
@@ -8,11 +9,23 @@ from socket import AddressFamily, SocketKind
 from unittest import IsolatedAsyncioTestCase, TestCase
 
 import httpretty
+import pytest
+import yaml
 
 
 sys.path.append(str(Path(__file__).parent.parent))
 import lib.scylla_cloud
 from lib.scylla_cloud import GcpInstance
+
+
+# Load scylla_cloud_io_setup module (file without .py extension)
+_io_setup_path = Path(__file__).parent.parent / "common" / "scylla_cloud_io_setup"
+_spec = importlib.util.spec_from_loader("scylla_cloud_io_setup", loader=None, origin=str(_io_setup_path))
+scylla_cloud_io_setup = importlib.util.module_from_spec(_spec)
+with open(_io_setup_path) as _f:
+    exec(_f.read(), scylla_cloud_io_setup.__dict__)
+GcpIoSetup = scylla_cloud_io_setup.GcpIoSetup
+UnsupportedInstanceClassError = scylla_cloud_io_setup.UnsupportedInstanceClassError
 
 
 LOGGER = logging.getLogger(__name__)
@@ -636,3 +649,125 @@ class TestGcpInstance(TestCase, GcpMetadata):
             ins = GcpInstance()
             # No SSD
             assert not ins.is_recommended_instance()
+
+
+# Sample GCP IO params for testing
+MOCK_GCP_IO_PARAMS = {
+    "z3-highmem-8-highlssd": {
+        "read_iops": 750000,
+        "read_bandwidth": 3221225472,
+        "write_iops": 500000,
+        "write_bandwidth": 2684354560,
+    },
+    "z3-highmem-16-highlssd": {
+        "read_iops": 1500000,
+        "read_bandwidth": 6442450944,
+        "write_iops": 1000000,
+        "write_bandwidth": 5368709120,
+    },
+}
+
+
+class MockGcpInstance:
+    """Mock GCP instance for testing GcpIoSetup."""
+
+    def __init__(self, instance_type="z3-highmem-8-highlssd", nvme_disk_count=4, supported=True):
+        self.instancetype = instance_type
+        self.nvme_disk_count = nvme_disk_count
+        self._supported = supported
+
+    def is_supported_instance_class(self):
+        return self._supported
+
+
+class TestGcpIoSetup(TestCase):
+    """Tests for GcpIoSetup class."""
+
+    def test_gcp_io_setup_with_known_instance_type(self):
+        """Test that GcpIoSetup correctly loads IO params from YAML file."""
+        mock_instance = MockGcpInstance(instance_type="z3-highmem-8-highlssd", nvme_disk_count=4)
+        io_setup = GcpIoSetup(mock_instance)
+
+        mock_yaml_content = yaml.dump(MOCK_GCP_IO_PARAMS)
+
+        with (
+            unittest.mock.patch("builtins.open", unittest.mock.mock_open(read_data=mock_yaml_content)),
+            unittest.mock.patch.object(io_setup, "save") as mock_save,
+        ):
+            io_setup.generate()
+
+            # Verify disk properties were set correctly
+            assert io_setup.disk_properties["mountpoint"] == "/var/lib/scylla"
+            assert io_setup.disk_properties["read_iops"] == 750000
+            assert io_setup.disk_properties["read_bandwidth"] == 3221225472
+            assert io_setup.disk_properties["write_iops"] == 500000
+            assert io_setup.disk_properties["write_bandwidth"] == 2684354560
+            mock_save.assert_called_once()
+
+    def test_gcp_io_setup_with_different_instance_type(self):
+        """Test GcpIoSetup with z3-highmem-16-highlssd instance type."""
+        mock_instance = MockGcpInstance(instance_type="z3-highmem-16-highlssd", nvme_disk_count=8)
+        io_setup = GcpIoSetup(mock_instance)
+
+        mock_yaml_content = yaml.dump(MOCK_GCP_IO_PARAMS)
+
+        with (
+            unittest.mock.patch("builtins.open", unittest.mock.mock_open(read_data=mock_yaml_content)),
+            unittest.mock.patch.object(io_setup, "save") as mock_save,
+        ):
+            io_setup.generate()
+
+            assert io_setup.disk_properties["mountpoint"] == "/var/lib/scylla"
+            assert io_setup.disk_properties["read_iops"] == 1500000
+            assert io_setup.disk_properties["read_bandwidth"] == 6442450944
+            assert io_setup.disk_properties["write_iops"] == 1000000
+            assert io_setup.disk_properties["write_bandwidth"] == 5368709120
+            mock_save.assert_called_once()
+
+    def test_gcp_io_setup_fallback_to_disk_count_logic(self):
+        """Test GcpIoSetup falls back to disk-count-based logic when instance not in YAML."""
+        mock_instance = MockGcpInstance(instance_type="n2-standard-8", nvme_disk_count=2)
+        io_setup = GcpIoSetup(mock_instance)
+
+        mock_yaml_content = yaml.dump(MOCK_GCP_IO_PARAMS)
+
+        with (
+            unittest.mock.patch("builtins.open", unittest.mock.mock_open(read_data=mock_yaml_content)),
+            unittest.mock.patch.object(io_setup, "save") as mock_save,
+        ):
+            io_setup.generate()
+
+            # Should use disk-count-based logic for 2 disks (1-3 range)
+            mbs = 1024 * 1024
+            assert io_setup.disk_properties["read_iops"] == 170000 * 2
+            assert io_setup.disk_properties["read_bandwidth"] == 660 * mbs * 2
+            assert io_setup.disk_properties["write_iops"] == 90000 * 2
+            assert io_setup.disk_properties["write_bandwidth"] == 350 * mbs * 2
+            mock_save.assert_called_once()
+
+    def test_gcp_io_setup_fallback_when_file_not_found(self):
+        """Test GcpIoSetup falls back to disk-count logic when YAML file not found."""
+        mock_instance = MockGcpInstance(instance_type="n2-standard-8", nvme_disk_count=4)
+        io_setup = GcpIoSetup(mock_instance)
+
+        with (
+            unittest.mock.patch("builtins.open", side_effect=FileNotFoundError("File not found")),
+            unittest.mock.patch.object(io_setup, "save") as mock_save,
+        ):
+            io_setup.generate()
+
+            # Should use disk-count-based logic for 4 disks (4-8 range)
+            mbs = 1024 * 1024
+            assert io_setup.disk_properties["read_iops"] == 680000
+            assert io_setup.disk_properties["read_bandwidth"] == 2650 * mbs
+            assert io_setup.disk_properties["write_iops"] == 360000
+            assert io_setup.disk_properties["write_bandwidth"] == 1400 * mbs
+            mock_save.assert_called_once()
+
+    def test_gcp_io_setup_raises_for_unsupported_instance_class(self):
+        """Test that GcpIoSetup raises UnsupportedInstanceClassError for unsupported instances."""
+        mock_instance = MockGcpInstance(instance_type="z3-highmem-8-highlssd", supported=False)
+        io_setup = GcpIoSetup(mock_instance)
+
+        with pytest.raises(UnsupportedInstanceClassError):
+            io_setup.generate()
