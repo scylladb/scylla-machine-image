@@ -7,6 +7,7 @@ import json
 import logging
 import sys
 import tempfile
+import unittest.mock
 from pathlib import Path
 from unittest import TestCase
 
@@ -29,6 +30,15 @@ def b64(s):
 
 class TestScyllaPostStart(TestCase):
     def setUp(self):
+        # Mock cloud detection to avoid file access issues when running on cloud VMs (e.g., GitHub Actions on Azure)
+        self.patchers = [
+            unittest.mock.patch("lib.param_estimation.is_ec2", return_value=False),
+            unittest.mock.patch("lib.param_estimation.is_oci", return_value=False),
+            unittest.mock.patch("lib.param_estimation.is_azure", return_value=False),
+        ]
+        for patcher in self.patchers:
+            patcher.start()
+
         LOGGER.info("Setting up test dir")
         self.temp_dir = tempfile.TemporaryDirectory()
         self.temp_dir_path = Path(self.temp_dir.name)
@@ -37,6 +47,8 @@ class TestScyllaPostStart(TestCase):
         self.post_start = ScyllaMachineImagePostStart()
 
     def tearDown(self):
+        for patcher in self.patchers:
+            patcher.stop()
         self.temp_dir.cleanup()
 
     def run_scylla_post_start(self, user_data):

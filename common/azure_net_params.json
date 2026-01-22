@@ -1,0 +1,217 @@
+{
+    "Standard_L8s_v2": {
+        "Family": "Lsv2-series",
+        "Network_Limit_Gbps": 3.2,
+        "Source_Raw": "3200"
+    },
+    "Standard_L16s_v2": {
+        "Family": "Lsv2-series",
+        "Network_Limit_Gbps": 6.4,
+        "Source_Raw": "6400"
+    },
+    "Standard_L32s_v2": {
+        "Family": "Lsv2-series",
+        "Network_Limit_Gbps": 12.8,
+        "Source_Raw": "12800"
+    },
+    "Standard_L48s_v2": {
+        "Family": "Lsv2-series",
+        "Network_Limit_Gbps": 16.0,
+        "Source_Raw": "16000+"
+    },
+    "Standard_L64s_v2": {
+        "Family": "Lsv2-series",
+        "Network_Limit_Gbps": 16.0,
+        "Source_Raw": "16000+"
+    },
+    "Standard_L80s_v26": {
+        "Family": "Lsv2-series",
+        "Network_Limit_Gbps": 16.0,
+        "Source_Raw": "16000+"
+    },
+    "Standard_L8s_v3": {
+        "Family": "Lsv3-series",
+        "Network_Limit_Gbps": 12.5,
+        "Source_Raw": "12500"
+    },
+    "Standard_L16s_v3": {
+        "Family": "Lsv3-series",
+        "Network_Limit_Gbps": 12.5,
+        "Source_Raw": "12500"
+    },
+    "Standard_L32s_v3": {
+        "Family": "Lsv3-series",
+        "Network_Limit_Gbps": 16.0,
+        "Source_Raw": "16000"
+    },
+    "Standard_L48s_v3": {
+        "Family": "Lsv3-series",
+        "Network_Limit_Gbps": 24.0,
+        "Source_Raw": "24000"
+    },
+    "Standard_L64s_v3": {
+        "Family": "Lsv3-series",
+        "Network_Limit_Gbps": 30.0,
+        "Source_Raw": "30000"
+    },
+    "Standard_L80s_v3": {
+        "Family": "Lsv3-series",
+        "Network_Limit_Gbps": 32.0,
+        "Source_Raw": "32000"
+    },
+    "Standard_L8as_v3": {
+        "Family": "Lasv3-series",
+        "Network_Limit_Gbps": 12.5,
+        "Source_Raw": "12500"
+    },
+    "Standard_L16as_v3": {
+        "Family": "Lasv3-series",
+        "Network_Limit_Gbps": 12.5,
+        "Source_Raw": "12500"
+    },
+    "Standard_L32as_v3": {
+        "Family": "Lasv3-series",
+        "Network_Limit_Gbps": 16.0,
+        "Source_Raw": "16000"
+    },
+    "Standard_L48as_v3": {
+        "Family": "Lasv3-series",
+        "Network_Limit_Gbps": 24.0,
+        "Source_Raw": "24000"
+    },
+    "Standard_L64as_v3": {
+        "Family": "Lasv3-series",
+        "Network_Limit_Gbps": 32.0,
+        "Source_Raw": "32000"
+    },
+    "Standard_L80as_v3": {
+        "Family": "Lasv3-series",
+        "Network_Limit_Gbps": 32.0,
+        "Source_Raw": "32000"
+    },
+    "Standard_L2s_v4": {
+        "Family": "Lsv4-series",
+        "Network_Limit_Gbps": 12.5,
+        "Source_Raw": "12500"
+    },
+    "Standard_L4s_v4": {
+        "Family": "Lsv4-series",
+        "Network_Limit_Gbps": 12.5,
+        "Source_Raw": "12500"
+    },
+    "Standard_L8s_v4": {
+        "Family": "Lsv4-series",
+        "Network_Limit_Gbps": 12.5,
+        "Source_Raw": "12500"
+    },
+    "Standard_L16s_v4": {
+        "Family": "Lsv4-series",
+        "Network_Limit_Gbps": 12.5,
+        "Source_Raw": "12500"
+    },
+    "Standard_L32s_v4": {
+        "Family": "Lsv4-series",
+        "Network_Limit_Gbps": 16.0,
+        "Source_Raw": "16000"
+    },
+    "Standard_L48s_v4": {
+        "Family": "Lsv4-series",
+        "Network_Limit_Gbps": 24.0,
+        "Source_Raw": "24000"
+    },
+    "Standard_L64s_v4": {
+        "Family": "Lsv4-series",
+        "Network_Limit_Gbps": 30.0,
+        "Source_Raw": "30000"
+    },
+    "Standard_L80s_v4": {
+        "Family": "Lsv4-series",
+        "Network_Limit_Gbps": 36.0,
+        "Source_Raw": "36000"
+    },
+    "Standard_L96s_v4": {
+        "Family": "Lsv4-series",
+        "Network_Limit_Gbps": 41.0,
+        "Source_Raw": "41000"
+    },
+    "Standard_L2as_v4": {
+        "Family": "Lasv4-series",
+        "Network_Limit_Gbps": 12.5,
+        "Source_Raw": "12500"
+    },
+    "Standard_L4as_v4": {
+        "Family": "Lasv4-series",
+        "Network_Limit_Gbps": 12.5,
+        "Source_Raw": "12500"
+    },
+    "Standard_L8as_v4": {
+        "Family": "Lasv4-series",
+        "Network_Limit_Gbps": 12.5,
+        "Source_Raw": "12500"
+    },
+    "Standard_L16as_v4": {
+        "Family": "Lasv4-series",
+        "Network_Limit_Gbps": 12.5,
+        "Source_Raw": "12500"
+    },
+    "Standard_L32as_v4": {
+        "Family": "Lasv4-series",
+        "Network_Limit_Gbps": 16.0,
+        "Source_Raw": "16000"
+    },
+    "Standard_L48as_v4": {
+        "Family": "Lasv4-series",
+        "Network_Limit_Gbps": 28.0,
+        "Source_Raw": "28000"
+    },
+    "Standard_L64as_v4": {
+        "Family": "Lasv4-series",
+        "Network_Limit_Gbps": 36.0,
+        "Source_Raw": "36000"
+    },
+    "Standard_L80as_v4": {
+        "Family": "Lasv4-series",
+        "Network_Limit_Gbps": 40.0,
+        "Source_Raw": "40000"
+    },
+    "Standard_L96as_v4": {
+        "Family": "Lasv4-series",
+        "Network_Limit_Gbps": 40.0,
+        "Source_Raw": "40000"
+    },
+    "Standard_L2aos_v4": {
+        "Family": "Laosv4-series",
+        "Network_Limit_Gbps": 7.5,
+        "Source_Raw": "7500"
+    },
+    "Standard_L4aos_v4": {
+        "Family": "Laosv4-series",
+        "Network_Limit_Gbps": 10.0,
+        "Source_Raw": "10000"
+    },
+    "Standard_L8aos_v4": {
+        "Family": "Laosv4-series",
+        "Network_Limit_Gbps": 12.5,
+        "Source_Raw": "12500"
+    },
+    "Standard_L12aos_v4": {
+        "Family": "Laosv4-series",
+        "Network_Limit_Gbps": 18.75,
+        "Source_Raw": "18750"
+    },
+    "Standard_L16aos_v4": {
+        "Family": "Laosv4-series",
+        "Network_Limit_Gbps": 25.0,
+        "Source_Raw": "25000"
+    },
+    "Standard_L24aos_v4": {
+        "Family": "Laosv4-series",
+        "Network_Limit_Gbps": 37.5,
+        "Source_Raw": "37500"
+    },
+    "Standard_L32aos_v4": {
+        "Family": "Laosv4-series",
+        "Network_Limit_Gbps": 50.0,
+        "Source_Raw": "50000"
+    }
+}

@@ -40,6 +40,7 @@ install -m644 common/azure_io_params.yaml $RPM_BUILD_ROOT/opt/scylladb/scylla-ma
 install -m644 common/oci_io_params.yaml $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/
 install -m644 common/gcp_io_params.yaml $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/
 install -m644 common/aws_net_params.json $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/
+install -m644 common/azure_net_params.json $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/
 install -m644 common/oci_net_params.json $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/
 install -m755 common/scylla_configure.py common/scylla_post_start.py common/scylla_create_devices \
         $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/
