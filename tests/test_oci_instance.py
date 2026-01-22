@@ -1,18 +1,31 @@
 import base64
+import importlib.util
 import json
 import logging
 import sys
 import unittest.mock
 from collections import namedtuple
 from pathlib import Path
+from unittest import TestCase
 
 import httpretty
 import pytest
+import yaml
 
 
 sys.path.append(str(Path(__file__).parent.parent))
 import lib.scylla_cloud
 from lib.scylla_cloud import OciInstance
+
+
+# Load scylla_cloud_io_setup module (file without .py extension)
+_io_setup_path = Path(__file__).parent.parent / "common" / "scylla_cloud_io_setup"
+_spec = importlib.util.spec_from_loader("scylla_cloud_io_setup", loader=None, origin=str(_io_setup_path))
+scylla_cloud_io_setup = importlib.util.module_from_spec(_spec)
+with open(_io_setup_path) as _f:
+    exec(_f.read(), scylla_cloud_io_setup.__dict__)
+OciIoSetup = scylla_cloud_io_setup.OciIoSetup
+UnsupportedInstanceClassError = scylla_cloud_io_setup.UnsupportedInstanceClassError
 
 
 LOGGER = logging.getLogger(__name__)
@@ -367,3 +380,140 @@ def test_oci_endpoint_snitch(mock_glob, mock_listdir, *args):
 
     # Test endpoint_snitch
     assert instance.endpoint_snitch == "GossipingPropertyFileSnitch"
+
+
+# Sample OCI IO params for testing
+MOCK_OCI_IO_PARAMS = {
+    "VM.DenseIO.E5.Flex-8": {
+        "read_iops": 1112606,
+        "read_bandwidth": 6965937664,
+        "write_iops": 608448,
+        "write_bandwidth": 4079220992,
+    },
+    "VM.DenseIO.E5.Flex-16": {
+        "read_iops": 2215123,
+        "read_bandwidth": 14401178624,
+        "write_iops": 1216146,
+        "write_bandwidth": 8231124480,
+    },
+    "BM.DenseIO.E4.128": {
+        "read_iops": 5000000,
+        "read_bandwidth": 30000000000,
+        "write_iops": 3000000,
+        "write_bandwidth": 18000000000,
+    },
+}
+
+
+class MockOciInstance:
+    """Mock OCI instance for testing OciIoSetup."""
+
+    def __init__(self, instance_type="VM.DenseIO.E5.Flex", ocpus=8, supported=True):
+        self.instancetype = instance_type
+        self.ocpus = ocpus
+        self._supported = supported
+
+    def is_supported_instance_class(self):
+        return self._supported
+
+
+class TestOciIoSetup(TestCase):
+    """Tests for OciIoSetup class."""
+
+    def test_oci_io_setup_with_flex_instance(self):
+        """Test that OciIoSetup correctly loads IO params for Flex instance from YAML file."""
+        mock_instance = MockOciInstance(instance_type="VM.DenseIO.E5.Flex", ocpus=8)
+        io_setup = OciIoSetup(mock_instance)
+
+        mock_yaml_content = yaml.dump(MOCK_OCI_IO_PARAMS)
+
+        with (
+            unittest.mock.patch("builtins.open", unittest.mock.mock_open(read_data=mock_yaml_content)),
+            unittest.mock.patch.object(io_setup, "save") as mock_save,
+        ):
+            io_setup.generate()
+
+            # Verify disk properties were set correctly
+            assert io_setup.disk_properties["mountpoint"] == "/var/lib/scylla"
+            assert io_setup.disk_properties["read_iops"] == 1112606
+            assert io_setup.disk_properties["read_bandwidth"] == 6965937664
+            assert io_setup.disk_properties["write_iops"] == 608448
+            assert io_setup.disk_properties["write_bandwidth"] == 4079220992
+            mock_save.assert_called_once()
+
+    def test_oci_io_setup_with_different_ocpus(self):
+        """Test OciIoSetup with different OCPU count for Flex instance."""
+        mock_instance = MockOciInstance(instance_type="VM.DenseIO.E5.Flex", ocpus=16)
+        io_setup = OciIoSetup(mock_instance)
+
+        mock_yaml_content = yaml.dump(MOCK_OCI_IO_PARAMS)
+
+        with (
+            unittest.mock.patch("builtins.open", unittest.mock.mock_open(read_data=mock_yaml_content)),
+            unittest.mock.patch.object(io_setup, "save") as mock_save,
+        ):
+            io_setup.generate()
+
+            assert io_setup.disk_properties["mountpoint"] == "/var/lib/scylla"
+            assert io_setup.disk_properties["read_iops"] == 2215123
+            assert io_setup.disk_properties["read_bandwidth"] == 14401178624
+            assert io_setup.disk_properties["write_iops"] == 1216146
+            assert io_setup.disk_properties["write_bandwidth"] == 8231124480
+            mock_save.assert_called_once()
+
+    def test_oci_io_setup_with_non_flex_instance(self):
+        """Test OciIoSetup with non-Flex (BM) instance type."""
+        mock_instance = MockOciInstance(instance_type="BM.DenseIO.E4.128", ocpus=8)
+        io_setup = OciIoSetup(mock_instance)
+
+        mock_yaml_content = yaml.dump(MOCK_OCI_IO_PARAMS)
+
+        with (
+            unittest.mock.patch("builtins.open", unittest.mock.mock_open(read_data=mock_yaml_content)),
+            unittest.mock.patch.object(io_setup, "save") as mock_save,
+        ):
+            io_setup.generate()
+
+            # Should look up "BM.DenseIO.E4.128" directly for non-Flex instances
+            assert io_setup.disk_properties["mountpoint"] == "/var/lib/scylla"
+            assert io_setup.disk_properties["read_iops"] == 5000000
+            assert io_setup.disk_properties["read_bandwidth"] == 30000000000
+            mock_save.assert_called_once()
+
+    def test_oci_io_setup_fallback_when_file_not_found(self):
+        """Test that OciIoSetup falls back to scylla_io_setup when YAML file is not found."""
+        mock_instance = MockOciInstance(instance_type="VM.DenseIO.E5.Flex", ocpus=8)
+        io_setup = OciIoSetup(mock_instance)
+
+        with (
+            unittest.mock.patch("builtins.open", side_effect=FileNotFoundError("File not found")),
+            unittest.mock.patch("subprocess.run") as mock_run,
+        ):
+            io_setup.generate()
+            mock_run.assert_called_once_with(
+                "scylla_io_setup", shell=True, check=True, capture_output=True, timeout=300
+            )
+
+    def test_oci_io_setup_fallback_when_instance_not_in_yaml(self):
+        """Test that OciIoSetup falls back to scylla_io_setup when instance type is not in YAML."""
+        mock_instance = MockOciInstance(instance_type="VM.Unknown.Flex", ocpus=999)
+        io_setup = OciIoSetup(mock_instance)
+
+        mock_yaml_content = yaml.dump(MOCK_OCI_IO_PARAMS)
+
+        with (
+            unittest.mock.patch("builtins.open", unittest.mock.mock_open(read_data=mock_yaml_content)),
+            unittest.mock.patch("subprocess.run") as mock_run,
+        ):
+            io_setup.generate()
+            mock_run.assert_called_once_with(
+                "scylla_io_setup", shell=True, check=True, capture_output=True, timeout=300
+            )
+
+    def test_oci_io_setup_raises_for_unsupported_instance_class(self):
+        """Test that OciIoSetup raises UnsupportedInstanceClassError for unsupported instances."""
+        mock_instance = MockOciInstance(instance_type="VM.DenseIO.E5.Flex", supported=False)
+        io_setup = OciIoSetup(mock_instance)
+
+        with pytest.raises(UnsupportedInstanceClassError):
+            io_setup.generate()
