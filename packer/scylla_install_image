@@ -58,7 +58,7 @@ if __name__ == "__main__":
     run("apt-get install -y gnupg2", shell=True, check=True)
     run(
         f"mkdir -p {apt_keys_dir}; gpg --homedir /tmp --no-default-keyring --keyring {apt_keys_dir}/scylladb.gpg "
-        f"--keyserver hkps://keyserver.ubuntu.com --recv-keys a43e06657bac99e3",
+        f"--keyserver hkps://keyserver.ubuntu.com --recv-keys c503c686b007f39e",
         shell=True,
         check=True,
     )
