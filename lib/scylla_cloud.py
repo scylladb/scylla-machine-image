@@ -1160,6 +1160,10 @@ class AwsInstance(CloudInstance):
         """Returns the private IPv4 address of this instance"""
         return self.__instance_metadata("meta-data/local-ipv4")
 
+    def instance_id(self):
+        """Returns the instance ID of this instance"""
+        return self.__instance_metadata("meta-data/instance-id")
+
     def is_vpc_enabled(self, nic="eth0"):
         mac = self.__mac_address(nic)
         mac_stat = self.__instance_metadata(f"meta-data/network/interfaces/macs/{mac}")

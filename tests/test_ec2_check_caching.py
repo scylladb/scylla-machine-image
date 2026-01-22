@@ -184,7 +184,6 @@ class TestEc2CheckCaching(TestCase):
             # Expected behavior
             pass
 
-
 if __name__ == "__main__":
-    import pytest
-    sys.exit(pytest.main([__file__, "-v"]))
+    import unittest
+    unittest.main()

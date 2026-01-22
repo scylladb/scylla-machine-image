@@ -20,7 +20,7 @@ def get_instance_identity():
     """Get instance identity metadata to detect if instance has changed."""
     aws = AwsInstance()
     return {
-        "instance_id": aws._AwsInstance__instance_metadata("meta-data/instance-id"),
+        "instance_id": aws.instance_id(),
         "instance_type": aws.instancetype,
     }
 
