@@ -198,7 +198,7 @@ if [ "$TARGET" = "aws" ]; then
       "aarch64")
         SOURCE_AMI_FILTER="ubuntu-minimal/images/hvm-ssd-gp3/ubuntu-noble-24.04-arm64*"
         if [ -z "$INSTANCE_TYPE" ]; then
-          INSTANCE_TYPE="im4gn.2xlarge"
+          INSTANCE_TYPE="i8g.xlarge"
         fi
         ;;
       *)
