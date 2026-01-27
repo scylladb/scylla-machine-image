@@ -129,6 +129,37 @@ server 169.254.169.254 prefer iburst
 - Recent Oracle Linux images are pre-configured with Chrony to use this service.
 - For manual setup on older images, ensure firewall allows UDP port 123 to `169.254.169.254`.
 
+### Testing for Part 1
+
+**Manual Testing:**
+- Verify chrony package is installed: `dpkg -l | grep chrony` (Debian/Ubuntu) or `rpm -qa | grep chrony` (RHEL/CentOS)
+- Confirm vendor config directories are empty: `ls -la /etc/chrony/sources.d/` and `ls -la /etc/chrony/conf.d/` should show no files
+- Verify cloud-specific chrony.conf exists: `test -f /etc/chrony/chrony.conf || test -f /etc/chrony.conf`
+- Check chrony.conf contains correct cloud-specific server/refclock:
+  - AWS: `grep "169.254.169.123" /etc/chrony/chrony.conf` or `/etc/chrony.conf`
+  - GCP: `grep "metadata.google.internal" /etc/chrony/chrony.conf` or `/etc/chrony.conf`
+  - Azure: `grep "ptp_hyperv" /etc/chrony/chrony.conf` or `/etc/chrony.conf`
+  - OCI: `grep "169.254.169.254" /etc/chrony/chrony.conf` or `/etc/chrony.conf`
+- Verify chrony service is enabled: `systemctl is-enabled chrony`
+- Check chrony is running: `systemctl status chrony`
+- Verify time synchronization is working: `chronyc sources -v` should show the configured source
+- Confirm no configuration conflicts: `chronyc sources` should not show unexpected NTP servers
+
+**Automated Testing (Unit Test Ideas):**
+- **Test cloud detection**: Mock cloud metadata service and verify correct chrony template is selected
+- **Test config file cleanup**: Create dummy files in `/etc/chrony/sources.d/` and `/etc/chrony/conf.d/`, run cleanup, verify they're removed
+- **Test template rendering**: Given cloud type (aws/gce/azure/oci), verify generated chrony.conf contains correct server/refclock directives
+- **Test config validation**: Parse generated chrony.conf and assert required directives are present (server/refclock, poll settings)
+- **Test path detection**: Test logic that determines whether to use `/etc/chrony.conf` vs `/etc/chrony/chrony.conf` based on distro
+
+**Integration Testing:**
+- Boot instance in each cloud (AWS, GCP, Azure, OCI)
+- Run `chronyc tracking` and verify:
+  - Reference ID matches expected source (AWS Time Sync, metadata.google.internal, PTP, OCI NTP)
+  - System time is synchronized (Leap status: Normal)
+  - Stratum is 2 or 3 (depending on cloud)
+- Measure time drift over 24 hours, ensure < 100ms offset
+
 ## Part 2: Universal Chrony Settings
 
 The following settings are applied universally across all clouds to ensure rapid convergence and reliable timekeeping:
@@ -149,6 +180,31 @@ rtcsync
 - **`makestep 1.0 3`**: Allows the system to "step" (jump) the clock if the offset is > 1 second during the first 3 updates. This ensures rapid synchronization on boot.
 - **`driftfile`**: Records clock drift to improve accuracy after reboots.
 - **`rtcsync`**: Keeps the hardware clock (RTC) synchronized with the system clock.
+
+### Testing for Part 2
+
+**Manual Testing:**
+- Verify universal settings are in chrony.conf: `grep -E "makestep|driftfile|rtcsync" /etc/chrony/chrony.conf` (or `/etc/chrony.conf`)
+- Check makestep setting is correct: `grep "makestep 1.0 3" /etc/chrony/chrony.conf` or `/etc/chrony.conf`
+- Verify driftfile path: `grep "driftfile /var/lib/chrony/drift" /etc/chrony/chrony.conf` or `/etc/chrony.conf`
+- Confirm rtcsync is enabled: `grep "rtcsync" /etc/chrony/chrony.conf` or `/etc/chrony.conf`
+- Test makestep functionality: Set incorrect time, restart chrony, verify it steps the clock (offset > 1s corrected immediately)
+- Verify driftfile exists after chrony runs: `test -f /var/lib/chrony/drift`
+- Check RTC sync: `hwclock --show` and compare with `date` - should be within seconds
+
+**Automated Testing (Unit Test Ideas):**
+- **Test config parsing**: Parse chrony.conf and verify all three universal directives (makestep, driftfile, rtcsync) are present
+- **Test makestep parameters**: Verify makestep directive has correct threshold (1.0) and update limit (3)
+- **Test driftfile path**: Verify driftfile path is absolute and points to writable location
+- **Mock time step scenario**: Simulate large time offset (>1s) and verify makestep would be triggered
+- **Test config merge**: Verify universal settings are present in all cloud-specific templates
+
+**Integration Testing:**
+- Boot instance with intentionally wrong clock (offset > 1 second)
+- Verify chrony steps the clock within first 3 updates (check `journalctl -u chrony` for step messages)
+- After synchronization, verify driftfile is created and contains drift rate
+- Reboot instance and verify clock uses driftfile for faster convergence
+- Verify hardware clock (RTC) is updated: compare `hwclock --show` with system time
 
 ## Part 3: Service Enforcement (Startup Alignment)
 
@@ -202,6 +258,43 @@ chronyc tracking
 Check that:
 - `chrony-wait.service` is enabled and will run on boot.
 - `chronyc tracking` shows the system clock is synchronized (look for "Leap status: Normal").
+
+### Testing for Part 3
+
+**Manual Testing:**
+- Verify chrony-wait.service is enabled: `systemctl is-enabled chrony-wait.service`
+- Check systemd override exists: `test -f /etc/systemd/system/scylla-server.service.d/10-time-sync.conf`
+- Verify override content: `cat /etc/systemd/system/scylla-server.service.d/10-time-sync.conf | grep -E "After=time-sync.target|Wants=time-sync.target"`
+- Check scylla-server dependencies include time-sync.target: `systemctl show scylla-server.service | grep -E "After=.*time-sync.target"`
+- Verify time-sync.target is reached before scylla-server starts: Check boot logs with `journalctl -b | grep -E "chrony-wait|time-sync.target|scylla-server"`
+- Confirm chrony-wait timeout setting: `systemctl show chrony-wait.service | grep TimeoutStartUSec`
+- Test manual time-sync.target trigger: `systemctl start time-sync.target` and verify it waits for chrony
+
+**Automated Testing (Unit Test Ideas):**
+- **Test systemd override creation**: Verify script creates `/etc/systemd/system/scylla-server.service.d/10-time-sync.conf` with correct content
+- **Test override parsing**: Parse override file and assert it contains `After=time-sync.target` and `Wants=time-sync.target`
+- **Test service enablement**: Mock systemctl and verify chrony-wait.service is enabled
+- **Test dependency chain**: Parse systemd unit files and verify: chrony-wait → time-sync.target → scylla-server
+- **Test override permissions**: Verify override file has correct permissions (644)
+
+**Integration Testing:**
+- Boot instance and capture boot timeline: `systemd-analyze critical-chain scylla-server.service`
+- Verify chrony-wait.service completes before scylla-server starts:
+  ```bash
+  journalctl -u chrony-wait.service --no-pager | grep "Started\|Finished"
+  journalctl -u scylla-server.service --no-pager | grep "Started"
+  ```
+  Compare timestamps to ensure chrony-wait finishes first
+- Test failure scenario: Simulate chrony failure, verify scylla-server still attempts to start (Wants vs Requires)
+- Verify time-sync.target is active when scylla-server starts: `systemctl is-active time-sync.target`
+- Test with delayed time sync: Artificially delay chrony sync, verify scylla-server waits appropriately
+- Check boot time impact: Measure time from boot to scylla-server start with and without time-sync enforcement
+
+**Regression Testing:**
+- Verify scylla-server still starts correctly on all clouds (AWS, GCP, Azure, OCI)
+- Ensure no boot hangs or timeouts due to chrony-wait
+- Confirm scylla-server behavior is unchanged when time is already synced
+- Test upgrade scenario: Verify override persists across scylla-server package updates
 
 ## Summary of Implementation Steps
 
