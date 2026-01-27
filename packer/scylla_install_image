@@ -81,8 +81,8 @@ if __name__ == "__main__":
     )
     run(
         f"apt-get install -y --auto-remove {args.product}-machine-image {args.product}-server-dbg "
-        "cpufrequtils dnsutils ethtool initramfs-tools jq mdadm ncat netcat-openbsd "
-        "net-tools nload nmap python3-boto sysstat systemd-coredump tmux traceroute vim-nox vim.tiny xfsprogs aide",
+        "cpufrequtils curl dnsutils ethtool htop initramfs-tools jq mdadm ncat netcat-openbsd "
+        "net-tools nload nmap python3-boto sysstat systemd-coredump tmux traceroute vim-nox vim.tiny wget xfsprogs aide",
         shell=True,
         check=True,
     )
