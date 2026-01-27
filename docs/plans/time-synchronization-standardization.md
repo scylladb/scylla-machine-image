@@ -134,7 +134,7 @@ The following settings are applied universally across all clouds to ensure rapid
 # if its offset is larger than 1 second.
 makestep 1.0 3
 
-# Record the rate at which the system clock gains/losses time.
+# Record the rate at which the system clock gains/loses time.
 driftfile /var/lib/chrony/drift
 
 # Enable kernel synchronization of the real-time clock (RTC).
@@ -223,10 +223,13 @@ Update Packer/Image builder scripts (e.g., `packer/scylla_install_image`):
 1. Install chrony.
 2. **Clean vendor configs** (fixes issue with drift):
    ```bash
-   rm -rf /etc/chrony/sources.d/*
-   rm -rf /etc/chrony/conf.d/*
+   rm -f /etc/chrony/sources.d/*
+   rm -f /etc/chrony/conf.d/*
    ```
-3. Copy the correct cloud-specific `chrony.conf` to `/etc/chrony/chrony.conf`.
+3. Copy the correct cloud-specific `chrony.conf`:
+   - For Ubuntu/Debian: `/etc/chrony/chrony.conf`
+   - For some distributions: `/etc/chrony.conf`
+   - Check which path exists on the target distro and copy accordingly.
 4. Enable chrony services:
    ```bash
    systemctl enable chrony.service
