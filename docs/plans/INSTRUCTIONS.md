@@ -73,7 +73,7 @@ All implementation plans must follow this 7-section structure:
 - Keep as living documents - update during implementation
 - Mark completed phases with checkboxes
 
-## Rule for Agents
+## Rules for Agents
 
 **Role:** Act as a **Senior System Architect** for this project.
 
