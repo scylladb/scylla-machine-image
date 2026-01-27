@@ -79,7 +79,7 @@ if __name__ == '__main__':
     run('apt-get update --allow-insecure-repositories -y', shell=True, check=True)
     run('apt-get full-upgrade -y', shell=True, check=True)
     run('apt-get purge -y apport python3-apport fuse', shell=True, check=True)
-    run('apt-get install -y systemd-coredump vim.tiny nmap ncat tmux jq python3-boto xfsprogs mdadm initramfs-tools ethtool vim-nox sysstat cpufrequtils nload htop traceroute dnsutils net-tools netcat-openbsd', shell=True, check=True)
+    run('apt-get install -y curl wget systemd-coredump vim.tiny nmap ncat tmux jq python3-boto xfsprogs mdadm initramfs-tools ethtool vim-nox sysstat cpufrequtils nload htop traceroute dnsutils net-tools netcat-openbsd', shell=True, check=True)
     run(f'apt-get install -y --auto-remove --allow-unauthenticated {args.product}-machine-image {args.product}-server-dbg', shell=True, check=True)
 
     os.remove('/etc/apt/sources.list.d/scylla_install.list')
@@ -93,7 +93,7 @@ if __name__ == '__main__':
     run('apt-get purge -y modemmanager', shell=True, check=True)
     run('apt-get purge -y accountsservice', shell=True, check=True)
     run('apt-get purge -y acpid motd-news-config fwupd-signed', shell=True, check=True)
-    run('apt-get purge -y udisks2 htop', shell=True, check=True)
+    run('apt-get purge -y udisks2', shell=True, check=True)
 
     # drop packages does not need anymore
     run('apt-get autoremove --purge -y', shell=True, check=True)
