@@ -49,6 +49,7 @@ server 169.254.169.123 prefer iburst minpoll 4 maxpoll 4
 - This service uses a fleet of satellite-connected and atomic reference clocks in each AWS region.
 - No internet connectivity required; accessible even in isolated VPC subnets.
 - Implements leap second smearing for predictable time changes.
+- **Poll settings**: `minpoll 4 maxpoll 4` (16 seconds) is AWS's official recommendation for maintaining high accuracy with the Amazon Time Sync Service. This frequent polling is justified because you're using AWS's internal, highly-available service (not rate-limiting public NTP servers).
 
 **Fallback:**
 Keep default pools (e.g., `2.amazon.pool.ntp.org`) as secondary sources if desired, but the primary should be the Time Sync Service.
@@ -87,21 +88,24 @@ Azure VMs use a precision clock device (PTP - Precision Time Protocol) mapped fr
 ```conf
 # Azure Hyper-V PTP Source
 # Official Azure Documentation: https://learn.microsoft.com/en-us/azure/virtual-machines/linux/time-sync
-refclock PHC /dev/ptp_hyperv poll 3 dpoll -2 offset 0
+refclock PHC /dev/ptp_hyperv poll 3 dpoll -2 offset 0 stratum 2
 ```
 
 **Fallback:**
 
 ```conf
-# Azure internal NTP fallback
-server 169.254.169.254 iburst
+# Public NTP fallback (Azure does NOT provide NTP at 169.254.169.254)
+server time.windows.com iburst
 ```
 
 **Notes:**
 - Azure exposes a PTP hardware clock as `/dev/ptp_hyperv` (or `/dev/ptp0` on some systems) based on IEEE 1588 PTP standard.
 - Provides higher accuracy than traditional NTP, synchronized to Microsoft's Stratum 1 time sources backed by GPS antennas.
 - Recent Azure Linux images use `chronyd` with `/dev/ptp_hyperv` by default.
-- **Udev Rule**: Ensure `/dev/ptp_hyperv` exists and is accessible at startup. May require systemd ordering adjustments to ensure the device is available before `chronyd` starts.
+- **Poll settings**: `poll 3` (8 seconds) provides reliable polling without excessive load. `dpoll -2` enables sub-second polling for improved accuracy with virtualized clocks.
+- **Stratum 2**: Marks the clock as authoritative but acknowledges it's not a physical stratum 0 device.
+- **Fallback**: Azure does NOT provide NTP at 169.254.169.254 (that's the metadata service). Use `time.windows.com` or `pool.ntp.org` as fallback.
+- **Udev/Systemd ordering**: Ensure `/dev/ptp_hyperv` exists before `chronyd` starts. May require systemd device dependencies to avoid startup failures.
 
 ### 4. OCI (Oracle Cloud Infrastructure)
 
@@ -256,12 +260,15 @@ After deploying images built with these changes, validate on each cloud provider
    ```bash
    ls -la /etc/chrony/sources.d/
    ls -la /etc/chrony/conf.d/
-   # Should be empty or non-existent
+   # Should be empty (directories may still exist but contain no files)
    ```
 
 2. **Cloud-specific chrony.conf is in place:**
    ```bash
-   cat /etc/chrony/chrony.conf
+   # Check the appropriate path for your distribution:
+   # Ubuntu/Debian: /etc/chrony/chrony.conf
+   # Other distributions: /etc/chrony.conf
+   cat /etc/chrony/chrony.conf || cat /etc/chrony.conf
    # Verify correct server/refclock for the cloud provider
    ```
 
