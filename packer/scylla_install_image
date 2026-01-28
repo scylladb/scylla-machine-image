@@ -82,8 +82,8 @@ if __name__ == '__main__':
     run('apt-get full-upgrade -y', shell=True, check=True)
     run('apt-get purge -y accountsservice acpid apport fuse fwupd-signed modemmanager motd-news-config python3-apport snapd udisks2 unattended-upgrades update-notifier-common', shell=True, check=True)
     run(f'apt-get install -y --auto-remove --allow-unauthenticated {args.product}-machine-image {args.product}-server-dbg ' \
-        'cpufrequtils dnsutils ethtool initramfs-tools jq mdadm ncat netcat-openbsd ' \
-        'net-tools nload nmap python3-boto sysstat systemd-coredump tmux traceroute vim-nox vim.tiny xfsprogs', shell=True, check=True)
+        'cpufrequtils curl dnsutils ethtool htop initramfs-tools jq mdadm ncat netcat-openbsd ' \
+        'net-tools nload nmap python3-boto sysstat systemd-coredump tmux traceroute vim-nox vim.tiny wget xfsprogs', shell=True, check=True)
     run(f'curl -L -o /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_{deb_arch()} && chmod +x /usr/local/bin/yq', shell=True, check=True)
     os.remove('/etc/apt/sources.list.d/scylla_install.list')
     if args.repo_for_update:
