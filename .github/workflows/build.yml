@@ -17,11 +17,106 @@ jobs:
     name: Unittest and Build RPMs
     steps:
       - uses: actions/checkout@v6
-      - name: Setup python
+      
+      # 1. Setup a bootstrap Python to run our detection script
+      - name: Setup Bootstrap Python
         uses: actions/setup-python@v6
         with:
-          python-version: 3.14
+          python-version: '3.x'
+
+      - name: Install dependencies for version detection
+        run: pip install requests
+
+      # 2. Run the detection script
+      # This fetches the Dockerfile, finds the Fedora version, 
+      # checks Fedora sources for the Python version, and sets the output.
+      - name: Detect Python Version from Dockerfile
+        id: detect_python
+        shell: python
+        run: |
+          import re
+          import requests
+          import os
+          import sys
+
+          # The specific file specified in your request
+          DOCKERFILE_URL = "https://raw.githubusercontent.com/scylladb/scylladb/ec6a2661dedd88e6824b613f5af589916b3b1057/tools/toolchain/Dockerfile"
+
+          def get_fedora_version_from_dockerfile():
+              print(f"[*] Fetching Dockerfile: {DOCKERFILE_URL}")
+              try:
+                  resp = requests.get(DOCKERFILE_URL)
+                  resp.raise_for_status()
+                  content = resp.text
+                  
+                  # Strategy 1: Look for ARG FEDORA_VERSION=40
+                  arg_match = re.search(r'ARG\s+FEDORA_VERSION=(\d+)', content)
+                  if arg_match:
+                      return arg_match.group(1)
+                  
+                  # Strategy 2: Look for FROM fedora:40
+                  from_match = re.search(r'FROM\s+.*fedora:(\d+)', content)
+                  if from_match:
+                      return from_match.group(1)
+                      
+                  print("::error::Could not find FEDORA_VERSION or FROM fedora:XX in Dockerfile")
+                  sys.exit(1)
+              except Exception as e:
+                  print(f"::error::Failed to fetch Dockerfile: {e}")
+                  sys.exit(1)
+
+          def get_python_version_from_fedora(fedora_ver):
+              branch = f"f{fedora_ver}"
+              # URL to the python3 spec file in Fedora's source tree
+              spec_url = f"https://src.fedoraproject.org/rpms/python3/raw/{branch}/f/python3.spec"
+              
+              print(f"[*] Querying Fedora Sources for {branch}...")
+              resp = requests.get(spec_url)
+              
+              # Fallback to Rawhide if specific branch not found (common for very new/future versions)
+              if resp.status_code == 404:
+                  print("[!] Branch not found, checking Rawhide...")
+                  spec_url = "https://src.fedoraproject.org/rpms/python3/raw/rawhide/f/python3.spec"
+                  resp = requests.get(spec_url)
+
+              if resp.status_code != 200:
+                  print(f"::error::Could not retrieve spec file from Fedora (HTTP {resp.status_code})")
+                  sys.exit(1)
+
+              # Parse "Version: 3.12.1" -> return "3.12"
+              version_match = re.search(r'^Version:\s+([\d\.]+)', resp.text, re.MULTILINE)
+              if version_match:
+                  full_ver = version_match.group(1)
+                  # Take only Major.Minor for actions/setup-python (e.g., 3.12)
+                  short_ver = ".".join(full_ver.split('.')[:2])
+                  return short_ver
+              
+              print("::error::Could not parse Version string from spec file")
+              sys.exit(1)
+
+          # --- Main Execution ---
+          fedora_ver = get_fedora_version_from_dockerfile()
+          print(f"[*] Detected Fedora Version: {fedora_ver}")
+          
+          py_ver = get_python_version_from_fedora(fedora_ver)
+          print(f"[*] Mapped to Python Version: {py_ver}")
+
+          # Write to GITHUB_OUTPUT
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
+              fh.write(f"matrix_python={py_ver}\n")
+
+      # 3. Use the detected version for the actual work
+      - name: Setup Target Python Environment
+        uses: actions/setup-python@v6
+        with:
+          # This pulls the value from the previous step
+          python-version: ${{ steps.detect_python.outputs.matrix_python }}
           architecture: x64
+
+      - name: Verify Python Version
+        run: |
+          python --version
+          echo "Environment successfully set to match ScyllaDB Toolchain!"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
