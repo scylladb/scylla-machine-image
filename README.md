@@ -1,259 +1,265 @@
 # Scylla Machine Image
-Provides following
-- Create an image with pre-installed Scylla
-- Allow to configure the database when an instance is launched first time
-- Easy cluster creation
 
-## OS Package
-RPM/DEB package that is pre-installed in the image.
-Responsible for configuring Scylla during first boot of the instance.
+This repository provides tools to:
+- Create cloud machine images with pre-installed Scylla
+- Configure Scylla automatically on first boot via cloud-init
+- Deploy Scylla clusters easily in cloud environments
 
-## Create an image
+## Quick Start
 
-### AWS
-```shell script
-aws/ami/build_ami.sh
+### Building Images
+
+All cloud images are built using the unified `packer/build_image.sh` script.
+
+**Repository URL Format**: Specify the repository URL without `http://` or `https://` prefix. The script automatically prepends `https://`.
+
+**Example repository URLs**:
+- Master branch: `downloads.scylladb.com/unstable/scylla/master/deb/unified/latest/scylladb-master/scylla.list`
+- For custom repos, you can use the [unified-deb Jenkins job](https://jenkins.scylladb.com/job/releng-testing/job/unified-deb/) to build repository packages if changes are made to boot scripts.
+
+#### AWS
+```bash
+packer/build_image.sh \
+  --target aws \
+  --repo downloads.scylladb.com/unstable/scylla/master/deb/unified/latest/scylladb-master/scylla.list \
+  --arch x86_64
 ```
 
-### GCE (Google Cloud)
-```shell script
-packer/build_image.sh --target gce ...
-```
-
-### Azure
-```shell script
-packer/build_image.sh --target azure ...
-```
-
-### OCI (Oracle Cloud Infrastructure)
-```shell script
-packer/build_image.sh --target oci ...
-```
-
-## Scylla AMI user-data Format v2
-
-Scylla AMI user-data should be passed as a json object, as described below
-
-see AWS docs for how to pass user-data into ec2 instances:
-[https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-add-user-data.html](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-add-user-data.html)
----
-### EC2 User-Data
-User Data that can pass when create EC2 instances
-
-* **Object Properties**
-    * **scylla_yaml** ([`Scylla YAML`](#scylla_yaml)) – Mapping of all fields that would pass down to scylla.yaml configuration file
-    * **scylla_startup_args** (*list*) – embedded information about the user that created the issue (NOT YET IMPLEMENTED) (*default=’[]’*)
-    * **developer_mode** ([*boolean*](https://docs.python.org/library/stdtypes.html#boolean-values)) – Enables developer mode (*default=’false’*)
-    * **post_configuration_script** ([*string*](https://docs.python.org/library/stdtypes.html#str)) – A script to run once AMI first configuration is finished, can be a string encoded in base64. (*default=’’*)
-    * **post_configuration_script_timeout** ([*int*](https://docs.python.org/library/stdtypes.html#int)) – Time in seconds to limit the post_configuration_script (*default=’600’*)
-    * **start_scylla_on_first_boot** ([*boolean*](https://docs.python.org/library/stdtypes.html#boolean-values)) – If true, scylla-server would boot at AMI boot (*default=’true’*)
-    * **device_wait_seconds** ([*int*](https://docs.python.org/library/stdtypes.html#int)) – Maximum seconds to wait for storage devices to appear before configuring RAID. Useful in cloud environments where device attachment may be delayed (*default=’0’*)
-
-### <a href="scylla_yaml"></a>Scylla YAML
-All fields that would pass down to scylla.yaml configuration file
-
-see [https://docs.scylladb.com/operating-scylla/scylla-yaml/](https://docs.scylladb.com/operating-scylla/scylla-yaml/) for all the possible configuration availble
-listed here only the one get defaults scylla AMI
-
-* **Object Properties**    
-    * **cluster_name** ([*string*](https://docs.python.org/library/stdtypes.html#str)) – Name of the cluster (*default=`generated name that would work for only one node cluster`*)
-    * **auto_bootstrap** ([*boolean*](https://docs.python.org/library/stdtypes.html#boolean-values)) – Enable auto bootstrap (*default=’true’*)
-    * **listen_address** ([*string*](https://docs.python.org/library/stdtypes.html#str)) – Defaults to ec2 instance private ip
-    * **broadcast_rpc_address** ([*string*](https://docs.python.org/library/stdtypes.html#str)) – Defaults to ec2 instance private ip
-    * **endpoint_snitch** ([*string*](https://docs.python.org/library/stdtypes.html#str)) – Defaults to ‘org.apache.cassandra.locator.Ec2Snitch’
-    * **rpc_address** ([*string*](https://docs.python.org/library/stdtypes.html#str)) – Defaults to ‘0.0.0.0’
-    * **seed_provider** (*mapping*) – Defaults to ec2 instance private ip
-
-### Example usage of user-data
-
-Spinning a new node connecting to “10.0.219.209” as a seed, and installing cloud-init-cfn package at first boot.
-
-#### using json
+**AWS Credentials**: Configure AWS credentials via environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`) or AWS CLI profile. Optionally customize settings in `packer/ami_variables.json`:
 ```json
 {
-     "scylla_yaml": {
-         "cluster_name": "test-cluster",
-         "seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider",
-                            "parameters": [{"seeds": "10.0.219.209"}]}],
-     },
-     "post_configuration_script": "#! /bin/bash\nyum install cloud-init-cfn",
-     "start_scylla_on_first_boot": true
+  "security_group_id": "sg-xxxxxxxxx",
+  "region": "us-east-1",
+  "associate_public_ip_address": "true",
+  "instance_type": "c4.xlarge"
 }
 ```
 
-#### using yaml
-```yaml
-scylla_yaml:
-  cluster_name: test-cluster
-  seed_provider:
-    - class_name: org.apache.cassandra.locator.SimpleSeedProvider
-      parameters:
-        - seeds: 10.0.219.209
-post_configuration_script: "#! /bin/bash\nyum install cloud-init-cfn"
-start_scylla_on_first_boot: true
+#### GCE (Google Cloud)
+```bash
+packer/build_image.sh \
+  --target gce \
+  --repo downloads.scylladb.com/unstable/scylla/master/deb/unified/latest/scylladb-master/scylla.list \
+  --arch x86_64
 ```
 
-#### using mimemultipart
+**GCE Credentials**: Authenticate using `gcloud auth application-default login` or set `GOOGLE_APPLICATION_CREDENTIALS` environment variable. Configure settings in `packer/gce_variables.json`:
+```json
+{
+  "project_id": "your-project-id",
+  "region": "us-central1",
+  "zone": "us-central1-a",
+  "instance_type": "n2-standard-2"
+}
+```
 
-If other feature of cloud-init are needed, one can use mimemultipart, and pass
-a json/yaml with `x-scylla/yaml` or `x-scylla/json`
+#### Azure
+```bash
+packer/build_image.sh \
+  --target azure \
+  --repo downloads.scylladb.com/unstable/scylla/master/deb/unified/latest/scylladb-master/scylla.list \
+  --arch x86_64
+```
 
-more information on cloud-init multipart user-data:
+**Azure Credentials**: Configure Azure credentials in `packer/azure_variables.json`:
+```json
+{
+  "client_id": "your-client-id",
+  "client_secret": "your-client-secret",
+  "tenant_id": "your-tenant-id",
+  "subscription_id": "your-subscription-id",
+  "region": "East US",
+  "vm_size": "Standard_D4_v4"
+}
+```
 
-https://cloudinit.readthedocs.io/en/latest/topics/format.html#mime-multi-part-archive
+#### OCI (Oracle Cloud Infrastructure)
+```bash
+packer/build_image.sh \
+  --target oci \
+  --repo downloads.scylladb.com/unstable/scylla/master/deb/unified/latest/scylladb-master/scylla.list \
+  --arch x86_64
+```
 
-```mime
-Content-Type: multipart/mixed; boundary="===============5438789820677534874=="
-MIME-Version: 1.0
+**OCI Credentials**: Configure OCI CLI with `oci setup config` or provide credentials in `packer/oci_variables.json`. See [packer/oci/OCI_BUILD_GUIDE.md](packer/oci/OCI_BUILD_GUIDE.md) for detailed setup instructions.
 
---===============5438789820677534874==
-Content-Type: x-scylla/yaml
-MIME-Version: 1.0
-Content-Disposition: attachment; filename="scylla_machine_image.yaml"
+### Deploying Clusters
 
+#### AWS CloudFormation
+Deploy a Scylla cluster using CloudFormation. The template is a Jinja2 template that must be rendered first:
+
+```bash
+# Install jinja2-cli (if not already installed)
+pip install jinja2-cli
+
+# Render the template
+jinja2 -D arch=x86_64 aws/cloudformation/scylla.yaml.j2 > scylla.yaml
+
+# Deploy the stack
+aws cloudformation create-stack \
+    --stack-name my-scylla-cluster \
+    --template-body file://scylla.yaml \
+    --parameters ParameterKey=KeyName,ParameterValue=<your-key> ...
+```
+
+See [aws/cloudformation/README.md](aws/cloudformation/README.md) for detailed instructions.
+
+## User-Data Configuration
+
+Scylla machine images support configuration via cloud-init user-data in JSON or YAML format.
+
+See cloud provider documentation for passing user-data:
+- **AWS**: [EC2 User Data](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-add-user-data.html)
+- **GCE**: [Startup Scripts](https://cloud.google.com/compute/docs/instances/startup-scripts)
+- **Azure**: [Custom Data](https://learn.microsoft.com/en-us/azure/virtual-machines/custom-data)
+- **OCI**: [Cloud-Init Scripts](https://docs.oracle.com/en-us/iaas/Content/Compute/Tasks/launchinginstance.htm)
+
+### Available User-Data Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `scylla_yaml` | object | `{}` | Settings to pass to scylla.yaml (see [Scylla YAML](#scylla-yaml-configuration)) |
+| `developer_mode` | boolean | `false` | Enable developer mode |
+| `post_configuration_script` | string | `""` | Script to run after configuration (can be base64 encoded) |
+| `post_configuration_script_timeout` | integer | `600` | Timeout in seconds for post-configuration script |
+| `start_scylla_on_first_boot` | boolean | `true` | Start scylla-server automatically on first boot |
+| `device_wait_seconds` | integer | `0` | Max seconds to wait for storage devices (recommended: `300`) |
+
+### Scylla YAML Configuration
+
+The `scylla_yaml` field passes settings directly to the Scylla configuration file. See the [official Scylla YAML documentation](https://docs.scylladb.com/operating-scylla/scylla-yaml/) for all available options.
+
+Common settings with machine image defaults:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `cluster_name` | Auto-generated | Name of the cluster |
+| `auto_bootstrap` | `true` | Enable auto-bootstrap |
+| `listen_address` | Instance private IP | Address to listen on |
+| `broadcast_rpc_address` | Instance private IP | RPC broadcast address |
+| `endpoint_snitch` | `Ec2Snitch` (AWS) | Snitch for cloud topology |
+| `rpc_address` | `0.0.0.0` | RPC listen address |
+| `seed_provider` | Instance private IP | Seed node addresses |
+
+### Example User-Data
+
+#### JSON Format
+```json
+{
+  "scylla_yaml": {
+    "cluster_name": "my-cluster",
+    "seed_provider": [{
+      "class_name": "org.apache.cassandra.locator.SimpleSeedProvider",
+      "parameters": [{"seeds": "10.0.1.1,10.0.1.2"}]
+    }]
+  },
+  "post_configuration_script": "#!/bin/bash\necho 'Configuration complete'",
+  "start_scylla_on_first_boot": true,
+  "device_wait_seconds": 300
+}
+```
+
+#### YAML Format
+```yaml
 scylla_yaml:
-  cluster_name: test-cluster
+  cluster_name: my-cluster
   seed_provider:
     - class_name: org.apache.cassandra.locator.SimpleSeedProvider
       parameters:
-        - seeds: 10.0.219.209
-post_configuration_script: "#! /bin/bash\nyum install cloud-init-cfn"
+        - seeds: 10.0.1.1,10.0.1.2
+post_configuration_script: |
+  #!/bin/bash
+  echo 'Configuration complete'
+start_scylla_on_first_boot: true
+device_wait_seconds: 300
+```
+
+#### Using MIME Multipart (Advanced)
+
+For complex scenarios requiring multiple cloud-init features, use MIME multipart format with `x-scylla/json` or `x-scylla/yaml` content type:
+
+```mime
+Content-Type: multipart/mixed; boundary="===============BOUNDARY=="
+MIME-Version: 1.0
+
+--===============BOUNDARY==
+Content-Type: x-scylla/yaml
+MIME-Version: 1.0
+Content-Disposition: attachment; filename="scylla_config.yaml"
+
+scylla_yaml:
+  cluster_name: my-cluster
+  seed_provider:
+    - class_name: org.apache.cassandra.locator.SimpleSeedProvider
+      parameters:
+        - seeds: 10.0.1.1
 start_scylla_on_first_boot: true
 
---===============5438789820677534874==
-Content-Type: text/cloud-config; charset="us-ascii"
+--===============BOUNDARY==
+Content-Type: text/cloud-config
 MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
 Content-Disposition: attachment; filename="cloud-config.txt"
 
 #cloud-config
 cloud_final_modules:
 - [scripts-user, always]
 
---===============5438789820677534874==--
+--===============BOUNDARY==--
 ```
 
-example of creating the multipart message by python code:
+See [cloud-init documentation](https://cloudinit.readthedocs.io/en/latest/topics/format.html#mime-multi-part-archive) for more details.
 
-```python
-import json
-from email.mime.base import MIMEBase
-from email.mime.multipart import MIMEMultipart
+## Building Packages
 
-msg = MIMEMultipart()
+The repository includes scripts to build OS packages (RPM/DEB) that configure Scylla on first boot.
 
-scylla_image_configuration = dict(
-    scylla_yaml=dict(
-        cluster_name="test_cluster",
-        listen_address="10.23.20.1",
-        broadcast_rpc_address="10.23.20.1",
-        seed_provider=[{
-            "class_name": "org.apache.cassandra.locator.SimpleSeedProvider",
-            "parameters": [{"seeds": "10.23.20.1"}]}],
-    )
-)
-part = MIMEBase('x-scylla', 'json')
-part.set_payload(json.dumps(scylla_image_configuration, indent=4, sort_keys=True))
-part.add_header('Content-Disposition', 'attachment; filename="scylla_machine_image.json"')
-msg.attach(part)
-
-cloud_config = """
-#cloud-config
-cloud_final_modules:
-- [scripts-user, always]
-"""
-part = MIMEBase('text', 'cloud-config')
-part.set_payload(cloud_config)
-part.add_header('Content-Disposition', 'attachment; filename="cloud-config.txt"')
-msg.attach(part)
-
-print(msg)
+### RedHat/CentOS - RPM
+```bash
+dist/redhat/build_rpm.sh --target centos7
 ```
 
-## Device Wait Mechanism
-
-The `wait_for_devices` functionality provides resilience when configuring storage in cloud environments where block device attachment may be delayed. This is particularly important during instance initialization when storage devices might not be immediately available.
-
-### How It Works
-
-The `scylla_create_devices` script includes a `wait_for_devices` function that:
-
-1. **Polls for device availability** - Repeatedly checks for storage devices at 5-second intervals
-2. **Waits up to a configurable timeout** - Controlled by the `device_wait_seconds` parameter
-3. **Returns immediately when devices are found** - Stops waiting as soon as any device appears
-4. **Provides logging** - Outputs status messages during the wait process
-
-### Configuration
-
-You can configure the wait timeout via user-data:
-
-```json
-{
-    "device_wait_seconds": 300,
-    "scylla_yaml": {
-        "cluster_name": "my-cluster"
-    }
-}
+Or using Docker:
+```bash
+docker run -it -v $PWD:/scylla-machine-image -w /scylla-machine-image --rm centos:7.2.1511 \
+  bash -c './dist/redhat/build_rpm.sh -t centos7'
 ```
 
-Or in YAML format:
-
-```yaml
-device_wait_seconds: 300
-scylla_yaml:
-  cluster_name: my-cluster
-```
-
-**Default**: `0` (no waiting - devices must be available immediately)
-**Recommended for cloud environments**: `300` seconds (5 minutes)
-
-### Use Cases
-
-- **OCI (Oracle Cloud Infrastructure)** - Block volume attachment can't be delayed during instance launch
-- **AWS with EBS volumes** - Attached volumes may take time to appear
-- **Azure with managed disks** - Disk attachment timing can vary
-- **GCE with persistent disks** - Similar attachment delays may occur
-
-## Creating a Scylla cluster using the Machine Image
-### AWS - CloudFormation
-Use template `aws/cloudformation/scylla.yaml`.
-Currently, maximum 10 nodes cluster is supported.
-
-## Building scylla-machine-image package
-
-### RedHat like - RPM
-
-Currently the only supported mode is:
-
-```
-dist/redhat/build_rpm.sh --target centos7 --cloud-provider aws
-```
-
-Build using Docker
-
-```
-docker run -it -v $PWD:/scylla-machine-image -w /scylla-machine-image  --rm centos:7.2.1511 bash -c './dist/redhat/build_rpm.sh -t centos7 -c aws'
-```
-
-### Ubuntu - DEB
-
-```
+### Ubuntu/Debian - DEB
+```bash
 dist/debian/build_deb.sh
 ```
 
-Build using Docker
-
-```
-docker run -it -v $PWD:/scylla-machine-image -w /scylla-machine-image  --rm ubuntu:20.04 bash -c './dist/debian/build_deb.sh'
-```
-
-## Building docs
-
+Or using Docker:
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install sphinx sphinx-jsondomain sphinx-markdown-builder
-make html
-make markdown
+docker run -it -v $PWD:/scylla-machine-image -w /scylla-machine-image --rm ubuntu:20.04 \
+  bash -c './dist/debian/build_deb.sh'
 ```
 
+## Development
+
+### Setup
+See [SETUP.md](SETUP.md) for detailed development environment setup using uv.
+
+### Running Tests
+```bash
+make test              # Run all tests (excluding integration)
+make test-validation   # Run validation tests only
+make test-integration  # Run integration tests (requires AWS credentials)
+```
+
+### Code Quality
+```bash
+make format  # Format code
+make lint    # Run linters
+make check   # Run all checks
+```
+
+## Documentation
+
+- [AWS CloudFormation Deployment](aws/cloudformation/README.md)
+- [OCI Build Guide](packer/oci/OCI_BUILD_GUIDE.md)
+- [Development Setup](SETUP.md)
+
+## License
+
+Apache-2.0 - See [LICENSE](LICENSE) for details.
