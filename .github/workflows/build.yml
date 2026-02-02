@@ -82,51 +82,36 @@ jobs:
                   sys.exit(1)
 
           def get_python_version_from_fedora(fedora_ver):
-              # Fallback mapping for known Fedora versions to Python versions
-              fedora_python_map = {
-                  '43': '3.13',
-                  '42': '3.13',
-                  '41': '3.13',
-                  '40': '3.12',
-                  '39': '3.11',
-                  '38': '3.11',
-                  '37': '3.11',
-              }
+              import subprocess
               
-              branch = f"f{fedora_ver}"
-              # URL to the python3 spec file in Fedora's source tree
-              spec_url = f"https://src.fedoraproject.org/rpms/python3/raw/{branch}/f/python3.spec"
+              print(f"[*] Querying Fedora {fedora_ver} container for Python version...")
               
-              print(f"[*] Querying Fedora Sources for {branch}...")
               try:
-                  resp = requests.get(spec_url, timeout=10)
+                  # Query the Fedora container for the Python version
+                  # This is more reliable than parsing spec files and works for any Fedora version
+                  cmd = [
+                      'docker', 'run', '--rm', f'fedora:{fedora_ver}',
+                      'bash', '-c',
+                      'dnf repoquery --quiet --queryformat "%{VERSION}" python3 2>/dev/null | head -1'
+                  ]
                   
-                  # Fallback to Rawhide if specific branch not found (common for very new/future versions)
-                  if resp.status_code == 404:
-                      print("[!] Branch not found, checking Rawhide...")
-                      spec_url = "https://src.fedoraproject.org/rpms/python3/raw/rawhide/f/python3.spec"
-                      resp = requests.get(spec_url, timeout=10)
-
-                  if resp.status_code == 200:
-                      # Parse "Version: 3.12.1" -> return "3.12"
-                      version_match = re.search(r'^Version:\s+([\d\.]+)', resp.text, re.MULTILINE)
-                      if version_match:
-                          full_ver = version_match.group(1)
-                          # Take only Major.Minor for actions/setup-python (e.g., 3.12)
-                          short_ver = ".".join(full_ver.split('.')[:2])
-                          print(f"[*] Found Python {short_ver} from Fedora spec file")
-                          return short_ver
+                  result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+                  
+                  if result.returncode == 0 and result.stdout.strip():
+                      full_ver = result.stdout.strip()
+                      # Take only Major.Minor for actions/setup-python (e.g., 3.14.2 -> 3.14)
+                      short_ver = ".".join(full_ver.split('.')[:2])
+                      print(f"[*] Found Python {short_ver} from Fedora {fedora_ver} repository")
+                      return short_ver
+                  else:
+                      print(f"[!] Failed to query Fedora container: {result.stderr[:200]}")
+              except subprocess.TimeoutExpired:
+                  print(f"[!] Timeout querying Fedora container")
               except Exception as e:
-                  print(f"[!] Error querying Fedora sources: {e}")
+                  print(f"[!] Error querying Fedora container: {e}")
               
-              # Use fallback mapping if API query failed
-              if fedora_ver in fedora_python_map:
-                  py_ver = fedora_python_map[fedora_ver]
-                  print(f"[!] Using fallback mapping: Fedora {fedora_ver} -> Python {py_ver}")
-                  return py_ver
-              
-              # Default fallback
-              print(f"[!] No mapping found for Fedora {fedora_ver}, defaulting to Python 3.13")
+              # Fallback: default to Python 3.13 for modern Fedora versions
+              print(f"[!] Using default Python 3.13 for Fedora {fedora_ver}")
               return "3.13"
 
           # --- Main Execution ---
