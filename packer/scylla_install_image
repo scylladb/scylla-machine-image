@@ -317,7 +317,8 @@ WantedBy=multi-user.target
         # which breaks the cycle. The swap unit will still properly depend on mnt.mount.
         swap_override_dir = "/etc/systemd/system/mnt-swapfile.swap.d"
         os.makedirs(swap_override_dir, mode=0o755, exist_ok=True)
-        with open(os.path.join(swap_override_dir, "override.conf"), "w") as f:
+        swap_override_file = os.path.join(swap_override_dir, "override.conf")
+        with open(swap_override_file, "w") as f:
             f.write(
                 "[Unit]\n"
                 "# Break dependency cycle by removing implicit Before=swap.target\n"
@@ -327,6 +328,7 @@ WantedBy=multi-user.target
                 "After=mnt.mount\n"
                 "Conflicts=umount.target\n"
             )
+        os.chmod(swap_override_file, 0o644)
 
     kver = run("uname -r", shell=True, check=True, capture_output=True, encoding="utf-8").stdout.strip()
     with open(f"/tmp/{args.product}-{args.target_cloud}-kernel-{args.scylla_version}-{arch()}.txt", "a+") as f:
