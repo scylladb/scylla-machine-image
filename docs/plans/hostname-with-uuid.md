@@ -76,10 +76,46 @@ ScyllaDB logs show server UUIDs for node identification, but the hostnames in th
 **Open Questions:**
 - What hostname format balances readability with DNS compliance?
 
+**Hostname Format Options:**
+
+The hostname should include the server UUID to enable correlation between logs. Here are the proposed options:
+
+1. **UUID-only format**: `<uuid>`
+   - Example: `a1b2c3d4-e5f6-7890-abcd-ef1234567890`
+   - Pros: Simple, guaranteed unique, no length concerns
+   - Cons: Not human-readable, loses cloud provider context (region, IP info)
+
+2. **Original hostname + UUID**: `<original-hostname>-<uuid>`
+   - Example: `ip-10-0-1-42-a1b2c3d4-e5f6-7890-abcd-ef1234567890`
+   - Pros: Retains original context (IP address), easy to identify instance
+   - Cons: Very long (may exceed 63-char DNS label limit), less readable
+
+3. **UUID + short original identifier**: `<uuid>-<region>-<instance-type-hint>`
+   - Example: `a1b2c3d4-e5f6-7890-abcd-ef1234567890-us-east-1`
+   - Pros: UUID-first for log correlation, includes location context
+   - Cons: Still quite long, requires parsing instance metadata
+
+4. **Short prefix + UUID**: `scylla-<uuid>`
+   - Example: `scylla-a1b2c3d4-e5f6-7890-abcd-ef1234567890`
+   - Pros: Clear service identifier, UUID prominent
+   - Cons: Loses instance-specific context
+
+5. **Hybrid: IP-based prefix + UUID** (RECOMMENDED): `ip-<last-two-octets>-<uuid>`
+   - Example: `ip-1-42-a1b2c3d4-e5f6-7890-abcd-ef1234567890` (for IP 10.0.1.42)
+   - Pros: Compact, includes IP hint for quick identification, UUID for correlation
+   - Cons: Still 49+ chars (within DNS limits)
+
+**Recommendation**: Option 5 (IP-based prefix + UUID) provides the best balance of:
+- Human readability (IP hint for quick instance identification)
+- Log correlation (full UUID)
+- DNS compliance (under 63 chars)
+- Cloud-agnostic approach
+
 **Decisions Made:**
 - **Primary method:** Use ScyllaDB REST API (`curl http://localhost:10000/storage_service/hostid/local`)
-- **Fallback method:** Read `host_id` from `/var/lib/scylla/data/system/local-*/*/Data.db` or parse scylla.yaml if REST API is unavailable
+- **Fallback method:** If REST API is unavailable, leave hostname unchanged (no binary file reading)
 - **UUID format:** Use full UUID (not shortened) in hostname
+- **Hostname format:** To be finalized based on review (recommendation: `ip-<last-octets>-<uuid>`)
 
 ### Phase 2: Core Script Implementation
 **Description:** Create the Python script that retrieves the UUID and updates the hostname.
