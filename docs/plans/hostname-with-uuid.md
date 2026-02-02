@@ -75,11 +75,11 @@ ScyllaDB logs show server UUIDs for node identification, but the hostnames in th
 
 **Open Questions:**
 - What hostname format balances readability with DNS compliance?
-- Should the full UUID be used or a shortened version (first 8 chars)?
 
 **Decisions Made:**
 - **Primary method:** Use ScyllaDB REST API (`curl http://localhost:10000/storage_service/hostid/local`)
 - **Fallback method:** Read `host_id` from `/var/lib/scylla/data/system/local-*/*/Data.db` or parse scylla.yaml if REST API is unavailable
+- **UUID format:** Use full UUID (not shortened) in hostname
 
 ### Phase 2: Core Script Implementation
 **Description:** Create the Python script that retrieves the UUID and updates the hostname.
@@ -223,8 +223,8 @@ ScyllaDB logs show server UUIDs for node identification, but the hostnames in th
 - **Mitigation:** Set appropriate systemd timeout (120 seconds)
 
 **Risk:** Hostname length may exceed DNS limits (63 chars per label)
-- **Mitigation:** Test with longest possible hostname + UUID combination
-- **Mitigation:** Consider using shortened UUID (first 8 characters) if needed
+- **Mitigation:** Test with longest possible hostname + full UUID combination
+- **Mitigation:** Validate that typical cloud provider hostnames (e.g., `ip-10-0-1-42`) plus full UUID stay within DNS limits
 - **Mitigation:** Document hostname length constraints in the code
 
 **Risk:** Cloud provider metadata may cache old hostname
