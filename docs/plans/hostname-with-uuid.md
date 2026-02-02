@@ -74,11 +74,12 @@ ScyllaDB logs show server UUIDs for node identification, but the hostnames in th
 - Prototype script
 
 **Open Questions:**
-- Should we use ScyllaDB REST API (`curl http://localhost:10000/storage_service/hostid/local`)?
-- Should we query `system.local` table via `cqlsh -e "SELECT host_id FROM system.local"`?
-- Should we use `nodetool info` and parse the output?
 - What hostname format balances readability with DNS compliance?
 - Should the full UUID be used or a shortened version (first 8 chars)?
+
+**Decisions Made:**
+- **Primary method:** Use ScyllaDB REST API (`curl http://localhost:10000/storage_service/hostid/local`)
+- **Fallback method:** Read `host_id` from `/var/lib/scylla/data/system/local-*/*/Data.db` or parse scylla.yaml if REST API is unavailable
 
 ### Phase 2: Core Script Implementation
 **Description:** Create the Python script that retrieves the UUID and updates the hostname.
@@ -253,12 +254,13 @@ ScyllaDB logs show server UUIDs for node identification, but the hostnames in th
 ### Compatibility Concerns
 
 **Operating Systems:**
-- Must work on Ubuntu, Debian, RHEL, Rocky Linux, and other supported distros
-- `hostnamectl` availability and behavior may vary slightly across distros
+- Primary target is Ubuntu (used across all machine images)
+- `hostnamectl` is available and consistent across Ubuntu versions
 
 **ScyllaDB Versions:**
-- Verify UUID retrieval method works across ScyllaDB versions (OSS and Enterprise)
-- REST API endpoints may differ between versions - needs testing
+- Only ScyllaDB Enterprise is supported (no OSS compatibility needed)
+- REST API endpoint `/storage_service/hostid/local` should be consistent across Enterprise versions
+- Fallback to scylla.yaml reading if REST API endpoint changes
 
 **Cloud Providers:**
 - AWS, GCE, Azure, OCI may have different hostname initialization behaviors
@@ -268,4 +270,6 @@ ScyllaDB logs show server UUIDs for node identification, but the hostnames in th
 **Cluster Topology:**
 - Single-node vs multi-node clusters
 - Seed nodes vs regular nodes (should work the same)
-- Impact on node identity if hostname changes after cluster join (should be minimal as ScyllaDB uses IPs)
+- Impact on node identity if hostname changes after cluster join (should be minimal as ScyllaDB primarily uses IPs)
+- **Testing Required:** Verify hostname changes don't break DNS-based configurations in SCT (Scylla Cluster Tests)
+- ScyllaDB can be configured to use DNS addresses - must ensure hostname changes are compatible
