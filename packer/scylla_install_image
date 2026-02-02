@@ -292,8 +292,13 @@ WantedBy=multi-user.target
             f.write("ClientAliveInterval 180 \n")
         # Configure systemd-resolved to use Azure DNS for proper KMS resolution
         # See https://github.com/scylladb/scylladb/issues/26519
-        with open("/etc/systemd/resolved.conf", "w") as f:
+        # Using drop-in configuration to preserve other settings
+        resolved_conf_dir = "/etc/systemd/resolved.conf.d"
+        os.makedirs(resolved_conf_dir, mode=0o755, exist_ok=True)
+        with open(os.path.join(resolved_conf_dir, "azure-dns.conf"), "w") as f:
             f.write(dedent("""
+                # Azure DNS configuration for proper KMS resolution
+                # This configuration will be applied on first boot
                 [Resolve]
                 DNS=168.63.129.16
                 FallbackDNS=8.8.8.8 1.1.1.1
