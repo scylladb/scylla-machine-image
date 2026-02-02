@@ -294,9 +294,12 @@ WantedBy=multi-user.target
         # See https://github.com/scylladb/scylladb/issues/26519
         # Use static /etc/resolv.conf instead of systemd-resolved to avoid service
         # dependency issues where systemd-resolved might not be running when Scylla starts
-        if os.path.islink("/etc/resolv.conf"):
-            os.unlink("/etc/resolv.conf")
-        with open("/etc/resolv.conf", "w") as f:
+        resolv_conf = "/etc/resolv.conf"
+        if os.path.islink(resolv_conf):
+            os.unlink(resolv_conf)
+        elif os.path.exists(resolv_conf):
+            os.remove(resolv_conf)
+        with open(resolv_conf, "w") as f:
             f.write(
                 "# Azure DNS configuration for proper KMS resolution\n"
                 "# Using Azure platform DNS (168.63.129.16) with fallback servers\n"
@@ -304,6 +307,7 @@ WantedBy=multi-user.target
                 "nameserver 8.8.8.8\n"
                 "nameserver 1.1.1.1\n"
             )
+        os.chmod(resolv_conf, 0o644)
 
     kver = run("uname -r", shell=True, check=True, capture_output=True, encoding="utf-8").stdout.strip()
     with open(f"/tmp/{args.product}-{args.target_cloud}-kernel-{args.scylla_version}-{arch()}.txt", "a+") as f:
