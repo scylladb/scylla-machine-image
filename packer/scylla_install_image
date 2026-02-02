@@ -296,13 +296,13 @@ WantedBy=multi-user.target
         resolved_conf_dir = "/etc/systemd/resolved.conf.d"
         os.makedirs(resolved_conf_dir, mode=0o755, exist_ok=True)
         with open(os.path.join(resolved_conf_dir, "azure-dns.conf"), "w") as f:
-            f.write(dedent("""
-                # Azure DNS configuration for proper KMS resolution
-                # This configuration will be applied on first boot
-                [Resolve]
-                DNS=168.63.129.16
-                FallbackDNS=8.8.8.8 1.1.1.1
-            """).lstrip())
+            f.write(
+                "# Azure DNS configuration for proper KMS resolution\n"
+                "# This configuration will be applied on first boot\n"
+                "[Resolve]\n"
+                "DNS=168.63.129.16\n"
+                "FallbackDNS=8.8.8.8 1.1.1.1\n"
+            )
 
     kver = run("uname -r", shell=True, check=True, capture_output=True, encoding="utf-8").stdout.strip()
     with open(f"/tmp/{args.product}-{args.target_cloud}-kernel-{args.scylla_version}-{arch()}.txt", "a+") as f:
