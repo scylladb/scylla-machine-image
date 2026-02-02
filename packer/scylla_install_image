@@ -290,6 +290,14 @@ WantedBy=multi-user.target
             f.write("\n\n169.254.169.254    metadata.azure.internal\n")
         with open("/etc/ssh/sshd_config.d/50-cloudimg-settings.conf", "w") as f:
             f.write("ClientAliveInterval 180 \n")
+        # Configure systemd-resolved to use Azure DNS for proper KMS resolution
+        # See https://github.com/scylladb/scylladb/issues/26519
+        with open("/etc/systemd/resolved.conf", "w") as f:
+            f.write(dedent("""
+                [Resolve]
+                DNS=168.63.129.16
+                FallbackDNS=8.8.8.8 1.1.1.1
+            """).lstrip())
 
     kver = run("uname -r", shell=True, check=True, capture_output=True, encoding="utf-8").stdout.strip()
     with open(f"/tmp/{args.product}-{args.target_cloud}-kernel-{args.scylla_version}-{arch()}.txt", "a+") as f:
