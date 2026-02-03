@@ -47,8 +47,10 @@ if __name__ == "__main__":
     parser.add_argument("--scylla-version", help="Scylla version to be added to manifest file")
     args = parser.parse_args()
 
-    if args.repo:
-        args.repo_for_install = args.repo_for_update = args.repo
+    if args.repo and not args.repo_for_install:
+        args.repo_for_install = args.repo
+    if args.repo and not args.repo_for_update:
+        args.repo_for_update = args.repo
 
     if not args.localdeb and not args.repo_for_install:
         print("Error: need to specify --localdeb or --repo/--repo-for-install")
