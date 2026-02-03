@@ -48,7 +48,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.repo:
-        args.repo_for_install = args.repo
+        args.repo_for_install = args.repo_for_update = args.repo
 
     if not args.localdeb and not args.repo_for_install:
         print("Error: need to specify --localdeb or --repo/--repo-for-install")
