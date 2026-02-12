@@ -123,7 +123,7 @@ if __name__ == '__main__':
         grub_variable = 'GRUB_CMDLINE_LINUX'
         run('systemctl mask walinuxagent', shell=True, check=True)
 
-    run('systemctl disable apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer motd-news.timer esm-cache.service apt-news.service', shell=True, check=True)
+    run('systemctl mask apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer motd-news.timer esm-cache.service apt-news.service dailyaidecheck.timer', shell=True, check=True)
     run('systemctl daemon-reload', shell=True, check=True)
     run('systemctl enable scylla-image-setup.service', shell=True, check=True)
     run('systemctl enable scylla-image-post-start.service', shell=True, check=True)
