@@ -1,0 +1,23 @@
+name: Check PR source branch
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - edited
+
+jobs:
+  check-branches:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Check branches
+        run: |
+          if [[ ! "${{ github.head_ref }}" =~ ^next($|-) ]] && [ "${{ github.base_ref }}" = "master" ]; then
+            echo "Pull requests to ${{ github.base_ref }} are only allowed from next branches (next, next-*). Current source branch: ${{ github.head_ref }}"
+            exit 1
+          fi
