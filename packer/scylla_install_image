@@ -137,7 +137,7 @@ if __name__ == "__main__":
         run("systemctl mask oracle-cloud-agent-updater || true", shell=True, check=True)
 
     run(
-        "systemctl disable apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer motd-news.timer esm-cache.service apt-news.service dailyaidecheck.timer",
+        "systemctl mask apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer motd-news.timer apt-news.service esm-cache.service dailyaidecheck.timer",
         shell=True,
         check=True,
     )
