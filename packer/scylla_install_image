@@ -125,6 +125,7 @@ if __name__ == "__main__":
         kernel_opt = ""
         grub_variable = "GRUB_CMDLINE_LINUX_DEFAULT"
         run("systemctl mask google-osconfig-agent", shell=True, check=True)
+        run("systemctl mask google-guest-agent", shell=True, check=True)
     elif args.target_cloud == "azure":
         kernel_opt = " rootdelay=300"
         grub_variable = "GRUB_CMDLINE_LINUX"
