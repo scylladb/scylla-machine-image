@@ -132,9 +132,8 @@ if __name__ == "__main__":
     elif args.target_cloud == "oci":
         kernel_opt = ""
         grub_variable = "GRUB_CMDLINE_LINUX_DEFAULT"
-        # Mask OCI monitoring agent if present
-        run("systemctl mask oracle-cloud-agent || true", shell=True, check=True)
-        run("systemctl mask oracle-cloud-agent-updater || true", shell=True, check=True)
+        run("systemctl mask oracle-cloud-agent", shell=True, check=True)
+        run("systemctl mask oracle-cloud-agent-updater", shell=True, check=True)
 
     run(
         "systemctl mask apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer motd-news.timer apt-news.service esm-cache.service dailyaidecheck.timer",
