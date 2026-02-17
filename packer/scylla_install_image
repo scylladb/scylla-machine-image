@@ -308,27 +308,6 @@ WantedBy=multi-user.target
                 "nameserver 1.1.1.1\n"
             )
         os.chmod(resolv_conf, 0o644)
-        
-        # Fix swap dependency cycle on Azure
-        # See https://github.com/scylladb/scylladb/issues/26519
-        # On Azure, swap is on /mnt which is mounted with _netdev, creating a dependency cycle:
-        # tmp.mount -> swap.target -> mnt-swapfile.swap -> mnt.mount -> network-online.target
-        # By setting DefaultDependencies=no, we remove the implicit Before=swap.target dependency
-        # which breaks the cycle. The swap unit will still properly depend on mnt.mount.
-        swap_override_dir = "/etc/systemd/system/mnt-swapfile.swap.d"
-        os.makedirs(swap_override_dir, mode=0o755, exist_ok=True)
-        swap_override_file = os.path.join(swap_override_dir, "override.conf")
-        with open(swap_override_file, "w") as f:
-            f.write(
-                "[Unit]\n"
-                "# Break dependency cycle by removing implicit Before=swap.target\n"
-                "# The swap unit will still depend on mnt.mount automatically\n"
-                "DefaultDependencies=no\n"
-                "# Explicitly set required dependencies\n"
-                "After=mnt.mount\n"
-                "Conflicts=umount.target\n"
-            )
-        os.chmod(swap_override_file, 0o644)
 
     kver = run("uname -r", shell=True, check=True, capture_output=True, encoding="utf-8").stdout.strip()
     with open(f"/tmp/{args.product}-{args.target_cloud}-kernel-{args.scylla_version}-{arch()}.txt", "a+") as f:
