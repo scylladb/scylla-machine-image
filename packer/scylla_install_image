@@ -111,12 +111,14 @@ if __name__ == "__main__":
         kernel_opt = ""
         grub_variable = "GRUB_CMDLINE_LINUX_DEFAULT"
         # Disable and mask amazon-ssm-agent to prevent it from running
-        # First, disable and stop any running instance
-        run("systemctl disable --now amazon-ssm-agent || true", shell=True, check=True)
+        # First, disable and stop any running instance (ignore errors if not present)
+        run("systemctl disable --now amazon-ssm-agent || true", shell=True, check=False)
         # Remove any leftover snap service files
         snap_service = "/etc/systemd/system/snap.amazon-ssm-agent.amazon-ssm-agent.service"
         if os.path.exists(snap_service):
             os.remove(snap_service)
+            # Reload systemd after removing service file
+            run("systemctl daemon-reload", shell=True, check=True)
         # Finally, mask the service to prevent it from being started
         run("systemctl mask amazon-ssm-agent", shell=True, check=True)
     elif args.target_cloud == "gce":
