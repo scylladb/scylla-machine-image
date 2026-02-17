@@ -125,7 +125,52 @@ if __name__ == "__main__":
         kernel_opt = ""
         grub_variable = "GRUB_CMDLINE_LINUX_DEFAULT"
         run("systemctl mask google-osconfig-agent", shell=True, check=True)
-        run("systemctl mask google-guest-agent", shell=True, check=True)
+        # Configure google-guest-agent to disable most features except SSH key management
+        instance_configs = dedent("""
+            [Daemons]
+            # SSH Key management relies on the accounts_daemon. Keep this true.
+            accounts_daemon = true
+            # Disable clock synchronization
+            clock_skew_daemon = false
+            # Disable network interface management
+            network_daemon = false
+
+            [Accounts]
+            # These settings control how the accounts_daemon behaves.
+            # user_add must be true so the agent can create the user for the SSH key.
+            user_add = true
+            # Prevent the agent from deleting users or removing keys automatically (safer)
+            user_del = false
+            deprovision_remove = false
+            # distinct from "ssh-keys" metadata, strictly controls OS Login API
+            gpasswd_add = true 
+            groups = google-sudoers
+
+            [InstanceSetup]
+            # Disable setting the hostname based on the instance name
+            set_hostname = false
+            # Disable generating SSH host keys (RSA/ECDSA/etc) for the server itself
+            set_host_keys = false
+            # Disable creating the boto config for GSUtil
+            set_boto_config = false
+            # Disable network setup steps
+            network_enabled = false
+            # Disable rewriting the /etc/hosts file
+            set_multihomed_config = false
+
+            [MetadataScripts]
+            # Disable startup and shutdown scripts from running via metadata
+            default = false
+            startup = false
+            shutdown = false
+
+            [NetworkInterfaces]
+            # Explicitly disable IP forwarding setup
+            setup = false
+            ip_forwarding = false
+        """)
+        with open("/etc/default/instance_configs.cfg", "w") as f:
+            f.write(instance_configs)
     elif args.target_cloud == "azure":
         kernel_opt = " rootdelay=300"
         grub_variable = "GRUB_CMDLINE_LINUX"
