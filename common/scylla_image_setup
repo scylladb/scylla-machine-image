@@ -40,6 +40,42 @@ if __name__ == "__main__":
     if not swapfile.exists():
         swap_unit.unlink(missing_ok=True)
         run(f"/opt/scylladb/scripts/scylla_swap_setup --swap-directory {swap_directory}", shell=True, check=True)
+
+        # Fix swap dependency cycle by adding drop-in override
+        # See https://github.com/scylladb/scylladb/issues/26519 and https://github.com/scylladb/scylladb/pull/28504
+        # On Azure, swap is on /mnt which is mounted with _netdev, creating a dependency cycle:
+        # swap.target -> mnt-swapfile.swap -> mnt.mount -> network-online.target -> network.target
+        #   -> systemd-resolved.service -> tmp.mount -> swap.target
+        # By setting DefaultDependencies=no, we remove the implicit Before=swap.target dependency
+        # which breaks the cycle. The swap unit will still be activated via WantedBy=multi-user.target.
+        # We apply this to all clouds to keep the code simple, even though the issue is specific to Azure.
+        swap_override_dir = swap_unit.parent / f"{swap_unit.name}.d"
+        swap_override_dir.mkdir(mode=0o755, exist_ok=True)
+        swap_override_file = swap_override_dir / "override.conf"
+
+        # Determine the mount unit dynamically
+        mount_point = run(
+            ["findmnt", "-n", "-o", "TARGET", "--target", str(swap_directory)],
+            check=True, capture_output=True, encoding="utf-8"
+        ).stdout.strip()
+        mount_unit = run(
+            ["systemd-escape", "-p", "--suffix=mount", mount_point],
+            check=True, capture_output=True, encoding="utf-8"
+        ).stdout.strip()
+
+        swap_override_file.write_text(
+            "[Unit]\n"
+            "# Break dependency cycle by removing implicit Before=swap.target\n"
+            "# The swap unit will still be activated via WantedBy=multi-user.target\n"
+            f"# This swap file is on {swap_directory} which is mounted by {mount_unit}\n"
+            "DefaultDependencies=no\n"
+            f"After={mount_unit}\n"
+            "Conflicts=umount.target\n"
+            "Before=umount.target\n"
+        )
+        swap_override_file.chmod(0o644)
+        LOGGER.info(f"Created swap override at {swap_override_file}")
+
     machine_image_configured = Path("/etc/scylla/machine_image_configured")
     if not machine_image_configured.exists():
         run("/opt/scylladb/scripts/scylla_cpuscaling_setup", shell=True, check=True)
