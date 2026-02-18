@@ -143,6 +143,14 @@ if __name__ == "__main__":
         shell=True,
         check=True,
     )
+    # Mask fstrim.timer and fstrim.service if they exist
+    # Some distro has fstrim enabled by default, since we are using XFS with online discard, we don't need fstrim
+    # Fixes: SMI-249
+    run(
+        "systemctl list-unit-files 'fstrim.*' | grep -q fstrim && systemctl mask fstrim.timer fstrim.service",
+        shell=True,
+        check=True,
+    )
     run("systemctl daemon-reload", shell=True, check=True)
     run("systemctl enable scylla-image-setup.service", shell=True, check=True)
     run("systemctl enable scylla-image-post-start.service", shell=True, check=True)
