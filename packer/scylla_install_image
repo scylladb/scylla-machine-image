@@ -31,6 +31,74 @@ def deb_arch():
     return darch[arch()]
 
 
+def get_chrony_sources(target_cloud: str) -> str:
+    """Return cloud-specific chrony time source directives.
+
+    Sources per cloud:
+    - aws: Amazon Time Sync Service + time.aws.com pool
+    - gce: Google internal metadata server (metadata.google.internal)
+    - azure: Hyper-V PTP clock with NTP fallback
+    - oci: OCI internal NTP
+    """
+    sources = {
+        "aws": ("server 169.254.169.123 prefer iburst minpoll 4 maxpoll 4\npool time.aws.com iburst\n"),
+        "gce": ("server metadata.google.internal prefer iburst\n"),
+        "azure": ("refclock PHC /dev/ptp_hyperv poll 3 dpoll -2 offset 0\nserver 169.254.169.254 iburst\n"),
+        "oci": ("server 169.254.169.254 prefer iburst\n"),
+    }
+    if target_cloud not in sources:
+        raise ValueError(f"unknown target cloud: {target_cloud}")
+    return sources[target_cloud]
+
+
+def build_chrony_conf(target_cloud: str) -> str:
+    """Build a complete chrony.conf for the given cloud provider."""
+    sources = get_chrony_sources(target_cloud)
+    return (
+        f"# chrony configuration for {target_cloud}\n"
+        f"# managed by scylla-machine-image — do not edit manually\n"
+        f"\n"
+        f"{sources}"
+        f"\n"
+        f"makestep 1.0 3\n"
+        f"driftfile /var/lib/chrony/drift\n"
+        f"rtcsync\n"
+        f"logdir /var/log/chrony\n"
+        f"maxupdateskew 100.0\n"
+        f"leapsectz right/UTC\n"
+    )
+
+
+def configure_chrony(target_cloud: str) -> None:
+    """Configure chrony for the given cloud provider."""
+    # disable cloud-init NTP management so it doesn't overwrite this config on boot
+    os.makedirs("/etc/cloud/cloud.cfg.d", exist_ok=True)
+    with open("/etc/cloud/cloud.cfg.d/99-disable-ntp.cfg", "w") as f:
+        f.write("ntp:\n  enabled: false\n")
+
+    # remove vendor defaults
+    for path in glob.glob("/etc/chrony/sources.d/*") + glob.glob("/etc/chrony/conf.d/*"):
+        os.remove(path)
+
+    with open("/etc/chrony/chrony.conf", "w") as f:
+        f.write(build_chrony_conf(target_cloud))
+
+    # azure: udev rule for PTP hyperv clock
+    if target_cloud == "azure":
+        with open("/etc/udev/rules.d/99-ptp-hyperv.rules", "w") as f:
+            f.write('SUBSYSTEM=="ptp", ATTR{clock_name}=="hyperv", SYMLINK+="ptp_hyperv"\n')
+
+    run("systemctl enable chrony-wait.service", shell=True, check=True)
+
+    # systemd drop-in for scylla-server to wait for time sync
+    override_path = "/etc/systemd/system/scylla-server.service.d/10-time-sync.conf"
+    os.makedirs(os.path.dirname(override_path), mode=0o755, exist_ok=True)
+    with open(override_path, "w") as f:
+        f.write("[Unit]\nAfter=time-sync.target\nWants=time-sync.target\n")
+
+    run("systemctl daemon-reload", shell=True, check=True)
+
+
 if __name__ == "__main__":
     if os.getuid() > 0:
         print("Requires root permission.")
@@ -83,7 +151,7 @@ if __name__ == "__main__":
     )
     run(
         f"apt-get install -y --auto-remove {args.product}-machine-image {args.product}-server-dbg "
-        "cpufrequtils curl dnsutils ethtool htop initramfs-tools jq mdadm ncat netcat-openbsd "
+        "chrony cpufrequtils curl dnsutils ethtool htop initramfs-tools jq mdadm ncat netcat-openbsd "
         "net-tools nload nmap python3-boto sysstat systemd-coredump tmux traceroute vim-nox vim.tiny wget xfsprogs aide",
         shell=True,
         check=True,
@@ -98,16 +166,6 @@ if __name__ == "__main__":
         run(f"curl -L -o /etc/apt/sources.list.d/scylla.list {args.repo_for_update}", shell=True, check=True)
 
     if args.target_cloud == "aws":
-        with open("/etc/chrony/chrony.conf") as f:
-            chrony_conf = f.read()
-
-        chrony_conf = re.sub(r"^(pool .*$)", "# \\1", chrony_conf, flags=re.MULTILINE)
-        with open("/etc/chrony/chrony.conf", "w") as f:
-            f.write(chrony_conf)
-
-        with open("/etc/chrony/sources.d/ntp-pool.sources", "w") as f:
-            f.write("pool time.aws.com iburst\n")
-
         kernel_opt = ""
         grub_variable = "GRUB_CMDLINE_LINUX_DEFAULT"
         # Disable and mask amazon-ssm-agent to prevent it from running
@@ -137,6 +195,8 @@ if __name__ == "__main__":
         # Mask OCI monitoring agent if present
         run("systemctl mask oracle-cloud-agent || true", shell=True, check=True)
         run("systemctl mask oracle-cloud-agent-updater || true", shell=True, check=True)
+
+    configure_chrony(args.target_cloud)
 
     run(
         "systemctl mask apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer motd-news.timer apt-news.service esm-cache.service dailyaidecheck.timer",
