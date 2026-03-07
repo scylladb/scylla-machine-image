@@ -77,14 +77,14 @@ if __name__ == "__main__":
     run("apt-get update -y", shell=True, check=True)
     run("apt-get full-upgrade -y", shell=True, check=True)
     run(
-        "apt-get purge -y accountsservice acpid apport fuse fwupd-signed modemmanager motd-news-config open-vm-tools python3-apport snapd udisks2 unattended-upgrades update-notifier-common",
+        f"apt-get install -y --auto-remove {args.product}-machine-image {args.product}-server-dbg "
+        "cpufrequtils curl dnsutils ethtool htop initramfs-tools jq mdadm ncat netcat-openbsd "
+        "net-tools nload nmap python3-boto sysstat systemd-coredump tmux traceroute vim-nox vim.tiny wget xfsprogs aide",
         shell=True,
         check=True,
     )
     run(
-        f"apt-get install -y --auto-remove {args.product}-machine-image {args.product}-server-dbg "
-        "cpufrequtils curl dnsutils ethtool htop initramfs-tools jq mdadm ncat netcat-openbsd "
-        "net-tools nload nmap python3-boto sysstat systemd-coredump tmux traceroute vim-nox vim.tiny wget xfsprogs aide",
+        "apt-get purge -y accountsservice acpid apport fuse fwupd-signed modemmanager motd-news-config open-vm-tools postfix python3-apport snapd udisks2 unattended-upgrades update-notifier-common",
         shell=True,
         check=True,
     )
