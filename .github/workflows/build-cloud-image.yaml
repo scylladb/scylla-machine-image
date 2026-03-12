@@ -1,0 +1,343 @@
+name: Build Cloud Image from PR
+
+on:
+  pull_request_target:
+    types: [labeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  build-image:
+    if: startsWith(github.event.label.name, 'build/')
+    runs-on: ubuntu-latest
+    concurrency:
+      group: build-image-${{ github.event.pull_request.number }}-${{ github.event.label.name }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Parse label
+        id: parse
+        run: |
+          LABEL="${{ github.event.label.name }}"
+          # Strip 'build/' prefix
+          TARGET_ARCH="${LABEL#build/}"
+          CLOUD="${TARGET_ARCH%-*}"
+          ARCH="${TARGET_ARCH##*-}"
+
+          # Validate cloud
+          case "$CLOUD" in
+            aws|gce|azure|oci) ;;
+            *)
+              echo "::error::Invalid cloud target: $CLOUD (label: $LABEL)"
+              exit 1
+              ;;
+          esac
+
+          # Validate arch
+          case "$ARCH" in
+            x86_64|aarch64) ;;
+            *)
+              echo "::error::Invalid architecture: $ARCH (label: $LABEL)"
+              exit 1
+              ;;
+          esac
+
+          echo "cloud=$CLOUD" >> "$GITHUB_OUTPUT"
+          echo "arch=$ARCH" >> "$GITHUB_OUTPUT"
+          echo "label=$LABEL" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout PR code
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Install Packer
+        uses: hashicorp/setup-packer@main
+
+      - name: Install Packer plugins
+        working-directory: packer
+        run: packer init scylla.json || true
+
+      - name: Run SCYLLA-VERSION-GEN
+        id: version
+        run: |
+          source ./SCYLLA-VERSION-GEN
+          echo "version=$(cat build/SCYLLA-VERSION-FILE)" >> "$GITHUB_OUTPUT"
+          echo "release=$(cat build/SCYLLA-RELEASE-FILE)" >> "$GITHUB_OUTPUT"
+          echo "product=$(cat build/SCYLLA-PRODUCT-FILE)" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        if: steps.parse.outputs.cloud == 'aws'
+        run: |
+          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> "$GITHUB_ENV"
+          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> "$GITHUB_ENV"
+
+      - name: Configure GCE credentials
+        if: steps.parse.outputs.cloud == 'gce'
+        run: |
+          GCE_CREDS_FILE="$RUNNER_TEMP/gce-credentials.json"
+          echo '${{ secrets.GCE_SERVICE_ACCOUNT_JSON }}' > "$GCE_CREDS_FILE"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$GCE_CREDS_FILE" >> "$GITHUB_ENV"
+
+      - name: Configure Azure credentials
+        if: steps.parse.outputs.cloud == 'azure'
+        run: |
+          echo "AZURE_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}" >> "$GITHUB_ENV"
+          echo "AZURE_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }}" >> "$GITHUB_ENV"
+          echo "AZURE_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}" >> "$GITHUB_ENV"
+          echo "AZURE_SUBSCRIPTION_ID=${{ secrets.AZURE_SUBSCRIPTION_ID }}" >> "$GITHUB_ENV"
+
+      - name: Configure OCI credentials
+        if: steps.parse.outputs.cloud == 'oci'
+        run: |
+          OCI_KEY_FILE="$RUNNER_TEMP/oci-api-key.pem"
+          echo "${{ secrets.OCI_KEY_FILE_CONTENTS }}" | base64 -d > "$OCI_KEY_FILE"
+          chmod 600 "$OCI_KEY_FILE"
+          echo "OCI_CLI_KEY_FILE=$OCI_KEY_FILE" >> "$GITHUB_ENV"
+          echo "OCI_USER_OCID=${{ secrets.OCI_USER_OCID }}" >> "$GITHUB_ENV"
+          echo "OCI_TENANCY_OCID=${{ secrets.OCI_TENANCY_OCID }}" >> "$GITHUB_ENV"
+          echo "OCI_FINGERPRINT=${{ secrets.OCI_FINGERPRINT }}" >> "$GITHUB_ENV"
+          echo "OCI_REGION=${{ secrets.OCI_REGION }}" >> "$GITHUB_ENV"
+          echo "OCI_COMPARTMENT_OCID=${{ secrets.OCI_COMPARTMENT_OCID }}" >> "$GITHUB_ENV"
+          echo "OCI_SUBNET_OCID=${{ secrets.OCI_SUBNET_OCID }}" >> "$GITHUB_ENV"
+          echo "OCI_AVAILABILITY_DOMAIN=${{ secrets.OCI_AVAILABILITY_DOMAIN }}" >> "$GITHUB_ENV"
+
+      - name: Build image
+        id: build
+        working-directory: packer
+        run: |
+          CLOUD="${{ steps.parse.outputs.cloud }}"
+          ARCH="${{ steps.parse.outputs.arch }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          PR_BRANCH="${{ github.event.pull_request.head.ref }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          RELEASE="${{ steps.version.outputs.release }}"
+          PRODUCT="${{ steps.version.outputs.product }}"
+
+          # Use a default unstable repo for PR builds
+          REPO="downloads.scylladb.com/unstable/${PRODUCT}/master/deb/unified/latest"
+
+          ./build_image.sh \
+            --target "$CLOUD" \
+            --arch "$ARCH" \
+            --debug \
+            --env-tag debug \
+            --branch "$PR_BRANCH" \
+            --build-tag "pr-${PR_NUMBER}" \
+            --repo "$REPO" \
+            --version "$VERSION" \
+            --scylla-release "$RELEASE" \
+            --scylla-machine-image-release "0.pr${PR_NUMBER}" \
+            --product "$PRODUCT"
+
+      - name: Extract image ID
+        id: image
+        if: success()
+        run: |
+          CLOUD="${{ steps.parse.outputs.cloud }}"
+          LOG_FILE="packer/build/packer.log"
+
+          case "$CLOUD" in
+            aws)
+              IMAGE_ID=$(grep "us-east-1:" "$LOG_FILE" | grep -oP 'ami-[a-f0-9]+' | tail -1)
+              ;;
+            gce)
+              IMAGE_ID=$(grep "A disk image was created" "$LOG_FILE" | grep -oP "'[^']+'" | tail -1 | tr -d "'")
+              ;;
+            azure)
+              IMAGE_ID=$(grep "Builds finished" "$LOG_FILE" | grep -oP '/subscriptions/[^\s]+' | tail -1)
+              ;;
+            oci)
+              IMAGE_ID=$(grep "An image was created:" "$LOG_FILE" | grep -oP 'ocid1\.image\.oc1\.[^ )]+' | tail -1)
+              ;;
+          esac
+
+          if [ -z "$IMAGE_ID" ]; then
+            echo "::warning::Could not extract image ID from packer log"
+            IMAGE_ID="(extraction failed — check build logs)"
+          fi
+
+          echo "image_id=$IMAGE_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger Jenkins test job
+        if: success()
+        env:
+          JENKINS_USER: ${{ secrets.JENKINS_USERNAME }}
+          JENKINS_API_TOKEN: ${{ secrets.JENKINS_TOKEN }}
+          JENKINS_URL: "https://jenkins.scylladb.com"
+        run: |
+          CLOUD="${{ steps.parse.outputs.cloud }}"
+          JOB_NAME="on-demand-image-test/${CLOUD}"
+          JOB_URL="$JENKINS_URL/job/$JOB_NAME"
+
+          # Check if job exists before triggering
+          if curl --silent --fail --user "$JENKINS_USER:$JENKINS_API_TOKEN" "$JOB_URL/api/json" > /dev/null 2>&1; then
+            curl -X POST "$JOB_URL/buildWithParameters" \
+              --fail \
+              --user "$JENKINS_USER:$JENKINS_API_TOKEN" \
+              --data-urlencode "IMAGE_ID=${{ steps.image.outputs.image_id }}" \
+              --data-urlencode "CLOUD_TARGET=$CLOUD" \
+              --data-urlencode "ARCH=${{ steps.parse.outputs.arch }}" \
+              --data-urlencode "PR_NUMBER=${{ github.event.pull_request.number }}" \
+              --data-urlencode "PR_BRANCH=${{ github.event.pull_request.head.ref }}" \
+              --data-urlencode "PR_SHA=${{ github.event.pull_request.head.sha }}" \
+              || echo "::warning::Failed to trigger Jenkins job $JOB_NAME"
+
+            echo "JENKINS_JOB_URL=$JOB_URL" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Jenkins job $JOB_NAME does not exist yet. Skipping trigger."
+            echo "JENKINS_JOB_URL=" >> "$GITHUB_ENV"
+          fi
+
+      - name: Post PR comment (success)
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const cloud = '${{ steps.parse.outputs.cloud }}';
+            const arch = '${{ steps.parse.outputs.arch }}';
+            const imageId = `${{ steps.image.outputs.image_id }}`;
+            const prNumber = context.payload.pull_request.number;
+            const sha = '${{ github.event.pull_request.head.sha }}'.substring(0, 8);
+            const label = '${{ steps.parse.outputs.label }}';
+            const actor = context.payload.sender.login;
+            const jenkinsUrl = process.env.JENKINS_JOB_URL;
+            const jenkinsLink = jenkinsUrl ? `[link](${jenkinsUrl})` : '_job not configured_';
+
+            const body = `## Cloud Image Build: \`${cloud}\` (\`${arch}\`)
+
+            | Field | Value |
+            |-------|-------|
+            | **Target** | \`${cloud}\` |
+            | **Architecture** | \`${arch}\` |
+            | **Image ID** | \`${imageId}\` |
+            | **PR** | #${prNumber} |
+            | **Commit** | \`${sha}\` |
+            | **Jenkins Tests** | ${jenkinsLink} |
+
+            Triggered by @${actor} via label \`${label}\``;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: body
+            });
+
+      - name: Swap labels (success)
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const label = '${{ steps.parse.outputs.label }}';
+            const cloud = '${{ steps.parse.outputs.cloud }}';
+            const arch = '${{ steps.parse.outputs.arch }}';
+            const prNumber = context.payload.pull_request.number;
+            const resultLabel = `build-result/${cloud}-${arch}/success`;
+
+            // Remove build label
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                name: label
+              });
+            } catch (e) {
+              // Label may already be removed
+            }
+
+            // Ensure result label exists
+            try {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: resultLabel,
+                color: '0e8a16',
+                description: `Image build succeeded for ${cloud} ${arch}`
+              });
+            } catch (e) {
+              // Label may already exist
+            }
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              labels: [resultLabel]
+            });
+
+      - name: Post PR comment (failure)
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const cloud = '${{ steps.parse.outputs.cloud }}';
+            const arch = '${{ steps.parse.outputs.arch }}';
+            const prNumber = context.payload.pull_request.number;
+            const sha = '${{ github.event.pull_request.head.sha }}'.substring(0, 8);
+            const label = '${{ steps.parse.outputs.label }}';
+            const actor = context.payload.sender.login;
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            const body = `## Cloud Image Build Failed: \`${cloud}\` (\`${arch}\`)
+
+            | Field | Value |
+            |-------|-------|
+            | **Target** | \`${cloud}\` |
+            | **Architecture** | \`${arch}\` |
+            | **PR** | #${prNumber} |
+            | **Commit** | \`${sha}\` |
+            | **Build Logs** | [GitHub Actions](${runUrl}) |
+
+            Triggered by @${actor} via label \`${label}\``;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: body
+            });
+
+      - name: Swap labels (failure)
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const label = '${{ steps.parse.outputs.label }}';
+            const cloud = '${{ steps.parse.outputs.cloud }}';
+            const arch = '${{ steps.parse.outputs.arch }}';
+            const prNumber = context.payload.pull_request.number;
+            const resultLabel = `build-result/${cloud}-${arch}/failed`;
+
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                name: label
+              });
+            } catch (e) {}
+
+            try {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: resultLabel,
+                color: 'e11d48',
+                description: `Image build failed for ${cloud} ${arch}`
+              });
+            } catch (e) {}
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              labels: [resultLabel]
+            });
