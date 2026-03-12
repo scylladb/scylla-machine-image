@@ -30,6 +30,80 @@ jobs:
         with:
           fetch-depth: 1
 
+      # Workaround for anthropics/claude-code-action#821:
+      # The action runs `git fetch origin <branch>` which fails for fork PRs
+      # because the branch only exists on the fork, not on origin.
+      # This step installs a thin git wrapper that intercepts the failing fetch
+      # and retries using GitHub's refs/pull/N/head ref (which origin always has).
+      - name: Setup fork PR support
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Determine PR number from the event context
+          PR_NUMBER=""
+          if [ "${{ github.event_name }}" = "issue_comment" ]; then
+            # issue_comment events: PR number is in issue.number (only if it's a PR)
+            IS_PR=$(jq -r '.issue.pull_request // empty' "$GITHUB_EVENT_PATH")
+            if [ -n "$IS_PR" ]; then
+              PR_NUMBER=$(jq -r '.issue.number' "$GITHUB_EVENT_PATH")
+            fi
+          elif [ "${{ github.event_name }}" = "pull_request_review_comment" ] || \
+               [ "${{ github.event_name }}" = "pull_request_review" ]; then
+            PR_NUMBER=$(jq -r '.pull_request.number' "$GITHUB_EVENT_PATH")
+          fi
+
+          # Only proceed if this is a PR event
+          if [ -z "$PR_NUMBER" ]; then
+            echo "Not a PR event, skipping fork setup"
+            exit 0
+          fi
+
+          # Check if the PR is from a fork
+          IS_FORK=$(gh pr view "$PR_NUMBER" --json isCrossRepository -q .isCrossRepository 2>/dev/null || echo "false")
+          if [ "$IS_FORK" != "true" ]; then
+            echo "PR #${PR_NUMBER} is not from a fork, skipping"
+            exit 0
+          fi
+
+          echo "PR #${PR_NUMBER} is from a fork — installing git wrapper"
+
+          REAL_GIT="$(which git)"
+
+          # Install a wrapper that intercepts `git fetch origin <branch>` failures
+          # and retries using the PR ref. All other git commands pass through unchanged.
+          # Security: fetches only from origin using GitHub's read-only PR refs —
+          # no fork remotes are added and no fork code is executed by this step.
+          sudo tee /usr/local/bin/git > /dev/null << WRAPPER
+          #!/bin/bash
+          # If this is a fetch from origin and it fails, retry via PR ref
+          if [[ "\$1" == "fetch" && "\$2" == "origin" ]]; then
+            OUTPUT=\$("$REAL_GIT" "\$@" 2>&1)
+            EXIT_CODE=\$?
+            if [ \$EXIT_CODE -ne 0 ]; then
+              echo "\$OUTPUT" >&2
+              echo "Fork PR detected — retrying fetch via refs/pull/${PR_NUMBER}/head" >&2
+              # Extract the --depth flag if present
+              DEPTH_FLAG=""
+              for arg in "\$@"; do
+                case "\$arg" in
+                  --depth=*) DEPTH_FLAG="\$arg" ;;
+                esac
+              done
+              "$REAL_GIT" fetch origin \$DEPTH_FLAG "+refs/pull/${PR_NUMBER}/head:refs/heads/\${!#}" 2>&1
+              exit \$?
+            else
+              echo "\$OUTPUT"
+              exit 0
+            fi
+          else
+            exec "$REAL_GIT" "\$@"
+          fi
+          WRAPPER
+          sudo chmod +x /usr/local/bin/git
+
+          # Verify the wrapper works
+          git --version
+
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1
@@ -39,12 +113,3 @@ jobs:
           # This is an optional setting that allows Claude to read CI results on PRs
           additional_permissions: |
             actions: read
-
-          # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
-          # prompt: 'Update the pull request description to include a summary of changes.'
-
-          # Optional: Add claude_args to customize behavior and configuration
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://code.claude.com/docs/en/cli-reference for available options
-          # claude_args: '--allowed-tools Bash(gh pr:*)'
-
