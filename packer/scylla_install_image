@@ -139,7 +139,9 @@ if __name__ == "__main__":
         run("systemctl mask oracle-cloud-agent-updater || true", shell=True, check=True)
 
     run(
-        "systemctl mask apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer motd-news.timer apt-news.service esm-cache.service dailyaidecheck.timer",
+        "systemctl mask apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer motd-news.timer apt-news.service esm-cache.service dailyaidecheck.timer"
+        " etckeeper.timer fwupd-refresh.timer man-db.timer scylla-manager-check-for-updates.timer"
+        " unattended-upgrades.service update-notifier-download.timer update-notifier-motd.timer",
         shell=True,
         check=True,
     )
