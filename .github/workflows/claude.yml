@@ -52,6 +52,12 @@ jobs:
             PR_NUMBER=$(jq -r '.pull_request.number' "$GITHUB_EVENT_PATH")
           fi
 
+          # Validate PR number is numeric
+          if [ -n "$PR_NUMBER" ] && ! [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "Unexpected PR_NUMBER value '$PR_NUMBER', skipping fork setup"
+            exit 0
+          fi
+
           # Only proceed if this is a PR event
           if [ -z "$PR_NUMBER" ]; then
             echo "Not a PR event, skipping fork setup"
@@ -68,6 +74,9 @@ jobs:
           echo "PR #${PR_NUMBER} is from a fork — installing git wrapper"
 
           REAL_GIT="$(which git)"
+          if [ "$REAL_GIT" = "/usr/local/bin/git" ]; then
+            REAL_GIT="/usr/bin/git"
+          fi
 
           # Install a wrapper that intercepts `git fetch origin <branch>` failures
           # and retries using the PR ref. All other git commands pass through unchanged.
@@ -79,21 +88,27 @@ jobs:
           if [[ "\$1" == "fetch" && "\$2" == "origin" ]]; then
             OUTPUT=\$("$REAL_GIT" "\$@" 2>&1)
             EXIT_CODE=\$?
-            if [ \$EXIT_CODE -ne 0 ]; then
+            if [ \$EXIT_CODE -ne 0 ] && echo "\$OUTPUT" | grep -qE "couldn't find remote ref|not found"; then
               echo "\$OUTPUT" >&2
               echo "Fork PR detected — retrying fetch via refs/pull/${PR_NUMBER}/head" >&2
-              # Extract the --depth flag if present
+              # Extract --depth flag and branch name (skip fetch, origin, and flag args)
               DEPTH_FLAG=""
-              for arg in "\$@"; do
+              BRANCH_NAME=""
+              for arg in "\${@:3}"; do
                 case "\$arg" in
                   --depth=*) DEPTH_FLAG="\$arg" ;;
+                  -*) ;;
+                  *) BRANCH_NAME="\$arg" ;;
                 esac
               done
-              "$REAL_GIT" fetch origin \$DEPTH_FLAG "+refs/pull/${PR_NUMBER}/head:refs/heads/\${!#}" 2>&1
+              FETCH_ARGS=()
+              [ -n "\$DEPTH_FLAG" ] && FETCH_ARGS+=("\$DEPTH_FLAG")
+              [ -n "\$BRANCH_NAME" ] && FETCH_ARGS+=( "+refs/pull/${PR_NUMBER}/head:refs/heads/\$BRANCH_NAME")
+              "$REAL_GIT" fetch origin "\${FETCH_ARGS[@]}" 2>&1
               exit \$?
             else
               echo "\$OUTPUT"
-              exit 0
+              exit \$EXIT_CODE
             fi
           else
             exec "$REAL_GIT" "\$@"
