@@ -1,6 +1,6 @@
 import json
 
-from lib.scylla_cloud import get_cloud_instance, is_azure, is_ec2, is_oci
+from lib.scylla_cloud import get_cloud_instance, is_azure, is_ec2, is_gce, is_oci
 
 
 def estimate_streaming_bandwidth():
@@ -50,6 +50,19 @@ def estimate_streaming_bandwidth():
                 net_bw_gbps = netinfo[instance_type]["Network_Limit_Gbps"]
                 net_bw = int(net_bw_gbps * 1000 * 1000 * 1000)  # Gbps -> bps
 
-    # TODO: other clouds
+    elif is_gce():
+        instance_type = cloud_instance.instancetype
+        # Data from GCP documentation for N2, N2D, and Z3 machine families
+        # https://cloud.google.com/compute/docs/network-bandwidth
+        # Format: [instance_type, default_bandwidth_gbps, tier1_bandwidth_gbps]
+        # Currently uses default (non-Tier_1) bandwidth because Tier_1 networking
+        # status (networkPerformanceConfig.totalEgressBandwidthTier) is not reliably
+        # available via the GCP metadata server from within the VM.
+        with open("/opt/scylladb/scylla-machine-image/gcp_net_params.json") as f:
+            netinfo = json.load(f)
+            instance_info = [info for info in netinfo if info[0] == instance_type]
+            if instance_info:
+                net_bw_gbps = instance_info[0][1]  # default bandwidth in Gbps
+                net_bw = int(net_bw_gbps * 1000 * 1000 * 1000)  # Gbps -> bps
 
     return int((0.75 * net_bw) / (8 * 1024 * 1024))  # MiB/s
