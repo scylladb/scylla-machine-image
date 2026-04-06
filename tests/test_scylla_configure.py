@@ -59,6 +59,7 @@ class TestScyllaConfigurator(TestCase):
         # Mock cloud detection to avoid file access issues when running on cloud VMs (e.g., GitHub Actions on Azure)
         self.patchers = [
             unittest.mock.patch("lib.param_estimation.is_ec2", return_value=False),
+            unittest.mock.patch("lib.param_estimation.is_gce", return_value=False),
             unittest.mock.patch("lib.param_estimation.is_oci", return_value=False),
             unittest.mock.patch("lib.param_estimation.is_azure", return_value=False),
         ]
