@@ -128,8 +128,12 @@ class TestGcpStreamingBandwidth(TestCase):
         with open(GCP_NET_PARAMS_PATH) as f:
             netinfo = json.load(f)
         types = {entry[0] for entry in netinfo}
-        for purpose in ["standard", "highmem", "highcpu"]:
-            for size in [2, 4, 8, 16, 32, 48, 64, 80, 96]:
+        for purpose, sizes in [
+            ("standard", [2, 4, 8, 16, 32, 48, 64, 80, 96, 128]),
+            ("highmem", [2, 4, 8, 16, 32, 48, 64, 80, 96, 128]),
+            ("highcpu", [2, 4, 8, 16, 32, 48, 64, 80, 96]),
+        ]:
+            for size in sizes:
                 assert f"n2-{purpose}-{size}" in types
 
     def test_n2d_family_coverage(self):
@@ -137,8 +141,12 @@ class TestGcpStreamingBandwidth(TestCase):
         with open(GCP_NET_PARAMS_PATH) as f:
             netinfo = json.load(f)
         types = {entry[0] for entry in netinfo}
-        for purpose in ["standard", "highmem", "highcpu"]:
-            for size in [2, 4, 8, 16, 32, 48, 64, 80, 96]:
+        for purpose, sizes in [
+            ("standard", [2, 4, 8, 16, 32, 48, 64, 80, 96, 128, 224]),
+            ("highmem", [2, 4, 8, 16, 32, 48, 64, 80, 96]),
+            ("highcpu", [2, 4, 8, 16, 32, 48, 64, 80, 96, 128, 224]),
+        ]:
+            for size in sizes:
                 assert f"n2d-{purpose}-{size}" in types
 
     def test_z3_family_coverage(self):
