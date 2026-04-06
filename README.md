@@ -123,6 +123,7 @@ See cloud provider documentation for passing user-data:
 | `post_configuration_script` | string | `""` | Script to run after configuration (can be base64 encoded) |
 | `post_configuration_script_timeout` | integer | `600` | Timeout in seconds for post-configuration script |
 | `start_scylla_on_first_boot` | boolean | `true` | Start scylla-server automatically on first boot |
+| `tier1_networking` | boolean | `null` (auto-detect) | **GCP only.** Force Tier 1 networking bandwidth (`true`/`false`). When omitted, auto-detected via NIC speed. Only applies to instance types that support Tier 1 (N2/N2D ≥48 vCPUs, Z3). |
 | `device_wait_seconds` | integer | `0` | Max seconds to wait for storage devices (recommended: `300`) |
 
 ### Scylla YAML Configuration

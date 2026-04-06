@@ -135,7 +135,8 @@ class ScyllaMachineImageConfigurator(UserData):
         self.CONF_DEFAULTS["scylla_yaml"]["broadcast_rpc_address"] = private_ip
         self.CONF_DEFAULTS["scylla_yaml"]["seed_provider"][0]["parameters"][0]["seeds"] = private_ip
         self.CONF_DEFAULTS["scylla_yaml"]["endpoint_snitch"] = self.cloud_instance.endpoint_snitch
-        stream_bandw = estimate_streaming_bandwidth()
+        self.cloud_instance._tier1_override = self.instance_user_data.get("tier1_networking")
+        stream_bandw = estimate_streaming_bandwidth(cloud_instance=self.cloud_instance)
         if stream_bandw != 0:
             self.CONF_DEFAULTS["scylla_yaml"]["stream_io_throughput_mb_per_sec"] = stream_bandw
 
