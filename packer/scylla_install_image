@@ -287,6 +287,11 @@ WantedBy=multi-user.target
         run("cloud-init clean", shell=True, check=True)
         run("rm -f /etc/netplan/50-cloud-init.yaml", shell=True, check=True)
         run("cloud-init init", shell=True, check=check_init_command)
+        # Remove authorized_keys injected by cloud-init during build — the image must ship
+        # with no pre-baked SSH keys (required by AWS Marketplace security scan policy).
+        scyllaadm_ak = "/home/scyllaadm/.ssh/authorized_keys"
+        if os.path.exists(scyllaadm_ak):
+            os.remove(scyllaadm_ak)
         for skel in glob.glob("/etc/skel/.*"):
             shutil.copy(skel, "/home/scyllaadm")
             os.chown(skel, 1000, 1000)
