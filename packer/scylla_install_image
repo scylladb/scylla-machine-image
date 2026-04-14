@@ -127,6 +127,13 @@ if __name__ == "__main__":
         kernel_opt = ""
         grub_variable = "GRUB_CMDLINE_LINUX_DEFAULT"
         run("systemctl mask google-osconfig-agent", shell=True, check=True)
+        # Disable google-guest-agent multiqueue setup to avoid conflicting with scylla's network configuration
+        instance_configs = dedent("""\
+            [InstanceSetup]
+            set_multiqueue = false
+        """)
+        with open("/etc/default/instance_configs.cfg", "w") as f:
+            f.write(instance_configs)
     elif args.target_cloud == "azure":
         kernel_opt = " rootdelay=300"
         grub_variable = "GRUB_CMDLINE_LINUX"
