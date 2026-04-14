@@ -125,7 +125,7 @@ GCE hostnames can exceed the limit with Option 2. Option 5 (IP hint + UUID) avoi
 
 **Decisions Made:**
 - **Primary method:** Use ScyllaDB REST API (`curl http://localhost:10000/storage_service/hostid/local`)
-- **Fallback method:** If REST API is unavailable, leave hostname unchanged (no binary file reading)
+- **Fallback method:** If REST API is unavailable, fall back to reading the host ID from `scylla.yaml`; if that also fails, leave hostname unchanged (no binary file reading)
 - **UUID format:** Use full UUID (not shortened) in hostname
 - **Hostname format:** To be finalized based on review (recommendation: `ip-<last-octets>-<uuid>`)
 
@@ -156,8 +156,9 @@ Adding hostname update here avoids a new systemd unit, simplifies packaging, and
 - Updated `common/scylla_post_start.py` with hostname update logic
 
 **Idempotency Strategy:**
-- Do NOT use a `ConditionPathExists` flag file — this prevents recovery from hostname resets and blocks UUID updates on node replacement.
-- Instead, make the script truly idempotent: on every boot, fetch the current UUID, compare with the UUID in the current hostname, and only call `hostnamectl` if they differ.
+- The existing `scylla-image-post-start.service` uses `ConditionPathExists=!/etc/scylla/machine_image_post_start_configured` to prevent re-execution after `post_start_script` succeeds. This blocks re-running the hostname update on subsequent boots.
+- **Fix:** Remove `ConditionPathExists` from the systemd unit and move the one-time guard into the Python script. The script should internally check the marker file to decide whether to re-run `post_start_script`, but the hostname update function should **always** run regardless of the marker file.
+- Make the hostname update truly idempotent: on every boot, fetch the current UUID, compare with the UUID in the current hostname, and only call `hostnamectl` if they differ.
 - This handles: first boot (no UUID in hostname), reboots (UUID matches, no-op), cloud-init resets (UUID missing, re-apply), and node replacement (different UUID, update).
 
 **Node Replacement Handling:**
@@ -219,7 +220,7 @@ Adding hostname update here avoids a new systemd unit, simplifies packaging, and
 
 ### Manual Testing
 - SSH to instance and verify hostname with `hostname` command
-- Check systemd journal: `journalctl -u scylla-update-hostname.service`
+- Check systemd journal: `journalctl -u scylla-image-post-start.service`
 - Verify ScyllaDB logs show the updated hostname
 - Check `/var/log/syslog` or `/var/log/messages` for hostname change events
 - Confirm hostname survives instance reboot
@@ -257,7 +258,7 @@ Adding hostname update here avoids a new systemd unit, simplifies packaging, and
 1. Launch a new instance from the updated machine image
 2. Wait for instance to complete first boot
 3. Run `hostname` and verify UUID is present
-4. Check `journalctl -u scylla-update-hostname.service` for success message
+4. Check `journalctl -u scylla-image-post-start.service` for success message
 5. Reboot instance and verify hostname persists
 6. Verify service doesn't attempt to run again after reboot
 
@@ -316,7 +317,7 @@ Adding hostname update here avoids a new systemd unit, simplifies packaging, and
 **ScyllaDB Versions:**
 - Must work with both ScyllaDB Enterprise and OSS (the machine-image repo builds images for both)
 - REST API endpoint `/storage_service/hostid/local` should be consistent across versions
-- Fallback to scylla.yaml reading if REST API endpoint changes
+- Fallback to reading host ID from `scylla.yaml` if REST API is unavailable; leave hostname unchanged if both fail
 
 **Cloud Providers:**
 - AWS, GCE, Azure, OCI all use cloud-init which manages hostnames
