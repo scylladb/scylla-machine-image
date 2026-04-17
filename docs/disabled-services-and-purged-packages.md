@@ -60,7 +60,8 @@ started, even by dependencies.
 | `motd-news.timer` | Periodically fetches MOTD news from the internet. Unnecessary network activity. |
 | `esm-cache.service` | Caches Ubuntu Extended Security Maintenance status. Makes HTTP calls to Canonical's API; not relevant for a database appliance. |
 | `dailyaidecheck.timer` | Runs daily AIDE (Advanced Intrusion Detection Environment) integrity checks. Full filesystem scans cause significant I/O load that can impact Scylla's performance. |
-| `etckeeper.timer` | Tracks `/etc` changes in a VCS (git). The periodic commit operations are unnecessary overhead; `/etc` changes on Scylla images are infrequent and managed via image builds. |
+| `etckeeper.service` | Tracks `/etc` changes in git. The etckeeper package ships installed on the image, but its automation is disabled — its stock service would conflict with Siren's own `/etc` management. |
+| `etckeeper.timer` | Periodic trigger for `etckeeper.service`. Masked for the same reason as the service. |
 | `fwupd-refresh.timer` | Periodically checks for firmware updates. Cloud guests do not manage their own firmware; these checks are wasted network and CPU cycles. |
 | `man-db.timer` | Rebuilds the `mandb` cache (man page index). CPU-intensive indexing operation with no benefit on a production database server where man pages are rarely consulted. |
 | `scylla-manager-check-for-updates.timer` | Periodically checks for Scylla Manager updates. Outbound HTTP request to check for new versions; updates should be performed deliberately, not automatically. |
