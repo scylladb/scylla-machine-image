@@ -173,8 +173,8 @@ if __name__ == "__main__":
     run("apt-get full-upgrade -y", shell=True, check=True)
     run(
         f"apt-get install -y --auto-remove {args.product}-machine-image {args.product}-server-dbg "
-        "chrony cpufrequtils curl dnsutils ethtool htop initramfs-tools jq mdadm ncat netcat-openbsd "
-        "net-tools nload nmap python3-boto sysstat systemd-coredump tmux traceroute vim-nox vim.tiny wget xfsprogs aide",
+        "chrony cpufrequtils curl dnsutils ethtool git htop initramfs-tools jq mdadm ncat netcat-openbsd "
+        "net-tools nftables nload nmap python3-boto sysstat systemd-coredump tmux traceroute vim-nox vim.tiny wget xfsprogs aide",
         shell=True,
         check=True,
     )
@@ -237,9 +237,20 @@ if __name__ == "__main__":
 
     configure_chrony(args.target_cloud)
 
+    # pre-install etckeeper so Siren doesn't need to at bootstrap; disable all of its
+    # automation (timer, service, daily cron) because Siren manages /etc changes itself.
+    run("apt-get install -y etckeeper", shell=True, check=True)
+    run(
+        "sed -i 's/^#AVOID_DAILY_AUTOCOMMITS=1/AVOID_DAILY_AUTOCOMMITS=1/' /etc/etckeeper/etckeeper.conf",
+        shell=True,
+        check=True,
+    )
+    run("systemctl disable --now etckeeper.service etckeeper.timer", shell=True, check=False)
+    run("systemctl mask etckeeper.service etckeeper.timer", shell=True, check=True)
+
     run(
         "systemctl mask apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer motd-news.timer apt-news.service esm-cache.service dailyaidecheck.timer"
-        " etckeeper.timer fwupd-refresh.timer man-db.timer scylla-manager-check-for-updates.timer"
+        " fwupd-refresh.timer man-db.timer scylla-manager-check-for-updates.timer"
         " unattended-upgrades.service update-notifier-download.timer update-notifier-motd.timer",
         shell=True,
         check=True,
