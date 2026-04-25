@@ -74,6 +74,26 @@ started, even by dependencies.
 |---|---|
 | `fstrim.timer` / `fstrim.service` | Periodic SSD TRIM operations. Scylla images use XFS with online discard (`discard` mount option), which handles TRIM inline. Running `fstrim` on top of that is redundant and causes I/O pauses. (Ref: SMI-249) |
 
+## PAM MOTD hardening
+
+Dynamic MOTD in Ubuntu runs scripts under `/etc/update-motd.d/` on every SSH login
+via the `pam_motd.so` PAM module. Those scripts make outbound network calls, hold
+APT locks briefly, and can race with latency-sensitive Scylla workload during the
+login window. Masking `motd-news.timer` / `update-notifier-motd.timer` (see above)
+disables only the periodic refresh path; the login-time path is separate.
+
+During image build, `/etc/pam.d/sshd` and `/etc/pam.d/login` are rewritten:
+
+- the `session optional pam_motd.so motd=/run/motd.dynamic ...` line (invokes
+  `/etc/update-motd.d/*`) is removed;
+- the remaining `pam_motd` line is normalized, so only the static `/etc/motd`
+  is shown and no "update" pass runs;
+- `/etc/motd` is replaced with an empty regular file (mode 0644, `root:root`),
+  detaching it from `/run/motd` regeneration.
+
+Result: SSH logins no longer trigger MOTD helpers, network activity, or APT
+lock contention. (Ref: SMI-273)
+
 ## General Principles
 
 1. **Latency sensitivity**: Scylla is designed for low-latency, high-throughput database operations. Any background process that causes I/O, CPU, or memory pressure can introduce tail latency spikes (P99/P999).
