@@ -5,12 +5,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+import contextlib
 import glob
 import os
 import platform
 import re
 import shutil
 import sys
+from pathlib import Path
 from subprocess import run
 from textwrap import dedent
 
@@ -263,6 +265,27 @@ if __name__ == "__main__":
         shell=True,
         check=True,
     )
+    # disable Ubuntu dynamic MOTD at the PAM layer
+    for pam_file in ("/etc/pam.d/sshd", "/etc/pam.d/login"):
+        p = Path(pam_file)
+        content = p.read_text()
+        content = re.sub(
+            r"^\s*session\s+optional\s+pam_motd\.so\s+motd=/run/motd\.dynamic.*\n", "", content, flags=re.MULTILINE
+        )
+        content = re.sub(
+            r"^\s*session\s+optional\s+pam_motd\.so.*$",
+            "session    optional     pam_motd.so motd=/etc/motd noupdate",
+            content,
+            flags=re.MULTILINE,
+        )
+        p.write_text(content)
+    # reset /etc/motd to an empty static file
+    motd = Path("/etc/motd")
+    with contextlib.suppress(FileNotFoundError):
+        motd.unlink()
+    motd.write_text("")
+    motd.chmod(0o644)
+
     run("systemctl daemon-reload", shell=True, check=True)
     run("systemctl enable scylla-image-setup.service", shell=True, check=True)
     run("systemctl enable scylla-image-post-start.service", shell=True, check=True)
