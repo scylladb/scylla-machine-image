@@ -11,6 +11,7 @@ import platform
 import re
 import shutil
 import sys
+import time
 from subprocess import run
 from textwrap import dedent
 
@@ -20,6 +21,36 @@ import yaml
 my_env = os.environ.copy()
 my_env["DEBIAN_FRONTEND"] = "noninteractive"
 apt_keys_dir = "/etc/apt/keyrings"
+
+
+def _wait_for_apt_lock(timeout=300, interval=10):
+    """Wait for background processes to release apt and dpkg locks.
+
+    DPkg::Lock::Timeout only covers /var/lib/dpkg/lock*, but apt-get
+    update also needs /var/lib/apt/lists/lock which has no built-in
+    retry.  Poll with fuser until all lock files are free.
+    """
+    lock_files = [
+        "/var/lib/apt/lists/lock",
+        "/var/lib/dpkg/lock",
+        "/var/lib/dpkg/lock-frontend",
+    ]
+    fuser_targets = " ".join(lock_files)
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        result = run(f"fuser {fuser_targets} 2>/dev/null", shell=True, capture_output=True)
+        if result.returncode != 0:
+            return
+        holding = result.stdout.decode().strip()
+        print(f"Waiting for apt lock to be released (held by pid {holding})...")
+        time.sleep(interval)
+    raise RuntimeError(f"Timed out after {timeout}s waiting for apt locks")
+
+
+def apt_get(cmd, **kwargs):
+    """Run apt-get, waiting for locks first and retrying on lock failure."""
+    _wait_for_apt_lock()
+    return run(f"apt-get -o DPkg::Lock::Timeout=300 {cmd}", shell=True, check=True, **kwargs)
 
 
 def arch():
@@ -151,8 +182,8 @@ if __name__ == "__main__":
         print("Error: need to specify --localdeb or --repo/--repo-for-install")
         sys.exit(1)
 
-    run("apt-get update -y", shell=True, check=True)
-    run("apt-get install -y gnupg2", shell=True, check=True)
+    apt_get("update -y")
+    apt_get("install -y gnupg2")
     run(
         f"mkdir -p {apt_keys_dir}; gpg --homedir /tmp --no-default-keyring --keyring {apt_keys_dir}/scylladb.gpg "
         f"--keyserver hkps://keyserver.ubuntu.com --recv-keys c503c686b007f39e",
@@ -169,22 +200,18 @@ if __name__ == "__main__":
         print("no scylla package found.")
         sys.exit(1)
 
-    run("apt-get update -y", shell=True, check=True)
-    run("apt-get full-upgrade -y", shell=True, check=True)
-    run(
-        f"apt-get install -y --auto-remove {args.product}-machine-image {args.product}-server-dbg "
+    apt_get("update -y")
+    apt_get("full-upgrade -y")
+    apt_get(
+        f"install -y --auto-remove {args.product}-machine-image {args.product}-server-dbg "
         "chrony cpufrequtils curl dnsutils ethtool htop initramfs-tools jq mdadm ncat netcat-openbsd "
-        "net-tools nload nmap python3-boto sysstat systemd-coredump tmux traceroute vim-nox vim.tiny wget xfsprogs aide",
-        shell=True,
-        check=True,
+        "net-tools nload nmap python3-boto sysstat systemd-coredump tmux traceroute vim-nox vim.tiny wget xfsprogs aide"
+    )
+    apt_get(
+        "purge -y accountsservice acpid amd64-microcode apport fuse fwupd-signed modemmanager motd-news-config open-vm-tools postfix python3-apport snapd udisks2 unattended-upgrades update-notifier-common"
     )
     run(
-        "apt-get purge -y accountsservice acpid amd64-microcode apport fuse fwupd-signed modemmanager motd-news-config open-vm-tools postfix python3-apport snapd udisks2 unattended-upgrades update-notifier-common",
-        shell=True,
-        check=True,
-    )
-    run(
-        "dpkg -l 'linux-*headers*' 2>/dev/null | awk '/^ii/{print $2}' | xargs -r apt-get purge -y",
+        "dpkg -l 'linux-*headers*' 2>/dev/null | awk '/^ii/{print $2}' | xargs -r apt-get -o DPkg::Lock::Timeout=300 purge -y",
         shell=True,
         check=False,
     )
@@ -213,7 +240,7 @@ if __name__ == "__main__":
         run("systemctl mask amazon-ssm-agent", shell=True, check=True)
     elif args.target_cloud == "gce":
         # align with other clouds image
-        run("apt-get purge -y rsyslog", shell=True, check=True)
+        apt_get("purge -y rsyslog")
         kernel_opt = ""
         grub_variable = "GRUB_CMDLINE_LINUX_DEFAULT"
         run("systemctl mask google-osconfig-agent", shell=True, check=True)
