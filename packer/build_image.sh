@@ -250,7 +250,8 @@ elif [ "$TARGET" = "gce" ]; then
     SSH_USERNAME=ubuntu
     SOURCE_IMAGE_FAMILY="ubuntu-minimal-2404-lts-amd64"
 
-    SCYLLA_GCE_IMAGE_DESCRIPTION="scylla_version: $SCYLLA_FULL_VERSION
+    SCYLLA_GCE_IMAGE_DESCRIPTION="Official ScyllaDB image v-$VERSION
+scylla_version: $SCYLLA_FULL_VERSION
 scylla_machine_image_version: $SCYLLA_MACHINE_IMAGE_VERSION
 scylla_python3_version: $SCYLLA_FULL_VERSION"
 
