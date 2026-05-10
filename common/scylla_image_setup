@@ -12,7 +12,7 @@ from pathlib import Path
 from subprocess import run
 
 from lib.log import setup_logging
-from lib.scylla_cloud import get_cloud_instance, is_azure, is_ec2, is_gce
+from lib.scylla_cloud import get_cloud_instance, is_azure, is_ec2
 
 
 LOGGER = logging.getLogger(__name__)
@@ -60,12 +60,7 @@ if __name__ == "__main__":
             else:
                 raise e
         if os.path.ismount("/var/lib/scylla") and cloud_instance.is_supported_instance_class():
-            # We run io_setup only when ehpemeral disks are available
-            if is_gce():
-                if cloud_instance.nvme_disk_count > 0:
-                    cloud_instance.io_setup()
-            else:
-                cloud_instance.io_setup()
+            cloud_instance.io_setup()
             run("systemctl daemon-reload", shell=True, check=True)
             run("systemctl enable var-lib-systemd-coredump.mount", shell=True, check=True)
             run("systemctl start var-lib-systemd-coredump.mount", shell=True, check=True)
