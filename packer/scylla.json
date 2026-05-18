@@ -148,7 +148,7 @@
       "subscription_id": "{{user `subscription_id`}}",
       "os_type": "Linux",
       "image_publisher": "Canonical",
-      "image_offer": "ubuntu-24_04-lts-daily",
+      "image_offer": "ubuntu-26_04-lts-daily",
       "image_sku": "minimal",
       "shared_image_gallery_destination": {
         "resource_group": "{{user `azure_gallery_resource_group`}}",

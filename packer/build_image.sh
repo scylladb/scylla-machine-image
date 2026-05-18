@@ -8,7 +8,7 @@ DIR=$(dirname $(readlink -f "$0"))
 source "$DIR"/../SCYLLA-VERSION-GEN
 
 CREATION_TIMESTAMP=$(date -u '+%FT%H-%M-%S')
-OPERATING_SYSTEM="ubuntu24.04"
+OPERATING_SYSTEM="ubuntu26.04"
 EXIT_STATUS=0
 DRY_RUN=false
 DEBUG=false
@@ -222,13 +222,13 @@ if [ "$TARGET" = "aws" ]; then
     arch="$ARCH"
     case "$arch" in
       "x86_64")
-        SOURCE_AMI_FILTER="ubuntu-minimal/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64*"
+        SOURCE_AMI_FILTER="ubuntu-minimal/images/hvm-ssd-gp3/ubuntu-resolute-26.04-amd64*"
         if [ -z "$INSTANCE_TYPE" ]; then
           INSTANCE_TYPE="c4.xlarge"
         fi
         ;;
       "aarch64")
-        SOURCE_AMI_FILTER="ubuntu-minimal/images/hvm-ssd-gp3/ubuntu-noble-24.04-arm64*"
+        SOURCE_AMI_FILTER="ubuntu-minimal/images/hvm-ssd-gp3/ubuntu-resolute-26.04-arm64*"
         if [ -z "$INSTANCE_TYPE" ]; then
           INSTANCE_TYPE="i8g.xlarge"
         fi
@@ -248,7 +248,7 @@ if [ "$TARGET" = "aws" ]; then
     PACKER_ARGS+=(-var scylla_ami_description="${SCYLLA_AMI_DESCRIPTION:0:255}")
 elif [ "$TARGET" = "gce" ]; then
     SSH_USERNAME=ubuntu
-    SOURCE_IMAGE_FAMILY="ubuntu-minimal-2404-lts-amd64"
+    SOURCE_IMAGE_FAMILY="ubuntu-minimal-2604-lts-amd64"
 
     PACKER_ARGS+=(-var source_image_family="$SOURCE_IMAGE_FAMILY")
 elif [ "$TARGET" = "azure" ]; then
@@ -301,18 +301,9 @@ elif [ "$TARGET" = "azure" ]; then
 elif [ "$TARGET" = "oci" ]; then
     SSH_USERNAME=ubuntu
 
-    # OCI uses Ubuntu 24.04 Minimal as base image
-    # The base_image_ocid needs to be set in oci_variables.json or passed as environment variable
-    # You can find the latest Ubuntu images in OCI console or using OCI CLI:
-    # oci compute image list --compartment-id <compartment-ocid> --operating-system "Canonical Ubuntu" --operating-system-version "24.04 Minimal"
-    
-    if [ -n "$OCI_BASE_IMAGE_OCID" ]; then
-        PACKER_ARGS+=(-var oci_base_image_ocid="$OCI_BASE_IMAGE_OCID")
-    fi
     if [ -n "$OCI_CLI_KEY_FILE" ]; then
         PACKER_ARGS+=(-var oci_key_file="$OCI_CLI_KEY_FILE")
     fi
-
 fi
 
 if [ "$TARGET" = "azure" ]; then

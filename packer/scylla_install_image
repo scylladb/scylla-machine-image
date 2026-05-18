@@ -12,6 +12,7 @@ import platform
 import re
 import shutil
 import sys
+import tempfile
 import time
 from pathlib import Path
 from subprocess import run
@@ -186,12 +187,19 @@ if __name__ == "__main__":
 
     apt_get("update -y")
     apt_get("install -y gnupg2")
-    run(
-        f"mkdir -p {apt_keys_dir}; gpg --homedir /tmp --no-default-keyring --keyring {apt_keys_dir}/scylladb.gpg "
-        f"--keyserver hkps://keyserver.ubuntu.com --recv-keys c503c686b007f39e",
-        shell=True,
-        check=True,
-    )
+    # apt on Ubuntu 26.04 rejects the keybox-format keyring that gpg ≥ 2.1 produces by default.
+    # Receive into a temporary keybox, then re-export as an OpenPGP packet file.
+    key_id = "c503c686b007f39e"
+    with tempfile.TemporaryDirectory(prefix="scylladb-gpg-") as gnupghome:
+        keybox = f"{gnupghome}/scylladb-keybox.gpg"
+        gpg_base = f"gpg --homedir {gnupghome} --no-default-keyring --keyring {keybox}"
+        run(
+            f"mkdir -p {apt_keys_dir} && "
+            f"{gpg_base} --keyserver hkps://keyserver.ubuntu.com --recv-keys {key_id} && "
+            f"{gpg_base} --export --output {apt_keys_dir}/scylladb.gpg {key_id}",
+            shell=True,
+            check=True,
+        )
 
     if args.repo_for_install:
         run(f"curl -L -o /etc/apt/sources.list.d/scylla_install.list {args.repo_for_install}", shell=True, check=True)
@@ -207,10 +215,10 @@ if __name__ == "__main__":
     apt_get(
         f"install -y --auto-remove {args.product}-machine-image {args.product}-server-dbg "
         "chrony cpufrequtils curl dnsutils ethtool htop initramfs-tools jq mdadm ncat netcat-openbsd "
-        "net-tools nftables nload nmap python3-boto sysstat systemd-coredump tmux traceroute vim-nox vim.tiny wget xfsprogs aide"
+        "net-tools nftables nload nmap python3-boto3 sysstat systemd-coredump tmux traceroute vim-nox vim.tiny wget xfsprogs aide"
     )
     apt_get(
-        "purge -y accountsservice acpid amd64-microcode apport fuse fwupd-signed modemmanager motd-news-config open-vm-tools postfix python3-apport snapd udisks2 unattended-upgrades update-notifier-common"
+        "purge -y accountsservice acpid amd64-microcode apport fuse fwupd-signed modemmanager motd-news-config open-vm-tools postfix python3-apport snapd sudo-rs udisks2 unattended-upgrades update-notifier-common"
     )
     run(
         "dpkg -l 'linux-*headers*' 2>/dev/null | awk '/^ii/{print $2}' | xargs -r apt-get -o DPkg::Lock::Timeout=300 purge -y",
