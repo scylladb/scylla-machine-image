@@ -451,7 +451,19 @@ WantedBy=multi-user.target
 
         os.chdir("/tmp")
         if args.target_cloud == "oci":
-            run("userdel -r -f opc", shell=True, check=True)
+
+            def user_exists(name):
+                return run(f"id {name}", shell=True, check=False, capture_output=True).returncode == 0
+
+            if user_exists("opc"):
+                run("userdel -r -f opc", shell=True, check=True)
+
+            # free uid=1000 for scyllaadm before cloud-init init runs. Renumber to 1002
+            # to match the `ubuntu` entry already written to /etc/cloud/cloud.cfg above.
+            if user_exists("ubuntu"):
+                run("sed -i 's|^ubuntu:x:1000:1000:|ubuntu:x:1002:1002:|' /etc/passwd", shell=True, check=True)
+                run("sed -i 's|^ubuntu:x:1000:|ubuntu:x:1002:|' /etc/group", shell=True, check=True)
+                run("chown -R 1002:1002 /home/ubuntu", shell=True, check=True)
             # FIX: in OCI, cloud-init init command always return non-zero exit code, cause failing to create user,
             # but still when image boots the user is created correctly
             # leaving it like this for the time being
