@@ -193,11 +193,7 @@
       "availability_domain": "{{user `oci_availability_domain`}}",
       "compartment_ocid": "{{user `oci_compartment_ocid`}}",
       "subnet_ocid": "{{user `oci_subnet_ocid`}}",
-      "base_image_filter": {
-        "operating_system": "Canonical Ubuntu",
-        "operating_system_version": "24.04",
-        "display_name_search": "Canonical-Ubuntu-24.04-*"
-      },
+      "base_image_ocid": "ocid1.image.oc1.iad.aaaaaaaan5hami2nl7girpphwwfwz33iawrfthuks2x3qow5a2lmozx7gt2a",
       "shape": "{{user `oci_instance_shape`}}",
       "shape_config": {
         "ocpus": "{{user `oci_instance_shape_config_ocpus`}}",

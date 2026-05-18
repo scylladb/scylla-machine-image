@@ -49,6 +49,11 @@ run_post_processor() {
             else
                 echo "Warning: setup_oci_image_capability_schema.sh not found."
             fi
+            if [ -f "$DIR/oci/add_image_shape_compat.sh" ]; then
+                "$DIR/oci/add_image_shape_compat.sh" --image-id "$IMAGE_OCID"
+            else
+                echo "Warning: add_image_shape_compat.sh not found."
+            fi
         else
             echo "Warning: Could not find image OCID in packer log."
         fi
