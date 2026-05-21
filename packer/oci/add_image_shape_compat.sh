@@ -51,17 +51,20 @@ done
 echo "Adding ${#SHAPES[@]} shape-compat entries to image ${IMAGE_ID}..."
 failures=0
 for shape in "${SHAPES[@]}"; do
+    stderr_file=$(mktemp)
     output=$("$OCI_CMD" compute image-shape-compatibility-entry add \
         --image-id "$IMAGE_ID" --shape-name "$shape" \
-        --query 'data.shape' --raw-output 2>&1) && rc=0 || rc=$?
+        --query 'data.shape' --raw-output 2>"$stderr_file") && rc=0 || rc=$?
     if [[ "$output" == "$shape" ]]; then
         echo "  + ${shape}"
-    elif [[ "$output" == *"already exists"* ]]; then
+    elif [[ "$output" == *"already exists"* ]] || grep -q "already exists" "$stderr_file" 2>/dev/null; then
         echo "  = ${shape} (already present)"
     else
-        echo "  ! ${shape}: ${output} (rc=${rc})" >&2
+        stderr_content=$(<"$stderr_file")
+        echo "  ! ${shape}: ${output} ${stderr_content} (rc=${rc})" >&2
         failures=$((failures + 1))
     fi
+    rm -f "$stderr_file"
 done
 echo "Done. ${failures} failure(s)."
 [[ "$failures" -gt 0 ]] && exit 1
