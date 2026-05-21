@@ -20,7 +20,7 @@
 set -euo pipefail
 
 IMAGE_ID=""
-OCI_CMD="${OCI_CMD:-$(command -v oci || true)}"
+OCI_CMD="${OCI_CMD:-$(command -v oci || echo "$HOME/bin/oci")}"
 
 # Shapes present on OCI Canonical-Ubuntu-24.04-Minimal marketplace
 # image but absent from a default custom-imported 26.04 image.
