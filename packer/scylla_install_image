@@ -290,7 +290,8 @@ if __name__ == "__main__":
         with open("/etc/default/instance_configs.cfg", "w") as f:
             f.write(instance_configs)
     elif args.target_cloud == "azure":
-        kernel_opt = " rootdelay=300"
+        # mount root as soon as it appears, bounded by 30s
+        kernel_opt = " rootwait=30"
         grub_variable = "GRUB_CMDLINE_LINUX"
         run("systemctl mask walinuxagent", shell=True, check=True)
     elif args.target_cloud == "oci":
