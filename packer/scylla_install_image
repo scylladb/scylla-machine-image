@@ -6,6 +6,7 @@
 
 import argparse
 import glob
+import hashlib
 import os
 import platform
 import re
@@ -21,6 +22,15 @@ import yaml
 my_env = os.environ.copy()
 my_env["DEBIAN_FRONTEND"] = "noninteractive"
 apt_keys_dir = "/etc/apt/keyrings"
+
+# Pin yq to a fixed version and verify its SHA-256 to protect against
+# supply-chain attacks. Bump YQ_VERSION together with the matching hashes
+# from the release "checksums" file (the SHA-256 column).
+YQ_VERSION = "4.53.2"
+YQ_SHA256 = {
+    "amd64": "d56bf5c6819e8e696340c312bd70f849dc1678a7cda9c2ad63eebd906371d56b",
+    "arm64": "03061b2a50c7a498de2bbb92d7cb078ce433011f085a4994117c2726be4106ea",
+}
 
 
 def _wait_for_apt_lock(timeout=300, interval=10):
@@ -60,6 +70,38 @@ def arch():
 def deb_arch():
     darch = {"x86_64": "amd64", "aarch64": "arm64"}
     return darch[arch()]
+
+
+def install_yq():
+    """Download a pinned yq release and verify its SHA-256 before installing."""
+    yq_arch = deb_arch()
+    # Defensive: guards against a new arch being added to deb_arch() without a
+    # corresponding pinned hash here.
+    expected = YQ_SHA256.get(yq_arch)
+    if expected is None:
+        print(f"no pinned yq SHA-256 for architecture {yq_arch!r}", file=sys.stderr)
+        sys.exit(1)
+    url = f"https://github.com/mikefarah/yq/releases/download/v{YQ_VERSION}/yq_linux_{yq_arch}"
+    dest = "/usr/local/bin/yq"
+    # Download into the destination directory so the final move is an atomic,
+    # same-filesystem rename rather than a cross-filesystem copy.
+    with tempfile.NamedTemporaryFile(dir=os.path.dirname(dest), delete=False) as tmp:
+        tmp_path = tmp.name
+    try:
+        run(["curl", "-fL", "--retry", "5", "--retry-delay", "2", "-o", tmp_path, url], check=True)
+        with open(tmp_path, "rb") as f:
+            actual = hashlib.file_digest(f, "sha256").hexdigest()
+        if actual.lower() != expected.lower():
+            print(
+                f"yq checksum mismatch for {yq_arch}: expected {expected}, got {actual}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        os.chmod(tmp_path, 0o755)
+        os.replace(tmp_path, dest)
+    finally:
+        with contextlib.suppress(FileNotFoundError):
+            os.remove(tmp_path)
 
 
 def get_chrony_sources(target_cloud: str) -> str:
@@ -215,11 +257,7 @@ if __name__ == "__main__":
         shell=True,
         check=False,
     )
-    run(
-        f"curl -L -o /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_{deb_arch()} && chmod +x /usr/local/bin/yq",
-        shell=True,
-        check=True,
-    )
+    install_yq()
     os.remove("/etc/apt/sources.list.d/scylla_install.list")
     if args.repo_for_update:
         run(f"curl -L -o /etc/apt/sources.list.d/scylla.list {args.repo_for_update}", shell=True, check=True)
