@@ -251,10 +251,15 @@
     },
     {
       "inline": [
-        "curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sudo sh -s -- -b /usr/local/bin",
+        "SYFT_VERSION=1.45.0",
+        "case \"$(uname -m)\" in x86_64) SYFT_ARCH=amd64; SYFT_SHA256=cd5efa489e93ecde99c03a218db5dee8b3f03610466d7565cefd735610d1b28b;; aarch64) SYFT_ARCH=arm64; SYFT_SHA256=3101fc588a6662ab3d46eda470159f82d6c6c0fd59f618fdd29928ed1c1197bb;; *) echo \"unsupported arch: $(uname -m)\" >&2; exit 1;; esac",
+        "curl -fL --retry 5 --retry-delay 2 -o /tmp/syft.tar.gz \"https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_${SYFT_ARCH}.tar.gz\"",
+        "echo \"${SYFT_SHA256}  /tmp/syft.tar.gz\" | sha256sum -c -",
+        "sudo tar -xzf /tmp/syft.tar.gz -C /usr/local/bin syft",
+        "sudo chmod +x /usr/local/bin/syft",
         "sudo syft -o cyclonedx-json@1.4 / > /tmp/sbom_report.json",
         "python3 -c 'import json; d=json.load(open(\"/tmp/sbom_report.json\")); d[\"components\"]=[c for c in d[\"components\"] if c.get(\"type\")!=\"file\"]; json.dump(d, open(\"/tmp/ami_sbom_report_{{user `scylla_version`}}_{{user `arch`}}.json\", \"w\"), indent=2)'",
-        "sudo rm -f /usr/local/bin/syft /tmp/sbom_report.json"
+        "sudo rm -f /usr/local/bin/syft /tmp/sbom_report.json /tmp/syft.tar.gz"
       ],
       "only": ["aws"],
       "type": "shell"
