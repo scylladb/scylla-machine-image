@@ -1,0 +1,34 @@
+Interface: ens4
+
+=== TEST 1: ethtool speed (no scope needed) ===
+netlink error: Operation not permitted
+	Supported link modes:   Not reported
+	Advertised link modes:  Not reported
+	Speed: 50000Mb/s
+                               drv link
+	Link detected: yes
+
+=== /sys speed (zero-dependency) ===
+50000
+
+=== TEST 2: Compute Engine API (SHOULD FAIL - no service account) ===
+Token: TOKEN_UNAVAILABLE
+
+=== TEST 3: NIC type (metadata, no scope needed) ===
+GVNIC
+
+=== TEST 4: gVNIC driver (local kernel module, no scope) ===
+driver: gve
+gve                   122880  0
+
+=== /sys driver path (zero-dependency) ===
+drwxr-xr-x  2 root root 0 Jun  9 14:23 gve
+
+=== MACHINE TYPE (metadata, no scope needed) ===
+projects/1070746702980/machineTypes/c2-standard-30
+
+=== SUMMARY ===
+speed_raw: 50000
+nic_type:  GVNIC
+driver:    gve
+api_token: TOKEN_UNAVAILABLE
