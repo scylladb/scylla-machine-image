@@ -103,7 +103,10 @@ def _detect_gcp_tier1(default_bw_gbps: float, tier1_bw_gbps: float | None, tier1
 
     # 1. User override from cloud-init user-data wins unconditionally
     if tier1_override is not None:
-        return tier1_override
+        # Normalize string values (user-data may provide "true"/"false" as strings)
+        if isinstance(tier1_override, str):
+            return tier1_override.lower() in ("true", "1", "yes")
+        return bool(tier1_override)
 
     # 2. GCP instance metadata attribute (set at VM creation, no scope required)
     metadata_override = _query_metadata_tier1_attribute()

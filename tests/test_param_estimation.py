@@ -48,6 +48,7 @@ class TestGcpStreamingBandwidth(TestCase):
                 unittest.mock.mock_open(read_data=Path(GCP_NET_PARAMS_PATH).read_text()),
             ),
             unittest.mock.patch("lib.param_estimation._get_nic_speed_mbps", return_value=None),
+            unittest.mock.patch("lib.param_estimation._query_metadata_tier1_attribute", return_value=None),
             unittest.mock.patch("lib.param_estimation._query_compute_api_tier", return_value=None),
         ):
             return estimate_streaming_bandwidth()
@@ -327,3 +328,23 @@ class TestGcpTier1Detection(TestCase):
             assert result is False
             mock_meta.assert_not_called()
             mock_speed.assert_not_called()
+
+    def test_detect_gcp_tier1_override_string_normalization(self):
+        """String tier1_override values are normalized to boolean (user-data may be strings)."""
+        with (
+            unittest.mock.patch("lib.param_estimation._query_metadata_tier1_attribute") as mock_meta,
+            unittest.mock.patch("lib.param_estimation._get_nic_speed_mbps") as mock_speed,
+            unittest.mock.patch("lib.param_estimation._query_compute_api_tier") as mock_api,
+        ):
+            assert _detect_gcp_tier1(32.0, 50.0, tier1_override="true") is True
+            assert _detect_gcp_tier1(32.0, 50.0, tier1_override="True") is True
+            assert _detect_gcp_tier1(32.0, 50.0, tier1_override="1") is True
+            assert _detect_gcp_tier1(32.0, 50.0, tier1_override="yes") is True
+            assert _detect_gcp_tier1(32.0, 50.0, tier1_override="false") is False
+            assert _detect_gcp_tier1(32.0, 50.0, tier1_override="False") is False
+            assert _detect_gcp_tier1(32.0, 50.0, tier1_override="0") is False
+            assert _detect_gcp_tier1(32.0, 50.0, tier1_override="no") is False
+            assert _detect_gcp_tier1(32.0, 50.0, tier1_override="garbage") is False
+            mock_meta.assert_not_called()
+            mock_speed.assert_not_called()
+            mock_api.assert_not_called()
