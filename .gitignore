@@ -2,3 +2,7 @@ build
 __pycache__
 .venv
 
+# GCP service account credentials — never commit private keys
+packer/gcp.json
+packer/*.json.key
+
