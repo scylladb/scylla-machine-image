@@ -13,7 +13,8 @@ def _get_gcp_primary_interface() -> str:
             if name != "lo":
                 return name
     except OSError:
-        pass
+        # sysfs network interface listing unavailable; fall back to common default.
+        return "eth0"
     return "eth0"
 
 
@@ -113,10 +114,7 @@ def _detect_gcp_tier1(default_bw_gbps: float, tier1_bw_gbps: float | None, tier1
     speed_mbps = _get_nic_speed_mbps()
     if speed_mbps is not None:
         default_mbps = int(default_bw_gbps * 1000)
-        if speed_mbps > default_mbps:
-            return True
-        if speed_mbps <= default_mbps:
-            return False
+        return speed_mbps > default_mbps
 
     # 4. Compute Engine API (requires compute-ro scope)
     api_tier = _query_compute_api_tier()
