@@ -255,7 +255,13 @@ elif [ "$TARGET" = "gce" ]; then
     SSH_USERNAME=ubuntu
     SOURCE_IMAGE_FAMILY="ubuntu-minimal-2604-lts-amd64"
 
+    SCYLLA_GCE_IMAGE_DESCRIPTION="Official ScyllaDB image v-$VERSION
+scylla_version: $SCYLLA_FULL_VERSION
+scylla_machine_image_version: $SCYLLA_MACHINE_IMAGE_VERSION
+scylla_python3_version: $SCYLLA_FULL_VERSION"
+
     PACKER_ARGS+=(-var source_image_family="$SOURCE_IMAGE_FAMILY")
+    PACKER_ARGS+=(-var scylla_gce_image_description="$SCYLLA_GCE_IMAGE_DESCRIPTION")
 elif [ "$TARGET" = "azure" ]; then
     REGION="EAST US"
     SSH_USERNAME=azureuser
