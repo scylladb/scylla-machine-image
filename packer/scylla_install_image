@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+import contextlib
 import glob
 import hashlib
 import os
@@ -12,6 +13,7 @@ import platform
 import re
 import shutil
 import sys
+import tempfile
 import time
 from subprocess import run
 from textwrap import dedent
