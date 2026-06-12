@@ -238,7 +238,7 @@
     },
     {
       "inline": [
-        "sudo /usr/bin/cloud-init status --wait",
+        "cloudinit_status=0; sudo /usr/bin/cloud-init status --wait || cloudinit_status=$?; if [ \"$cloudinit_status\" -eq 1 ]; then echo 'cloud-init failed (exit 1)' >&2; exit 1; elif [ \"$cloudinit_status\" -eq 2 ]; then echo 'WARNING: cloud-init finished with recoverable errors (exit 2); continuing'; fi",
         "sudo /tmp/scylla_install_image --target-cloud {{build_name}} --scylla-version {{user `scylla_full_version`}} {{user `install_args`}}"
       ],
       "type": "shell"
