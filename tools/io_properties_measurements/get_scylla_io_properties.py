@@ -13,9 +13,11 @@ Features:
 
 import argparse
 import concurrent.futures
+import getpass
 import os
 import re
 import stat
+import subprocess
 import sys
 import time
 
@@ -70,6 +72,34 @@ def get_wait_times(instance_type):
     return initial_wait, io_wait_minutes
 
 
+def is_email_in_scylladb_domain(email_addr: str) -> bool:
+    return bool(email_addr and "@scylladb.com" in email_addr)
+
+
+def get_email_user(email_addr: str) -> str:
+    return email_addr.strip().split("@")[0]
+
+
+def get_username() -> str:  # noqa: PLR0911
+    current_linux_user = getpass.getuser()
+    if current_linux_user in ["jenkins", "runner"]:
+        return current_linux_user
+    if current_linux_user == "ubuntu":
+        return "sct-runner"
+
+    git_user_email = os.environ.get("GIT_USER_EMAIL")
+    if is_email_in_scylladb_domain(git_user_email):
+        return get_email_user(git_user_email)
+
+    res = subprocess.run(
+        "git config --get user.email", shell=True, check=False, stdout=subprocess.PIPE, encoding="utf-8"
+    )
+    if is_email_in_scylladb_domain(res.stdout):
+        return get_email_user(res.stdout)
+
+    return f"linux_user={current_linux_user}"
+
+
 def launch_instance(ami_id, instance_type, key_name, security_group, subnet_id=None, region="us-east-1"):
     """
     Launch an EC2 instance
@@ -91,6 +121,7 @@ def launch_instance(ami_id, instance_type, key_name, security_group, subnet_id=N
                 {
                     "ResourceType": "instance",
                     "Tags": [
+                        {"Key": "RunByUser", "Value": get_username()},
                         {"Key": "Name", "Value": f"io_properties_setup_{instance_type}"},
                         {"Key": "keep", "Value": "1"},  # Add keep=1 tag for auto-termination after 1 hour
                     ],
@@ -111,6 +142,7 @@ def launch_instance(ami_id, instance_type, key_name, security_group, subnet_id=N
                 {
                     "ResourceType": "instance",
                     "Tags": [
+                        {"Key": "RunByUser", "Value": get_username()},
                         {"Key": "Name", "Value": f"io_properties_setup_{instance_type}"},
                         {"Key": "keep", "Value": "1"},  # Add keep=1 tag for auto-termination after 1 hour
                     ],
@@ -369,6 +401,7 @@ def launch_instance_for_family(ami_id, instance_type, key_name, security_group, 
                 {
                     "ResourceType": "instance",
                     "Tags": [
+                        {"Key": "RunByUser", "Value": get_username()},
                         {"Key": "Name", "Value": f"io_properties_setup_{instance_type}"},
                         {"Key": "keep", "Value": "1"},  # Add keep=1 tag for auto-termination after 1 hour
                     ],
@@ -388,6 +421,7 @@ def launch_instance_for_family(ami_id, instance_type, key_name, security_group, 
                 {
                     "ResourceType": "instance",
                     "Tags": [
+                        {"Key": "RunByUser", "Value": get_username()},
                         {"Key": "Name", "Value": f"io_properties_setup_{instance_type}"},
                         {"Key": "keep", "Value": "1"},  # Add keep=1 tag for auto-termination after 1 hour
                     ],
