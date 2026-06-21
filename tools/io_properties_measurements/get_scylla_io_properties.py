@@ -695,10 +695,57 @@ def sort_aws_instance_types(instance_types):
     return sorted(instance_types, key=sort_key)
 
 
+def extract_io_params(properties):
+    """
+    Extract the flat 4-value IO parameters from raw io_properties.yaml structure.
+
+    The raw structure from instances looks like:
+        {"disks": [{"mountpoint": "...", "read_iops": ..., ...}]}
+
+    We extract only: read_iops, read_bandwidth, write_iops, write_bandwidth
+
+    Args:
+        properties (dict): Raw IO properties from instance
+
+    Returns:
+        dict: Flat dict with 4 IO values, or None if extraction fails
+    """
+    if "disks" in properties and len(properties["disks"]) > 0:
+        disk_props = properties["disks"][0]
+        return {
+            "read_bandwidth": int(disk_props.get("read_bandwidth", 0)),
+            "read_iops": int(disk_props.get("read_iops", 0)),
+            "write_bandwidth": int(disk_props.get("write_bandwidth", 0)),
+            "write_iops": int(disk_props.get("write_iops", 0)),
+        }
+    return None
+
+
+def write_aws_params_yaml(params_data, params_file):
+    """
+    Write aws_io_params.yaml with consistent sorting.
+
+    Top-level keys are sorted using sort_aws_instance_types (by family, then size).
+    Sub-keys are sorted alphabetically for stable diffs.
+
+    Args:
+        params_data (dict): Complete params data to write
+        params_file (str): Path to output file
+    """
+    sorted_keys = sort_aws_instance_types(list(params_data.keys()))
+
+    with open(params_file, "w") as f:
+        for key in sorted_keys:
+            entry = params_data[key]
+            f.write(f"{key}:\n")
+            for subkey in sorted(entry.keys()):
+                f.write(f"  {subkey}: {entry[subkey]}\n")
+
+
 def update_aws_params_yaml(all_properties, params_file_path):
     """
-    Update aws_io_params.yaml with IO properties from all processed instances
-    Handles multiple instances with proper internal family sorting
+    Update aws_io_params.yaml with IO properties from all processed instances.
+    Only updates the specific instance types that were measured.
 
     Args:
         all_properties (dict): Dictionary of instance types to IO properties
@@ -709,139 +756,42 @@ def update_aws_params_yaml(all_properties, params_file_path):
     """
     update_count = 0
 
-    # Get absolute path to aws_io_params.yaml
     params_file = get_absolute_params_path(params_file_path)
     print(f"Updating AWS IO parameters in {params_file}...")
 
-    # Group instances by family for proper sorting
-    updates_by_family = {}
+    if os.path.exists(params_file):
+        with open(params_file) as f:
+            try:
+                params_data = yaml.safe_load(f) or {}
+            except Exception:
+                params_data = {}
+    else:
+        params_data = {}
+
     for instance_type, properties in all_properties.items():
-        # Skip instances that had errors during processing
         if "error" in properties:
             print(f"Skipping {instance_type} due to processing error")
             continue
 
-        # Extract the relevant properties
-        if "disks" in properties and len(properties["disks"]) > 0:
-            disk_props = properties["disks"][0]
-
-            io_params = {
-                "read_iops": int(disk_props.get("read_iops", 0)),
-                "read_bandwidth": int(disk_props.get("read_bandwidth", 0)),
-                "write_iops": int(disk_props.get("write_iops", 0)),
-                "write_bandwidth": int(disk_props.get("write_bandwidth", 0)),
-            }
-
-            family = instance_type.split(".")[0]
-            if family not in updates_by_family:
-                updates_by_family[family] = {}
-            updates_by_family[family][instance_type] = io_params
-        else:
+        io_params = extract_io_params(properties)
+        if io_params is None:
             print(f"No disk properties found for {instance_type}, skipping")
+            continue
 
-    # Process updates family by family with proper internal sorting
-    for family, instances in updates_by_family.items():
-        # Sort instances within the family by size
-        sorted_instances = sort_instances_by_size(list(instances.keys()))
-
-        print(f"Updating {family} family with instances: {sorted_instances}")
-
-        # Apply updates in size order
-        for instance_type in sorted_instances:
-            try:
-                # Create a temporary properties structure
-                temp_properties = {
-                    "disks": [
-                        {
-                            "read_iops": instances[instance_type]["read_iops"],
-                            "read_bandwidth": instances[instance_type]["read_bandwidth"],
-                            "write_iops": instances[instance_type]["write_iops"],
-                            "write_bandwidth": instances[instance_type]["write_bandwidth"],
-                        }
-                    ]
-                }
-
-                # Actual update logic
-                # Read existing YAML file (if exists)
-                if os.path.exists(params_file):
-                    with open(params_file) as f:
-                        try:
-                            params_data = yaml.safe_load(f) or {}
-                        except Exception:
-                            params_data = {}
-                else:
-                    params_data = {}
-
-                # Update or insert the instance type's IO properties
-                # Assume top-level key is instance type
-                instance_changed = False
-                if instance_type not in params_data or params_data[instance_type] != temp_properties:
-                    params_data[instance_type] = temp_properties
-                    instance_changed = True
-
-                # Write back only if changed
-                if instance_changed:
-                    with open(params_file, "w") as f:
-                        yaml.safe_dump(params_data, f, default_flow_style=False, sort_keys=False)
-                    update_count += 1
-                    print(f"Updated parameters for {instance_type}")
-                else:
-                    print(f"No changes needed for {instance_type}")
-
-            except Exception as e:
-                print(f"Error updating {instance_type}: {e}")
+        if params_data.get(instance_type) != io_params:
+            params_data[instance_type] = io_params
+            update_count += 1
+            print(f"Updated parameters for {instance_type}")
+        else:
+            print(f"No changes needed for {instance_type}")
 
     if update_count > 0:
+        write_aws_params_yaml(params_data, params_file)
         print(f"Successfully updated {update_count} instance types in {params_file}")
     else:
         print("No updates needed")
 
     return update_count
-
-
-def sort_instances_by_size(instance_types):
-    """
-    Sort instance types by size within the same family
-
-    Args:
-        instance_types (list): List of instance types from the same family
-
-    Returns:
-        list: Sorted instance types
-    """
-    size_order = [
-        "medium",
-        "large",
-        "xlarge",
-        "2xlarge",
-        "3xlarge",
-        "4xlarge",
-        "6xlarge",
-        "8xlarge",
-        "9xlarge",
-        "12xlarge",
-        "16xlarge",
-        "18xlarge",
-        "24xlarge",
-        "32xlarge",
-        "48xlarge",
-        "metal",
-        "ALL",
-    ]
-
-    def sort_key(instance_type):
-        if "." not in instance_type:
-            return (999, instance_type)  # Fallback for malformed types
-
-        size = instance_type.split(".", 1)[1]
-        try:
-            size_idx = size_order.index(size)
-        except ValueError:
-            size_idx = 998  # Unknown sizes go near the end, before ALL
-
-        return (size_idx, instance_type)
-
-    return sorted(instance_types, key=sort_key)
 
 
 def show_progress(current, total, instance_type=""):
@@ -859,23 +809,27 @@ def show_progress(current, total, instance_type=""):
 
 def update_single_instance_params(instance_type, properties, params_file_path):
     """
-    Update aws_io_params.yaml with IO properties for a single instance type
-    Simple approach: if exists, replace; if new, add at end
+    Update aws_io_params.yaml with IO properties for a single instance type.
+
+    Extracts the flat 4-value format (read_iops, read_bandwidth, write_iops,
+    write_bandwidth) from raw io_properties and writes with consistent sorting.
 
     Args:
         instance_type (str): AWS instance type
-        properties (dict): IO properties dictionary
+        properties (dict): Raw IO properties dictionary from instance
         params_file_path (str): Path to aws_io_params.yaml
 
     Returns:
         bool: True if updated, False if no changes needed
     """
-    # Get absolute path to aws_io_params.yaml
     params_file = get_absolute_params_path(params_file_path)
 
-    # Use the update function from the other module
+    io_params = extract_io_params(properties)
+    if io_params is None:
+        print(f"No disk properties found for {instance_type}, skipping")
+        return False
+
     try:
-        # Load existing YAML data, or start with empty dict
         if os.path.exists(params_file):
             with open(params_file) as f:
                 try:
@@ -885,15 +839,11 @@ def update_single_instance_params(instance_type, properties, params_file_path):
         else:
             data = {}
 
-        # Update or add the instance_type entry
-        if data.get(instance_type) == properties:
-            # No change needed
+        if data.get(instance_type) == io_params:
             return False
-        data[instance_type] = properties
 
-        # Write back to YAML file
-        with open(params_file, "w") as f:
-            yaml.safe_dump(data, f, default_flow_style=False, sort_keys=True)
+        data[instance_type] = io_params
+        write_aws_params_yaml(data, params_file)
         return True
     except Exception as e:
         print(f"Error updating parameters for {instance_type}: {e}")
