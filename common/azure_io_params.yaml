@@ -1,3 +1,93 @@
+Standard_D2pds_v5:
+  disks:
+  - read_iops: 9782
+    read_bandwidth: 209661536
+    write_iops: 3616
+    write_bandwidth: 164040704
+Standard_D2pds_v6:
+  disks:
+  - read_iops: 37564
+    read_bandwidth: 342381120
+    write_iops: 14940
+    write_bandwidth: 151846672
+Standard_D4pds_v5:
+  disks:
+  - read_iops: 19638
+    read_bandwidth: 412622112
+    write_iops: 3572
+    write_bandwidth: 174471296
+Standard_D4pds_v6:
+  disks:
+  - read_iops: 74804
+    read_bandwidth: 713478080
+    write_iops: 29870
+    write_bandwidth: 256184496
+Standard_D8pds_v5:
+  disks:
+  - read_iops: 38990
+    read_bandwidth: 822854912
+    write_iops: 3504
+    write_bandwidth: 86188832
+Standard_D8pds_v6:
+  disks:
+  - read_iops: 149980
+    read_bandwidth: 1439926656
+    write_iops: 59899
+    write_bandwidth: 452900288
+Standard_D16pds_v5:
+  disks:
+  - read_iops: 76690
+    read_bandwidth: 1638385920
+    write_iops: 2269
+    write_bandwidth: 100198000
+Standard_D16pds_v6:
+  disks:
+  - read_iops: 299560
+    read_bandwidth: 2876285184
+    write_iops: 119841
+    write_bandwidth: 795358144
+Standard_D32pds_v5:
+  disks:
+  - read_iops: 153214
+    read_bandwidth: 2046347904
+    write_iops: 148
+    write_bandwidth: 100650496
+Standard_D32pds_v6:
+  disks:
+  - read_iops: 599863
+    read_bandwidth: 5760715776
+    write_iops: 238388
+    write_bandwidth: 1741362688
+Standard_D48pds_v5:
+  disks:
+  - read_iops: 193552
+    read_bandwidth: 2949671680
+    write_iops: 3503
+    write_bandwidth: 49637244
+Standard_D48pds_v6:
+  disks:
+  - read_iops: 899384
+    read_bandwidth: 8565595648
+    write_iops: 357466
+    write_bandwidth: 2661079552
+Standard_D64pds_v5:
+  disks:
+  - read_iops: 197726
+    read_bandwidth: 3545725440
+    write_iops: 3511
+    write_bandwidth: 121451040
+Standard_D64pds_v6:
+  disks:
+  - read_iops: 1199066
+    read_bandwidth: 11463230464
+    write_iops: 478706
+    write_bandwidth: 3207559680
+Standard_D96pds_v6:
+  disks:
+  - read_iops: 1793350
+    read_bandwidth: 16880794624
+    write_iops: 717116
+    write_bandwidth: 4287803136
 Standard_L2aos_v4:
   disks:
   - read_iops: 180090
