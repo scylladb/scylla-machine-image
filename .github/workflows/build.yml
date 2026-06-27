@@ -20,7 +20,7 @@ jobs:
       
       # 1. Setup a bootstrap Python to run our detection script
       - name: Setup Bootstrap Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: '3.x'
 
@@ -127,7 +127,7 @@ jobs:
 
       # 3. Use the detected version for the actual work
       - name: Setup Target Python Environment
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           # This pulls the value from the previous step
           python-version: ${{ steps.detect_python.outputs.matrix_python }}
