@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+import glob
 import os
 import sys
 import time
@@ -32,6 +33,30 @@ class NoDiskFoundError(Exception):
         return "No data disk found, abort setup"
 
 
+def rescan_nvme_controllers() -> None:
+    """Best-effort: ask the kernel to re-probe NVMe controllers for namespaces.
+
+    On some OCI/Azure VMs the NVMe controller enumerates but its namespace block
+    device (e.g. nvme0n1) never appears, so the local data disk stays invisible
+    and setup aborts with "No data disk found". Writing to each controller's
+    sysfs `rescan_controller` re-scans its namespaces without needing nvme-cli;
+    if that attribute is absent, fall back to a PCI bus rescan.
+    Errors are swallowed - this is a recovery attempt, not a hard requirement.
+    """
+    rescanned = False
+    for ctrl in glob.glob("/sys/class/nvme/nvme*/rescan_controller"):
+        try:
+            Path(ctrl).write_text("1")
+            rescanned = True
+        except OSError as e:
+            print(f"NVMe rescan via {ctrl} failed: {e}")
+    if not rescanned:
+        try:
+            Path("/sys/bus/pci/rescan").write_text("1")
+        except OSError as e:
+            print(f"PCI bus rescan failed: {e}")
+
+
 def wait_for_devices(device_names_getter: Callable[[], list[str]], wait_seconds: int) -> None:
     """
     Wait for any disk to be found by repeatedly calling device_names_getter.
@@ -53,6 +78,9 @@ def wait_for_devices(device_names_getter: Callable[[], list[str]], wait_seconds:
             print(f"Found devices: {device_names}")
             return
         print("No device names available yet, retrying...")
+        # A present-but-unenumerated NVMe namespace won't appear on its own; nudge
+        # the kernel to re-probe before sleeping so the retry can actually find it.
+        rescan_nvme_controllers()
         time.sleep(5)
 
     # Final check

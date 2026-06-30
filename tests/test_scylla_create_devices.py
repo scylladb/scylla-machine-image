@@ -23,6 +23,7 @@ from scylla_create_devices import (  # noqa: E402
     _get_fresh_remote_disks,
     get_default_devices,
     get_disk_devices,
+    rescan_nvme_controllers,
     wait_for_devices,
 )
 
@@ -30,10 +31,11 @@ from scylla_create_devices import (  # noqa: E402
 # Tests for wait_for_devices function
 
 
+@patch("scylla_create_devices.rescan_nvme_controllers")
 @patch("scylla_create_devices.time.sleep")
 @patch("scylla_create_devices.time.time")
 @patch("scylla_create_devices.Path")
-def test_wait_for_devices_with_callable_retries(mock_path_class, mock_time, mock_sleep):
+def test_wait_for_devices_with_callable_retries(mock_path_class, mock_time, mock_sleep, mock_rescan):
     """Test wait_for_devices with callable that returns devices after retries."""
     # Mock time to return incrementing values - start at 0
     time_values = [0]
@@ -68,9 +70,68 @@ def test_wait_for_devices_with_callable_retries(mock_path_class, mock_time, mock
     assert device_getter.__name__ == "device_getter"
 
 
+@patch("scylla_create_devices.rescan_nvme_controllers")
 @patch("scylla_create_devices.time.sleep")
 @patch("scylla_create_devices.time.time")
-def test_wait_for_devices_timeout(mock_time, mock_sleep):
+def test_wait_for_devices_rescans_nvme_between_retries(mock_time, mock_sleep, mock_rescan):
+    """A missing NVMe namespace should trigger a controller rescan on each empty retry."""
+    time_values = [0]
+
+    def get_time():
+        val = time_values[0]
+        time_values[0] += 5
+        return val
+
+    mock_time.side_effect = get_time
+
+    call_count = [0]
+
+    def device_getter():
+        call_count[0] += 1
+        # Appears only after two empty rounds (simulating a delayed/re-probed namespace).
+        return ["nvme0n1"] if call_count[0] >= 3 else []
+
+    wait_for_devices(device_getter, wait_seconds=30)
+
+    # One rescan per empty round, before the device finally shows up.
+    assert mock_rescan.call_count == 2
+
+
+@patch("scylla_create_devices.Path")
+@patch("scylla_create_devices.glob.glob")
+def test_rescan_nvme_controllers_writes_each_controller(mock_glob, mock_path_class):
+    """rescan_nvme_controllers writes '1' to every controller's rescan sysfs node."""
+    mock_glob.return_value = [
+        "/sys/class/nvme/nvme0/rescan_controller",
+        "/sys/class/nvme/nvme1/rescan_controller",
+    ]
+    mock_nodes = [Mock(), Mock()]
+    mock_path_class.side_effect = mock_nodes
+
+    rescan_nvme_controllers()
+
+    for node in mock_nodes:
+        node.write_text.assert_called_once_with("1")
+
+
+@patch("scylla_create_devices.Path")
+@patch("scylla_create_devices.glob.glob")
+def test_rescan_nvme_controllers_falls_back_to_pci_bus(mock_glob, mock_path_class):
+    """With no per-controller sysfs node, fall back to a PCI bus rescan."""
+    mock_glob.return_value = []
+    pci_node = Mock()
+    mock_path_class.return_value = pci_node
+
+    rescan_nvme_controllers()
+
+    mock_path_class.assert_called_once_with("/sys/bus/pci/rescan")
+    pci_node.write_text.assert_called_once_with("1")
+
+
+@patch("scylla_create_devices.rescan_nvme_controllers")
+@patch("scylla_create_devices.time.sleep")
+@patch("scylla_create_devices.time.time")
+def test_wait_for_devices_timeout(mock_time, mock_sleep, mock_rescan):
     """Test wait_for_devices when no devices appear within timeout."""
     # Simulate timeout: start time 0, checks at 5, 10, 15, 20, 25, 30 (timeout)
     mock_time.side_effect = [0, 5, 10, 15, 20, 25, 31]
