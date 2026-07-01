@@ -354,31 +354,46 @@ mkdir -p build
 export PACKER_LOG=1
 export PACKER_LOG_PATH
 
-set -x
-/usr/bin/packer ${PACKER_SUB_CMD} \
-  -only="$TARGET" \
-  -var-file="$JSON_FILE" \
-  ${EXTRA_VAR_FILE_ARG:+"$EXTRA_VAR_FILE_ARG"} \
-  -var install_args="$INSTALL_ARGS" \
-  -var ssh_username="$SSH_USERNAME" \
-  -var scylla_full_version="$SCYLLA_FULL_VERSION" \
-  -var scylla_version="$VERSION" \
-  -var scylla_machine_image_version="$SCYLLA_MACHINE_IMAGE_VERSION" \
-  -var scylla_python3_version="$SCYLLA_FULL_VERSION" \
-  -var creation_timestamp="$CREATION_TIMESTAMP" \
-  -var scylla_build_sha_id="$SCYLLA_BUILD_SHA_ID" \
-  -var build_tag="$BUILD_TAG" \
-  -var environment="$ENV_TAG" \
-  -var operating_system="$OPERATING_SYSTEM" \
-  -var branch="$BRANCH" \
-  -var ami_regions="$AMI_REGIONS" \
-  -var arch="$ARCH" \
-  -var product="$PRODUCT" \
-  -var build_mode="$BUILD_MODE" \
-  -var image_name="$IMAGE_NAME" \
-  "${PACKER_ARGS[@]}" \
-  "$DIR"/scylla.json
-set +x
+# Retry the whole build on InsufficientInstanceCapacity: scylla.json
+# subnet_filter uses "random": true, so each attempt re-picks a subnet
+# (and likely a different AZ); other failures exit immediately.
+MAX_ATTEMPTS=3
+RETRY_SLEEP=90
+for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
+  : > "$PACKER_LOG_PATH"   # fresh log so the grep below only sees this attempt
+  set -x
+  /usr/bin/packer ${PACKER_SUB_CMD} \
+    -only="$TARGET" \
+    -var-file="$JSON_FILE" \
+    ${EXTRA_VAR_FILE_ARG:+"$EXTRA_VAR_FILE_ARG"} \
+    -var install_args="$INSTALL_ARGS" \
+    -var ssh_username="$SSH_USERNAME" \
+    -var scylla_full_version="$SCYLLA_FULL_VERSION" \
+    -var scylla_version="$VERSION" \
+    -var scylla_machine_image_version="$SCYLLA_MACHINE_IMAGE_VERSION" \
+    -var scylla_python3_version="$SCYLLA_FULL_VERSION" \
+    -var creation_timestamp="$CREATION_TIMESTAMP" \
+    -var scylla_build_sha_id="$SCYLLA_BUILD_SHA_ID" \
+    -var build_tag="$BUILD_TAG" \
+    -var environment="$ENV_TAG" \
+    -var operating_system="$OPERATING_SYSTEM" \
+    -var branch="$BRANCH" \
+    -var ami_regions="$AMI_REGIONS" \
+    -var arch="$ARCH" \
+    -var product="$PRODUCT" \
+    -var build_mode="$BUILD_MODE" \
+    -var image_name="$IMAGE_NAME" \
+    "${PACKER_ARGS[@]}" \
+    "$DIR"/scylla.json && PACKER_STATUS=0 || PACKER_STATUS=$?
+  set +x
+  [ "$PACKER_STATUS" -eq 0 ] && break
+  if [ "$attempt" -lt "$MAX_ATTEMPTS" ] && grep -q "InsufficientInstanceCapacity" "$PACKER_LOG_PATH"; then
+    echo "WARNING: AMI build attempt ${attempt}/${MAX_ATTEMPTS} hit InsufficientInstanceCapacity; retrying in ${RETRY_SLEEP}s with a re-selected subnet/AZ."
+    sleep "$RETRY_SLEEP"
+    continue
+  fi
+  exit "$PACKER_STATUS"   # non-capacity failure, or capacity retries exhausted
+done
 # For some errors packer gives a success status even if fails.
 # Search log for errors
 if $DRY_RUN ; then
