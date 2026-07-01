@@ -574,7 +574,6 @@ class AzureInstance(CloudInstance):
         r"L\d+as_v4",  # https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/storage-optimized/lasv4-series
         r"L\d+aos_v4",  # https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/storage-optimized/laosv4-series
         # general purpose
-        r"D\d+pds_v5",  # https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/general-purpose/dpdsv5-series
         r"D\d+pds_v6",  # https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/general-purpose/dpdsv6-series
     ]
 
