@@ -39,22 +39,25 @@ def rescan_nvme_controllers() -> None:
     On some OCI/Azure VMs the NVMe controller enumerates but its namespace block
     device (e.g. nvme0n1) never appears, so the local data disk stays invisible
     and setup aborts with "No data disk found". Writing to each controller's
-    sysfs `rescan_controller` re-scans its namespaces without needing nvme-cli;
-    if that attribute is absent, fall back to a PCI bus rescan.
+    sysfs `rescan_controller` re-scans its namespaces without needing nvme-cli.
+
+    Always also issues a PCI bus rescan, unconditionally: on NVMe-root VMs (e.g.
+    Azure Standard_Lsv4), the root disk has its own healthy, unrelated NVMe
+    controller with a working `rescan_controller` - gating the bus rescan on
+    "no controller responded" would report success from the root's controller
+    and skip the bus rescan entirely, even though a *different*, still-missing
+    local-disk controller is the actual problem the bus rescan could find.
     Errors are swallowed - this is a recovery attempt, not a hard requirement.
     """
-    rescanned = False
     for ctrl in glob.glob("/sys/class/nvme/nvme*/rescan_controller"):
         try:
             Path(ctrl).write_text("1")
-            rescanned = True
         except OSError as e:
             print(f"NVMe rescan via {ctrl} failed: {e}")
-    if not rescanned:
-        try:
-            Path("/sys/bus/pci/rescan").write_text("1")
-        except OSError as e:
-            print(f"PCI bus rescan failed: {e}")
+    try:
+        Path("/sys/bus/pci/rescan").write_text("1")
+    except OSError as e:
+        print(f"PCI bus rescan failed: {e}")
 
 
 def wait_for_devices(device_names_getter: Callable[[], list[str]], wait_seconds: int) -> None:

@@ -99,25 +99,30 @@ def test_wait_for_devices_rescans_nvme_between_retries(mock_time, mock_sleep, mo
 
 @patch("scylla_create_devices.Path")
 @patch("scylla_create_devices.glob.glob")
-def test_rescan_nvme_controllers_writes_each_controller(mock_glob, mock_path_class):
-    """rescan_nvme_controllers writes '1' to every controller's rescan sysfs node."""
+def test_rescan_nvme_controllers_writes_each_controller_and_pci_bus(mock_glob, mock_path_class):
+    """rescan_nvme_controllers writes '1' to every controller's rescan sysfs node, then
+    always also rescans the PCI bus - a healthy controller (e.g. an NVMe-root VM's own
+    root disk) must not suppress the bus rescan a different, still-missing controller
+    needs (Azure Standard_Lsv4 regression)."""
     mock_glob.return_value = [
         "/sys/class/nvme/nvme0/rescan_controller",
         "/sys/class/nvme/nvme1/rescan_controller",
     ]
-    mock_nodes = [Mock(), Mock()]
-    mock_path_class.side_effect = mock_nodes
+    ctrl_nodes = [Mock(), Mock()]
+    pci_node = Mock()
+    mock_path_class.side_effect = [*ctrl_nodes, pci_node]
 
     rescan_nvme_controllers()
 
-    for node in mock_nodes:
+    for node in ctrl_nodes:
         node.write_text.assert_called_once_with("1")
+    pci_node.write_text.assert_called_once_with("1")
 
 
 @patch("scylla_create_devices.Path")
 @patch("scylla_create_devices.glob.glob")
-def test_rescan_nvme_controllers_falls_back_to_pci_bus(mock_glob, mock_path_class):
-    """With no per-controller sysfs node, fall back to a PCI bus rescan."""
+def test_rescan_nvme_controllers_pci_bus_rescan_with_no_controllers(mock_glob, mock_path_class):
+    """With no per-controller sysfs node at all, still rescan the PCI bus."""
     mock_glob.return_value = []
     pci_node = Mock()
     mock_path_class.return_value = pci_node
