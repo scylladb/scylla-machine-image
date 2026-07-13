@@ -33,20 +33,46 @@ class NoDiskFoundError(Exception):
         return "No data disk found, abort setup"
 
 
+NVME_PCI_CLASS_PREFIX = "0x0108"  # PCI class: Non-Volatile memory controller
+
+
+def _unbound_nvme_pci_addresses() -> list[str]:
+    """PCI addresses with an NVMe class code that currently have no driver bound.
+
+    A driver can end up detached from a device (e.g. an `unbind` mid-boot, or a
+    probe race) without the device itself leaving the PCI bus. A bus rescan is a
+    no-op in that case: the kernel already has a struct pci_dev for that slot,
+    and pci_scan_slot() only creates new ones for slots it hasn't seen before.
+    """
+    addresses = []
+    for class_file in glob.glob("/sys/bus/pci/devices/*/class"):
+        try:
+            is_nvme = Path(class_file).read_text().strip().startswith(NVME_PCI_CLASS_PREFIX)
+        except OSError:
+            continue
+        if not is_nvme:
+            continue
+        addr = Path(class_file).parent.name
+        if not Path("/sys/bus/pci/devices", addr, "driver").exists():
+            addresses.append(addr)
+    return addresses
+
+
 def rescan_nvme_controllers() -> None:
     """Best-effort: ask the kernel to re-probe NVMe controllers for namespaces.
 
-    On some OCI/Azure VMs the NVMe controller enumerates but its namespace block
-    device (e.g. nvme0n1) never appears, so the local data disk stays invisible
-    and setup aborts with "No data disk found". Writing to each controller's
-    sysfs `rescan_controller` re-scans its namespaces without needing nvme-cli.
-
-    Always also issues a PCI bus rescan, unconditionally: on NVMe-root VMs (e.g.
-    Azure Standard_Lsv4), the root disk has its own healthy, unrelated NVMe
-    controller with a working `rescan_controller` - gating the bus rescan on
-    "no controller responded" would report success from the root's controller
-    and skip the bus rescan entirely, even though a *different*, still-missing
-    local-disk controller is the actual problem the bus rescan could find.
+    Covers three distinct ways a local NVMe data disk can stay invisible on boot,
+    each seen on OCI and/or Azure:
+      - controller enumerated, namespace never appeared: nudge via the
+        controller's own sysfs `rescan_controller`.
+      - controller present on the PCI bus but its driver never got (re)bound:
+        a bus rescan can't fix this - the kernel already knows the slot - so
+        explicitly ask the driver core to bind it via `drivers_probe`.
+      - controller not on the PCI bus at all (yet): a full bus rescan.
+    All three are always attempted, regardless of whether an earlier one
+    reported success: on NVMe-root VMs (e.g. Azure Standard_Lsv4), the root
+    disk has its own healthy, unrelated NVMe controller, so gating a later step
+    on "nothing found yet" would mask a different, still-missing controller.
     Errors are swallowed - this is a recovery attempt, not a hard requirement.
     """
     for ctrl in glob.glob("/sys/class/nvme/nvme*/rescan_controller"):
@@ -54,6 +80,11 @@ def rescan_nvme_controllers() -> None:
             Path(ctrl).write_text("1")
         except OSError as e:
             print(f"NVMe rescan via {ctrl} failed: {e}")
+    for addr in _unbound_nvme_pci_addresses():
+        try:
+            Path("/sys/bus/pci/drivers_probe").write_text(addr)
+        except OSError as e:
+            print(f"Driver probe for {addr} failed: {e}")
     try:
         Path("/sys/bus/pci/rescan").write_text("1")
     except OSError as e:

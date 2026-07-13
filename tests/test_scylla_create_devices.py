@@ -97,6 +97,13 @@ def test_wait_for_devices_rescans_nvme_between_retries(mock_time, mock_sleep, mo
     assert mock_rescan.call_count == 2
 
 
+def _glob_side_effect(patterns_to_results):
+    def _glob(pattern):
+        return patterns_to_results.get(pattern, [])
+
+    return _glob
+
+
 @patch("scylla_create_devices.Path")
 @patch("scylla_create_devices.glob.glob")
 def test_rescan_nvme_controllers_writes_each_controller_and_pci_bus(mock_glob, mock_path_class):
@@ -104,10 +111,14 @@ def test_rescan_nvme_controllers_writes_each_controller_and_pci_bus(mock_glob, m
     always also rescans the PCI bus - a healthy controller (e.g. an NVMe-root VM's own
     root disk) must not suppress the bus rescan a different, still-missing controller
     needs (Azure Standard_Lsv4 regression)."""
-    mock_glob.return_value = [
-        "/sys/class/nvme/nvme0/rescan_controller",
-        "/sys/class/nvme/nvme1/rescan_controller",
-    ]
+    mock_glob.side_effect = _glob_side_effect(
+        {
+            "/sys/class/nvme/nvme*/rescan_controller": [
+                "/sys/class/nvme/nvme0/rescan_controller",
+                "/sys/class/nvme/nvme1/rescan_controller",
+            ],
+        }
+    )
     ctrl_nodes = [Mock(), Mock()]
     pci_node = Mock()
     mock_path_class.side_effect = [*ctrl_nodes, pci_node]
@@ -122,14 +133,90 @@ def test_rescan_nvme_controllers_writes_each_controller_and_pci_bus(mock_glob, m
 @patch("scylla_create_devices.Path")
 @patch("scylla_create_devices.glob.glob")
 def test_rescan_nvme_controllers_pci_bus_rescan_with_no_controllers(mock_glob, mock_path_class):
-    """With no per-controller sysfs node at all, still rescan the PCI bus."""
-    mock_glob.return_value = []
+    """With no per-controller sysfs node and no unbound NVMe PCI device, still rescan the
+    PCI bus."""
+    mock_glob.side_effect = _glob_side_effect({})
     pci_node = Mock()
     mock_path_class.return_value = pci_node
 
     rescan_nvme_controllers()
 
     mock_path_class.assert_called_once_with("/sys/bus/pci/rescan")
+    pci_node.write_text.assert_called_once_with("1")
+
+
+@patch("scylla_create_devices.Path")
+@patch("scylla_create_devices.glob.glob")
+def test_rescan_nvme_controllers_probes_unbound_nvme_pci_device(mock_glob, mock_path_class):
+    """A driver can get detached from an NVMe controller without the PCI device leaving
+    the bus (e.g. an `unbind` mid-boot). A bus rescan alone can't recover it - the kernel
+    already knows the slot - so rescan_nvme_controllers must also write the device's PCI
+    address to `drivers_probe` to ask the driver core to (re)bind it."""
+    mock_glob.side_effect = _glob_side_effect(
+        {
+            "/sys/bus/pci/devices/*/class": ["/sys/bus/pci/devices/0000:00:0a.0/class"],
+        }
+    )
+
+    class_node = Mock()
+    class_node.read_text.return_value = "0x010802\n"
+    class_node.parent.name = "0000:00:0a.0"
+    driver_node = Mock()
+    driver_node.exists.return_value = False
+    probe_node = Mock()
+    pci_node = Mock()
+    mock_path_class.side_effect = [class_node, class_node, driver_node, probe_node, pci_node]
+
+    rescan_nvme_controllers()
+
+    driver_node.exists.assert_called_once()
+    probe_node.write_text.assert_called_once_with("0000:00:0a.0")
+    pci_node.write_text.assert_called_once_with("1")
+
+
+@patch("scylla_create_devices.Path")
+@patch("scylla_create_devices.glob.glob")
+def test_rescan_nvme_controllers_skips_already_bound_nvme_pci_device(mock_glob, mock_path_class):
+    """A bound NVMe controller (driver symlink present) must not get a spurious
+    drivers_probe write - only genuinely unbound ones should."""
+    mock_glob.side_effect = _glob_side_effect(
+        {
+            "/sys/bus/pci/devices/*/class": ["/sys/bus/pci/devices/0000:00:0a.0/class"],
+        }
+    )
+
+    class_node = Mock()
+    class_node.read_text.return_value = "0x010802\n"
+    class_node.parent.name = "0000:00:0a.0"
+    driver_node = Mock()
+    driver_node.exists.return_value = True
+    pci_node = Mock()
+    mock_path_class.side_effect = [class_node, class_node, driver_node, pci_node]
+
+    rescan_nvme_controllers()
+
+    assert not any(call.args == ("/sys/bus/pci/drivers_probe",) for call in mock_path_class.call_args_list)
+    pci_node.write_text.assert_called_once_with("1")
+
+
+@patch("scylla_create_devices.Path")
+@patch("scylla_create_devices.glob.glob")
+def test_rescan_nvme_controllers_ignores_non_nvme_pci_device(mock_glob, mock_path_class):
+    """A PCI device whose class code isn't NVMe must never be probed, bound or not."""
+    mock_glob.side_effect = _glob_side_effect(
+        {
+            "/sys/bus/pci/devices/*/class": ["/sys/bus/pci/devices/0000:00:1f.2/class"],
+        }
+    )
+
+    class_node = Mock()
+    class_node.read_text.return_value = "0x010601\n"  # SATA controller, not NVMe
+    pci_node = Mock()
+    mock_path_class.side_effect = [class_node, pci_node]
+
+    rescan_nvme_controllers()
+
+    assert not any(call.args == ("/sys/bus/pci/drivers_probe",) for call in mock_path_class.call_args_list)
     pci_node.write_text.assert_called_once_with("1")
 
 
