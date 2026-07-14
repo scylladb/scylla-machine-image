@@ -156,7 +156,7 @@ def estimate_streaming_bandwidth(cloud_instance=None):
                         net_bw_gbps = instance_info[2] * ocpus
 
                 # instance_info[1] is networkingBandwidthInGbps (for non-flex shapes)
-                if instance_info[1]:
+                elif instance_info[1]:
                     net_bw_gbps = instance_info[1]
 
                 if net_bw_gbps:
