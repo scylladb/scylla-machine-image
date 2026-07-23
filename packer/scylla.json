@@ -193,11 +193,17 @@
       "availability_domain": "{{user `oci_availability_domain`}}",
       "compartment_ocid": "{{user `oci_compartment_ocid`}}",
       "subnet_ocid": "{{user `oci_subnet_ocid`}}",
+<<<<<<< HEAD
       "base_image_filter": {
         "operating_system": "Canonical Ubuntu",
         "operating_system_version": "24.04",
         "display_name_search": "Canonical-Ubuntu-24.04-*"
       },
+||||||| parent of c4b4c9f (improvement(oci): expose image ID as a variable)
+      "base_image_ocid": "ocid1.image.oc1.iad.aaaaaaaan5hami2nl7girpphwwfwz33iawrfthuks2x3qow5a2lmozx7gt2a",
+=======
+      "base_image_ocid": "{{user `oci_base_image_ocid`}}",
+>>>>>>> c4b4c9f (improvement(oci): expose image ID as a variable)
       "shape": "{{user `oci_instance_shape`}}",
       "shape_config": {
         "ocpus": "{{user `oci_instance_shape_config_ocpus`}}",
@@ -312,6 +318,7 @@
     "oci_availability_domain": "",
     "oci_compartment_ocid": "",
     "oci_subnet_ocid": "",
+    "oci_base_image_ocid": "",
     "oci_instance_shape": "",
     "oci_instance_shape_config_ocpus": "",
     "oci_instance_shape_config_memory_in_gbs": ""
