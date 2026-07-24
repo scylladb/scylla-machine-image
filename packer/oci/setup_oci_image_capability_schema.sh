@@ -182,12 +182,6 @@ if [[ -z "$SCHEMA_FILE" ]]; then
       "source": "IMAGE",
       "defaultValue": "true"
     },
-    "Storage.LocalDataVolumeType": {
-      "descriptorType": "enumstring",
-      "source": "IMAGE",
-      "defaultValue": "NVME",
-      "values": ["NVME", "PARAVIRTUALIZED"]
-    },
     "Storage.RemoteDataVolumeType": {
       "descriptorType": "enumstring",
       "source": "IMAGE",
@@ -254,13 +248,14 @@ if [[ -n "$IMAGE_SCHEMA_ID" ]] && [[ "$IMAGE_SCHEMA_ID" != "null" ]]; then
     print_info "Existing schema name: ${EXISTING_SCHEMA_NAME}"
     print_info "Updating existing schema with current capabilities..."
     
+    update_rc=0
     UPDATE_OUTPUT=$($OCI_CMD compute image-capability-schema update \
         --image-capability-schema-id "${SCHEMA_ID}" \
         --schema-data "$SCHEMA_DATA" \
         --force \
-        2>&1)
+        2>&1) || update_rc=$?
     
-    if [[ $? -eq 0 ]]; then
+    if [[ $update_rc -eq 0 ]]; then
         print_success "Updated Image Capability Schema: ${SCHEMA_ID}"
     else
         print_error "Failed to update Image Capability Schema"
@@ -282,13 +277,14 @@ else
         
         # Update the existing schema with our schema data
         print_info "Updating existing schema with current capabilities..."
+        update_rc2=0
         UPDATE_OUTPUT=$($OCI_CMD compute image-capability-schema update \
             --image-capability-schema-id "${SCHEMA_ID}" \
             --schema-data "$SCHEMA_DATA" \
             --force \
-            2>&1)
+            2>&1) || update_rc2=$?
         
-        if [[ $? -eq 0 ]]; then
+        if [[ $update_rc2 -eq 0 ]]; then
             print_success "Updated Image Capability Schema: ${SCHEMA_ID}"
         else
             print_error "Failed to update Image Capability Schema"
@@ -298,13 +294,14 @@ else
         
         # Attach the schema to the image
         print_info "Attaching schema to image..."
+        attach_rc=0
         IMAGE_UPDATE_OUTPUT=$($OCI_CMD compute image update \
             --image-id "${IMAGE_ID}" \
             --image-capability-schema-id "${SCHEMA_ID}" \
             --force \
-            2>&1)
+            2>&1) || attach_rc=$?
         
-        if [[ $? -ne 0 ]]; then
+        if [[ $attach_rc -ne 0 ]]; then
             print_error "Failed to attach schema to image"
             echo "$IMAGE_UPDATE_OUTPUT"
             exit 1
@@ -313,15 +310,16 @@ else
         # Step 3: Create a new Image Capability Schema
         print_info "Creating new Image Capability Schema: ${SCHEMA_NAME}"
         
+        create_rc=0
         CREATE_OUTPUT=$($OCI_CMD compute image-capability-schema create \
             --compartment-id "${COMPARTMENT_ID}" \
             --image-id "${IMAGE_ID}" \
             --global-image-capability-schema-version-name "${GLOBAL_SCHEMA_VERSION}" \
             --display-name "${SCHEMA_NAME}" \
             --schema-data "$SCHEMA_DATA" \
-            2>&1)
+            2>&1) || create_rc=$?
         
-        if [[ $? -eq 0 ]]; then
+        if [[ $create_rc -eq 0 ]]; then
             SCHEMA_ID=$(echo "$CREATE_OUTPUT" | jq -r '.data.id')
             print_success "Created Image Capability Schema: ${SCHEMA_ID}"
         else

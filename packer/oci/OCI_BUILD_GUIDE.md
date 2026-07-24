@@ -90,7 +90,7 @@ The build process can take 20-30 minutes.
 
 After the image is successfully built, the `build_image.sh` script will automatically run the `setup_oci_image_capability_schema.sh` script. This script creates and attaches an Image Capability Schema to the new image, which defines the supported configurations for instances launched from this image (e.g., supported shapes, volume types).
 
-The schema sets `Storage.LocalDataVolumeType` to `NVME` by default.
+The schema intentionally omits `Storage.LocalDataVolumeType` so that OCI does not restrict local volume types. This allows the image to launch on shapes with NVMe local storage (e.g., VM.DenseIO.E5.Flex) without compatibility issues.
 
 ## Using the Image
 
