@@ -63,3 +63,67 @@ z3-highmem-176-standardlssd:
   read_bandwidth: 38654705664
   write_iops: 6000000
   write_bandwidth: 32212254720
+
+# Local SSD (NVMe) performance limits published by Google, keyed by the number of
+# local SSD disks attached to the instance. Used for machine types which do not
+# have their own entry above (n1, n2, n2d, c2, ...).
+# https://cloud.google.com/compute/docs/disks/local-ssd#local-ssd-perf-nvme
+# Bandwidth is Google's MiB/s figure converted to bytes/s.
+# These numbers are only reachable when the instance has enough vCPUs, see
+# GcpIoSetup.MIN_CPU_FOR_MAX_PERFORMANCE in scylla_cloud_io_setup.
+local_ssd_nvme:
+  1:
+    read_iops: 170000
+    read_bandwidth: 692060160
+    write_iops: 90000
+    write_bandwidth: 367001600
+  2:
+    read_iops: 340000
+    read_bandwidth: 1384120320
+    write_iops: 180000
+    write_bandwidth: 734003200
+  3:
+    read_iops: 510000
+    read_bandwidth: 2076180480
+    write_iops: 270000
+    write_bandwidth: 1101004800
+  4:
+    read_iops: 680000
+    read_bandwidth: 2778726400
+    write_iops: 360000
+    write_bandwidth: 1468006400
+  5:
+    read_iops: 680000
+    read_bandwidth: 2778726400
+    write_iops: 360000
+    write_bandwidth: 1468006400
+  6:
+    read_iops: 680000
+    read_bandwidth: 2778726400
+    write_iops: 360000
+    write_bandwidth: 1468006400
+  7:
+    read_iops: 680000
+    read_bandwidth: 2778726400
+    write_iops: 360000
+    write_bandwidth: 1468006400
+  8:
+    read_iops: 680000
+    read_bandwidth: 2778726400
+    write_iops: 360000
+    write_bandwidth: 1468006400
+  16:
+    read_iops: 1600000
+    read_bandwidth: 6543114240
+    write_iops: 800000
+    write_bandwidth: 3271557120
+  24:
+    read_iops: 2400000
+    read_bandwidth: 9814671360
+    write_iops: 1200000
+    write_bandwidth: 4907335680
+  32:
+    read_iops: 3200000
+    read_bandwidth: 13086228480
+    write_iops: 1600000
+    write_bandwidth: 6543114240
