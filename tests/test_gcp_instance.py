@@ -779,19 +779,49 @@ MOCK_GCP_IO_PARAMS = {
         "write_iops": 1000000,
         "write_bandwidth": 5368709120,
     },
+    "local_ssd_nvme": {
+        2: {
+            "read_iops": 340000,
+            "read_bandwidth": 1384120320,
+            "write_iops": 180000,
+            "write_bandwidth": 734003200,
+        },
+        4: {
+            "read_iops": 680000,
+            "read_bandwidth": 2778726400,
+            "write_iops": 360000,
+            "write_bandwidth": 1468006400,
+        },
+        16: {
+            "read_iops": 1600000,
+            "read_bandwidth": 6543114240,
+            "write_iops": 800000,
+            "write_bandwidth": 3271557120,
+        },
+        24: {
+            "read_iops": 2400000,
+            "read_bandwidth": 9814671360,
+            "write_iops": 1200000,
+            "write_bandwidth": 4907335680,
+        },
+    },
 }
 
 
 class MockGcpInstance:
     """Mock GCP instance for testing GcpIoSetup."""
 
-    def __init__(self, instance_type="z3-highmem-8-highlssd", nvme_disk_count=4, supported=True):
+    def __init__(self, instance_type="z3-highmem-8-highlssd", nvme_disk_count=4, supported=True, cpu=32):
         self.instancetype = instance_type
         self.nvme_disk_count = nvme_disk_count
+        self.cpu = cpu
         self._supported = supported
 
     def is_supported_instance_class(self):
         return self._supported
+
+    def instance_class(self):
+        return self.instancetype.split("-")[0]
 
 
 class TestGcpIoSetup(TestCase):
@@ -839,8 +869,8 @@ class TestGcpIoSetup(TestCase):
             mock_save.assert_called_once()
 
     def test_gcp_io_setup_fallback_to_disk_count_logic(self):
-        """Test GcpIoSetup falls back to disk-count-based logic when instance not in YAML."""
-        mock_instance = MockGcpInstance(instance_type="n2-standard-8", nvme_disk_count=2)
+        """Test GcpIoSetup falls back to the per-disk-count Google limits when instance not in YAML."""
+        mock_instance = MockGcpInstance(instance_type="n2-standard-32", nvme_disk_count=2, cpu=32)
         io_setup = GcpIoSetup(mock_instance)
 
         mock_yaml_content = yaml.dump(MOCK_GCP_IO_PARAMS)
@@ -851,32 +881,106 @@ class TestGcpIoSetup(TestCase):
         ):
             io_setup.generate()
 
-            # Should use disk-count-based logic for 2 disks (1-3 range)
-            mbs = 1024 * 1024
-            assert io_setup.disk_properties["read_iops"] == 170000 * 2
-            assert io_setup.disk_properties["read_bandwidth"] == 660 * mbs * 2
-            assert io_setup.disk_properties["write_iops"] == 90000 * 2
-            assert io_setup.disk_properties["write_bandwidth"] == 350 * mbs * 2
+            assert io_setup.disk_properties["read_iops"] == 340000
+            assert io_setup.disk_properties["read_bandwidth"] == 1384120320
+            assert io_setup.disk_properties["write_iops"] == 180000
+            assert io_setup.disk_properties["write_bandwidth"] == 734003200
+            mock_save.assert_called_once()
+
+    def test_gcp_io_setup_uses_google_limits(self):
+        """Google's published limits are used for the 16 and 24 local SSD configurations."""
+        expected = {
+            16: (1600000, 6543114240, 800000, 3271557120),
+            24: (2400000, 9814671360, 1200000, 4907335680),
+        }
+        mock_yaml_content = yaml.dump(MOCK_GCP_IO_PARAMS)
+
+        for nr_disks, (read_iops, read_bandwidth, write_iops, write_bandwidth) in expected.items():
+            with self.subTest(nr_disks=nr_disks):
+                mock_instance = MockGcpInstance(instance_type="n2-standard-32", nvme_disk_count=nr_disks, cpu=32)
+                io_setup = GcpIoSetup(mock_instance)
+
+                with (
+                    unittest.mock.patch("builtins.open", unittest.mock.mock_open(read_data=mock_yaml_content)),
+                    unittest.mock.patch.object(io_setup, "save") as mock_save,
+                ):
+                    io_setup.generate()
+
+                    assert io_setup.disk_properties["read_iops"] == read_iops
+                    assert io_setup.disk_properties["read_bandwidth"] == read_bandwidth
+                    assert io_setup.disk_properties["write_iops"] == write_iops
+                    assert io_setup.disk_properties["write_bandwidth"] == write_bandwidth
+                    mock_save.assert_called_once()
+
+    def test_gcp_io_setup_runs_iotune_when_not_enough_cpus(self):
+        """Instances with too few vCPUs cannot reach Google's limits, so iotune measures them."""
+        # n2 needs at least 24 vCPUs, n1 needs at least 32
+        for instance_type, cpu in [("n2-standard-16", 16), ("n1-standard-24", 24)]:
+            with self.subTest(instance_type=instance_type):
+                mock_instance = MockGcpInstance(instance_type=instance_type, nvme_disk_count=24, cpu=cpu)
+                io_setup = GcpIoSetup(mock_instance)
+
+                mock_yaml_content = yaml.dump(MOCK_GCP_IO_PARAMS)
+
+                with (
+                    unittest.mock.patch("builtins.open", unittest.mock.mock_open(read_data=mock_yaml_content)),
+                    unittest.mock.patch.object(io_setup, "save") as mock_save,
+                    unittest.mock.patch("subprocess.run") as mock_run,
+                ):
+                    io_setup.generate()
+
+                    assert "read_iops" not in io_setup.disk_properties
+                    mock_save.assert_not_called()
+                    mock_run.assert_called_once()
+                    assert mock_run.call_args.args[0] == "scylla_io_setup"
+
+    def test_gcp_io_setup_runs_iotune_for_unknown_disk_count(self):
+        """A disk count Google doesn't publish limits for is measured by iotune."""
+        mock_instance = MockGcpInstance(instance_type="n2-standard-32", nvme_disk_count=9, cpu=32)
+        io_setup = GcpIoSetup(mock_instance)
+
+        mock_yaml_content = yaml.dump(MOCK_GCP_IO_PARAMS)
+
+        with (
+            unittest.mock.patch("builtins.open", unittest.mock.mock_open(read_data=mock_yaml_content)),
+            unittest.mock.patch.object(io_setup, "save") as mock_save,
+            unittest.mock.patch("subprocess.run") as mock_run,
+        ):
+            io_setup.generate()
+
+            mock_save.assert_not_called()
+            mock_run.assert_called_once()
+
+    def test_gcp_io_setup_uses_instance_type_regardless_of_cpu_count(self):
+        """A machine type with its own entry is measured from that entry, not the per-disk table."""
+        mock_instance = MockGcpInstance(instance_type="z3-highmem-8-highlssd", nvme_disk_count=4, cpu=8)
+        io_setup = GcpIoSetup(mock_instance)
+
+        mock_yaml_content = yaml.dump(MOCK_GCP_IO_PARAMS)
+
+        with (
+            unittest.mock.patch("builtins.open", unittest.mock.mock_open(read_data=mock_yaml_content)),
+            unittest.mock.patch.object(io_setup, "save") as mock_save,
+        ):
+            io_setup.generate()
+
+            assert io_setup.disk_properties["read_iops"] == 750000
             mock_save.assert_called_once()
 
     def test_gcp_io_setup_fallback_when_file_not_found(self):
-        """Test GcpIoSetup falls back to disk-count logic when YAML file not found."""
-        mock_instance = MockGcpInstance(instance_type="n2-standard-8", nvme_disk_count=4)
+        """Test GcpIoSetup falls back to iotune when the YAML file is not found."""
+        mock_instance = MockGcpInstance(instance_type="n2-standard-32", nvme_disk_count=4, cpu=32)
         io_setup = GcpIoSetup(mock_instance)
 
         with (
             unittest.mock.patch("builtins.open", side_effect=FileNotFoundError("File not found")),
             unittest.mock.patch.object(io_setup, "save") as mock_save,
+            unittest.mock.patch("subprocess.run") as mock_run,
         ):
             io_setup.generate()
 
-            # Should use disk-count-based logic for 4 disks (4-8 range)
-            mbs = 1024 * 1024
-            assert io_setup.disk_properties["read_iops"] == 680000
-            assert io_setup.disk_properties["read_bandwidth"] == 2650 * mbs
-            assert io_setup.disk_properties["write_iops"] == 360000
-            assert io_setup.disk_properties["write_bandwidth"] == 1400 * mbs
-            mock_save.assert_called_once()
+            mock_save.assert_not_called()
+            mock_run.assert_called_once()
 
     def test_gcp_io_setup_raises_for_unsupported_instance_class(self):
         """Test that GcpIoSetup raises UnsupportedInstanceClassError for unsupported instances."""
