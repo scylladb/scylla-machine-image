@@ -12,9 +12,12 @@ LOGGER = logging.getLogger(__name__)
 
 
 class UserData:
-    def __init__(self, *arg, **kwargs):
+    def __init__(self, *arg, cloud_instance=None, **kwargs):
         self._instance_user_data = None
-        self._cloud_instance = None
+        # Callers that already hold a CloudInstance can pass it in, so the
+        # user-data is read from that instance rather than a freshly
+        # identified one.
+        self._cloud_instance = cloud_instance
 
     @property
     def cloud_instance(self):

@@ -88,15 +88,20 @@ def _query_metadata_tier1_attribute() -> bool | None:
         return None
 
 
-def _detect_gcp_tier1(default_bw_gbps: float, tier1_bw_gbps: float | None, tier1_override: bool | None = None) -> bool:
-    """Detect whether GCP Tier 1 networking is active. Conservative: returns False if uncertain.
+def detect_gcp_tier1(
+    default_bw_gbps: float, tier1_bw_gbps: float | None, tier1_override: bool | None = None
+) -> bool | None:
+    """Detect whether GCP Tier 1 networking is active.
+
+    Returns True for Tier 1, False for known-not-Tier-1, None if detection
+    is inconclusive (no evidence in either direction).
 
     Detection order:
     1. User override (tier1_override param from cloud-init user-data) — always wins
     2. GCP instance metadata attribute scylla_tier1_networking — set at VM creation time
     3. /sys/class/net/<iface>/speed vs known default — no scope needed
     4. Compute Engine API networkPerformanceConfig — requires compute-ro scope
-    5. Conservative default: False
+    5. None (inconclusive)
     """
     if tier1_bw_gbps is None:
         return False  # Instance type doesn't support Tier 1
@@ -121,7 +126,13 @@ def _detect_gcp_tier1(default_bw_gbps: float, tier1_bw_gbps: float | None, tier1
 
     # 4. Compute Engine API (requires compute-ro scope)
     api_tier = _query_compute_api_tier()
-    return api_tier == "TIER_1"  # Conservative default: False when uncertain
+    if api_tier == "TIER_1":
+        return True
+    if api_tier == "DEFAULT":
+        return False
+
+    # No evidence — inconclusive
+    return None
 
 
 def estimate_streaming_bandwidth(cloud_instance=None):
@@ -174,7 +185,7 @@ def estimate_streaming_bandwidth(cloud_instance=None):
 
     elif is_gce():
         instance_type = cloud_instance.instancetype
-        tier1_override = getattr(cloud_instance, "_tier1_override", None)
+        tier1_override = cloud_instance.tier1_override
         # Data from GCP documentation for N2, N2D, and Z3 machine families
         # https://cloud.google.com/compute/docs/network-bandwidth
         # Format: [instance_type, default_bandwidth_gbps, tier1_bandwidth_gbps]
@@ -184,7 +195,7 @@ def estimate_streaming_bandwidth(cloud_instance=None):
             if instance_info:
                 default_bw_gbps = instance_info[0][1]
                 tier1_bw_gbps = instance_info[0][2]  # None if type doesn't support Tier 1
-                use_tier1 = _detect_gcp_tier1(default_bw_gbps, tier1_bw_gbps, tier1_override)
+                use_tier1 = detect_gcp_tier1(default_bw_gbps, tier1_bw_gbps, tier1_override)
                 net_bw_gbps = tier1_bw_gbps if (use_tier1 and tier1_bw_gbps) else default_bw_gbps
                 net_bw = int(net_bw_gbps * 1000 * 1000 * 1000)  # Gbps -> bps
 

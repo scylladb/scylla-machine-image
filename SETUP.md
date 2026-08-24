@@ -364,6 +364,28 @@ uv venv                    # Create virtual environment
 5. Run integration tests: `make test-integration` (requires AWS)
 6. Start developing!
 
+## GCP: Enabling Jumbo Frames for Tier 1 Instances
+
+By default, GCP VPCs use an MTU of 1460. For Tier 1 networking instances,
+the VPC should be configured with jumbo frames (MTU 8896) to achieve full
+streaming throughput. The guest image cannot raise the MTU beyond what the
+VPC allows, so this is a VPC-level requirement.
+
+### Steps
+
+1. Set the VPC MTU to 8896:
+   ```bash
+   gcloud compute networks update <network> --mtu=8896
+   ```
+
+2. **Stop and start** (not reboot) all instances on that network. A guest
+   reboot does not refresh the MTU — only a stop/start causes GCP to
+   re-provision the NIC with the new VPC MTU via DHCP.
+
+The Scylla image will log a warning at login and in the journal when a
+Tier 1 instance has a VPC MTU below 8896, including the exact `gcloud`
+command to fix it. Standard (non-Tier 1) instances are not affected.
+
 ## Resources
 
 - [UV Documentation](https://github.com/astral-sh/uv)
