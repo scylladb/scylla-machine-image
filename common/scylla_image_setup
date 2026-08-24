@@ -8,14 +8,131 @@ import logging
 import os
 import re
 import subprocess
+import urllib.error
 from pathlib import Path
 from subprocess import run
 
 from lib.log import setup_logging
-from lib.scylla_cloud import get_cloud_instance, is_azure, is_ec2
+from lib.scylla_cloud import (
+    GCP_MAX_MTU,
+    GCP_MTU_WARNING_PATH,
+    GCP_STANDARD_MTU,
+    gcp_mtu_warning,
+    get_cloud_instance,
+    is_azure,
+    is_ec2,
+    is_gce,
+)
 
 
 LOGGER = logging.getLogger(__name__)
+
+
+NETPLAN_MTU_PATH = Path("/etc/netplan/99-scylla-mtu.yaml")
+# Records the netplan config `netplan apply` last succeeded with. Tracking the
+# *applied* state rather than the desired state means an apply that failed on a
+# previous boot is retried, while an unchanged config doesn't restart networkd
+# on every boot.
+NETPLAN_APPLIED_STAMP = Path("/etc/scylla/gcp_mtu_netplan_applied")
+
+
+def _read_if_exists(path: Path) -> str:
+    return path.read_text() if path.exists() else ""
+
+
+def _apply_netplan_mtu(iface: str, mtu: int) -> None:
+    """Persist an explicit MTU for `iface` so DHCP renewals don't undo it."""
+    content = f"network:\n  version: 2\n  ethernets:\n    {iface}:\n      mtu: {mtu}\n"
+    rewritten = _read_if_exists(NETPLAN_MTU_PATH) != content
+    if rewritten:
+        NETPLAN_MTU_PATH.write_text(content)
+        NETPLAN_MTU_PATH.chmod(0o600)
+    # Apply when the config just changed, or when no successful apply of this
+    # exact config has been recorded. The `rewritten` term matters because the
+    # stamp can outlive the file it describes (e.g. the file was removed by
+    # hand), and a stale stamp must not suppress the apply.
+    if rewritten or _read_if_exists(NETPLAN_APPLIED_STAMP) != content:
+        run("netplan apply", shell=True, check=True)
+        # Stamped only after a successful apply, so a failure is retried.
+        NETPLAN_APPLIED_STAMP.write_text(content)
+
+
+def _clear_netplan_mtu() -> None:
+    """Drop a previously written MTU clamp, e.g. after an instance-type change."""
+    if NETPLAN_MTU_PATH.exists():
+        NETPLAN_MTU_PATH.unlink()
+        run("netplan apply", shell=True, check=True)
+    NETPLAN_APPLIED_STAMP.unlink(missing_ok=True)
+
+
+def _record_mtu_warning(mtu: int | None) -> None:
+    """Record (or clear) the warning the login banner prints.
+
+    The banner reads this file instead of querying the metadata server, so a
+    slow metadata server can never stall a login.
+    """
+    if mtu is None:
+        GCP_MTU_WARNING_PATH.unlink(missing_ok=True)
+        return
+    GCP_MTU_WARNING_PATH.write_text(gcp_mtu_warning(mtu) + "\n")
+    # The banner runs as the logging-in user, so the mode must be explicit —
+    # inheriting a restrictive umask would silently hide the warning.
+    GCP_MTU_WARNING_PATH.chmod(0o644)
+
+
+def sync_gcp_mtu_from_vpc():
+    """Configure GCP instance MTU based on networking tier.
+
+    Tier 1 instances: apply the VPC MTU from metadata to eth0 (defensive
+    reconcile) and remove any netplan clamp. Warn if the VPC MTU is below
+    8896 (jumbo frames not enabled).
+
+    Standard instances: clamp MTU to min(1460, VPC MTU) so that only Tier 1
+    instances benefit from jumbo frames. Persist via netplan so DHCP renewals
+    don't undo the clamp.
+
+    Unknown/inconclusive: skip entirely — don't risk degrading a working config.
+    """
+    try:
+        cloud_instance = get_cloud_instance()
+        # The image sets net.ifnames=0 in GRUB (packer/scylla_install_image),
+        # guaranteeing the primary NIC is always eth0. The whole codebase
+        # assumes this — e.g., scylla_sysconfig_setup --nic eth0 below.
+        iface = "eth0"
+        # Clear first, so the banner only ever shows a warning derived from this
+        # boot — a warning from a previous boot must not outlive the condition
+        # that produced it, including when detection turns out inconclusive.
+        _record_mtu_warning(None)
+        tier1 = cloud_instance.is_tier1_networking
+
+        if tier1 is None:
+            LOGGER.warning(
+                "Tier 1 detection inconclusive (unknown instance type or missing "
+                "gcp_net_params.json). Skipping MTU configuration."
+            )
+            return
+
+        mtu = cloud_instance.network_mtu
+        if tier1:
+            # Tier 1: use the VPC MTU (8896 for full performance).
+            LOGGER.info(f"Tier 1 instance detected. Setting MTU on {iface} to {mtu} (from VPC metadata)")
+            run(f"ip link set dev {iface} mtu {mtu}", shell=True, check=True)
+            _clear_netplan_mtu()
+            if mtu < GCP_MAX_MTU:
+                LOGGER.warning(gcp_mtu_warning(mtu))
+                _record_mtu_warning(mtu)
+        else:
+            # Standard: clamp to 1460 but never exceed the VPC MTU (which can
+            # be below 1460 on Cloud VPN / IPsec networks). Jumbo frames are
+            # reserved for Tier 1, so there is nothing to warn about here.
+            mtu = min(GCP_STANDARD_MTU, mtu)
+            LOGGER.info(f"Standard instance detected. Clamping MTU on {iface} to {mtu}")
+            run(f"ip link set dev {iface} mtu {mtu}", shell=True, check=True)
+            _apply_netplan_mtu(iface, mtu)
+    except (OSError, ValueError, urllib.error.URLError, subprocess.CalledProcessError):
+        LOGGER.warning("Failed to set GCP MTU", exc_info=True)
+    except Exception:
+        LOGGER.error("Unexpected error in sync_gcp_mtu_from_vpc", exc_info=True)
 
 
 def disable_perftune():
@@ -68,3 +185,11 @@ if __name__ == "__main__":
         if not os.path.ismount("/var/lib/scylla") and not cloud_instance.is_dev_instance_type():
             LOGGER.error("Failed to initialize RAID volume!")
         machine_image_configured.touch()
+
+    if is_gce():
+        # On Tier 1 instances, query the VPC-configured MTU from GCP metadata
+        # on every boot and apply it to eth0 as a defensive reconcile. This
+        # runs outside the machine_image_configured guard so it picks up VPC
+        # MTU changes after a stop/start cycle. Standard instances are clamped
+        # to 1460 to reserve jumbo frames for Tier 1 only.
+        sync_gcp_mtu_from_vpc()
