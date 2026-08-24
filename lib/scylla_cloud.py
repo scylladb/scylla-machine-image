@@ -21,10 +21,28 @@ import urllib.error
 import urllib.request
 from abc import ABCMeta, abstractmethod
 from datetime import timezone
+from pathlib import Path
 from subprocess import CalledProcessError, run
 
 import psutil
 import traceback_with_variables
+
+
+GCP_MAX_MTU = 8896
+GCP_STANDARD_MTU = 1460
+GCP_NET_PARAMS_PATH = Path("/opt/scylladb/scylla-machine-image/gcp_net_params.json")
+# Written by scylla_image_setup at boot, read by the login banner.
+GCP_MTU_WARNING_PATH = Path("/etc/scylla/gcp_mtu_warning")
+
+
+def gcp_mtu_warning(mtu: int) -> str:
+    """Return the warning message when the VPC MTU is below GCP_MAX_MTU."""
+    return (
+        f"VPC MTU is {mtu}; jumbo frames are not enabled. For best streaming "
+        f"throughput set the VPC MTU to {GCP_MAX_MTU} "
+        f"('gcloud compute networks update <network> --mtu={GCP_MAX_MTU}'), then "
+        f"stop and start the instances — a guest reboot does not refresh the MTU."
+    )
 
 
 def out(cmd, shell=True, timeout=None, encoding="utf-8", ignore_error=False, user=None, group=None):
@@ -150,9 +168,8 @@ class CloudInstance(metaclass=ABCMeta):
     def io_setup(self):
         pass
 
-    @staticmethod
     @abstractmethod
-    def check():
+    def check(self):
         pass
 
     @property
@@ -431,9 +448,61 @@ class GcpInstance(CloudInstance):
     def private_ipv4(self):
         return self.__instance_metadata("network-interfaces/0/ip")
 
-    @staticmethod
-    def check():
-        pass
+    @functools.cached_property
+    def network_mtu(self) -> int:
+        """Return the VPC-configured MTU for the primary network interface."""
+        return int(self.__instance_metadata("network-interfaces/0/mtu"))
+
+    @property
+    def tier1_override(self):
+        """Explicit Tier 1 networking setting, or None when the user didn't set one.
+
+        Honours an override assigned directly on the instance (scylla_configure
+        does that after parsing user-data), otherwise reads `tier1_networking`
+        from this instance's user-data. Deliberately not cached, so an override
+        assigned after the first read is still picked up.
+        """
+        assigned = getattr(self, "_tier1_override", None)
+        if assigned is not None:
+            return assigned
+        # Late import: lib.user_data reaches back into this module.
+        from lib.user_data import UserData
+
+        return UserData(cloud_instance=self).instance_user_data.get("tier1_networking")
+
+    @functools.cached_property
+    def is_tier1_networking(self) -> bool | None:
+        """Whether Tier 1 networking is active on this instance.
+
+        True for Tier 1, False for known-not-Tier-1, None when detection is
+        inconclusive (unknown instance type, or missing/corrupt data file).
+        Callers must treat None as "don't touch anything".
+        """
+        # Late import to avoid a circular dependency (param_estimation imports this module).
+        from lib.param_estimation import detect_gcp_tier1
+
+        try:
+            with open(GCP_NET_PARAMS_PATH) as f:
+                netinfo = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return None  # Data file missing or corrupt — detection inconclusive
+        instance_info = [info for info in netinfo if info[0] == self.instancetype]
+        if not instance_info:
+            return None  # Unknown instance type — detection inconclusive
+        default_bw_gbps = instance_info[0][1]
+        tier1_bw_gbps = instance_info[0][2]
+        return detect_gcp_tier1(default_bw_gbps, tier1_bw_gbps, self.tier1_override)
+
+    def check(self):
+        # Read the warning recorded at boot by scylla_image_setup rather than
+        # querying the metadata server: check() runs on every login, and a
+        # slow or unreachable metadata server must never stall it.
+        try:
+            warning = GCP_MTU_WARNING_PATH.read_text().strip()
+        except OSError:
+            return  # Nothing recorded (the usual case) — stay quiet.
+        if warning:
+            colorprint("{yellow}WARNING: {warning}{nocolor}", warning=warning)
 
     def io_setup(self):
         run("/opt/scylladb/scylla-machine-image/scylla_cloud_io_setup", check=True, shell=True)
@@ -628,8 +697,7 @@ class AzureInstance(CloudInstance):
     def private_ipv4(self):
         return self.__instance_metadata("/network/interface/0/ipv4/ipAddress/0/privateIpAddress")
 
-    @staticmethod
-    def check():
+    def check(self):
         pass
 
     def io_setup(self):
@@ -826,8 +894,7 @@ class OciInstance(CloudInstance):
         shape = self.instancetype
         return bool("Micro" in shape or shape.startswith("VM.Standard.E2.1"))
 
-    @staticmethod
-    def check():
+    def check(self):
         """Perform instance check."""
         return run("/opt/scylladb/scylla-machine-image/scylla_ec2_check --nic eth0", shell=True)
 
@@ -1158,8 +1225,7 @@ class AwsInstance(CloudInstance):
         mac_stat = self.__instance_metadata(f"meta-data/network/interfaces/macs/{mac}")
         return bool(re.search(r"^vpc-id$", mac_stat, flags=re.MULTILINE))
 
-    @staticmethod
-    def check():
+    def check(self):
         return run("/opt/scylladb/scylla-machine-image/scylla_ec2_check --nic eth0", shell=True)
 
     def io_setup(self):
