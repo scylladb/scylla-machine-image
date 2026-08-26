@@ -158,38 +158,44 @@ if __name__ == "__main__":
         swap_unit.unlink(missing_ok=True)
         run(f"/opt/scylladb/scripts/scylla_swap_setup --swap-directory {swap_directory}", shell=True, check=True)
     machine_image_configured = Path("/etc/scylla/machine_image_configured")
-    if not machine_image_configured.exists():
-        run("/opt/scylladb/scripts/scylla_cpuscaling_setup", shell=True, check=True)
-        cloud_instance = get_cloud_instance()
-        run("/opt/scylladb/scylla-machine-image/scylla_configure.py", shell=True, check=True)
+    try:
+        if not machine_image_configured.exists():
+            run("/opt/scylladb/scripts/scylla_cpuscaling_setup", shell=True, check=True)
+            cloud_instance = get_cloud_instance()
+            run("/opt/scylladb/scylla-machine-image/scylla_configure.py", shell=True, check=True)
 
-        try:
-            run("/opt/scylladb/scripts/scylla_sysconfig_setup --nic eth0 --setup-nic", shell=True, check=True)
-        except subprocess.CalledProcessError as e:
-            # There are kernel bug on some aarch64 instance types on EC2, it does not provide NUMA topology
-            # information, perftune crashes because of that.
-            # Only possible workaround is disable perftune for these instance types, for now.
-            # see: scylladb/seastar#2925
-            affected_instance_types = ["im4gn.8xlarge", "im4gn.16xlarge"]
-            if e.returncode == 3 and is_ec2() and cloud_instance.instancetype in affected_instance_types:
-                disable_perftune()
-                LOGGER.warning("Failed to enable perftune.py, continue without using it")
-            else:
-                raise e
-        if os.path.ismount("/var/lib/scylla") and cloud_instance.is_supported_instance_class():
-            cloud_instance.io_setup()
-            run("systemctl daemon-reload", shell=True, check=True)
-            run("systemctl enable var-lib-systemd-coredump.mount", shell=True, check=True)
-            run("systemctl start var-lib-systemd-coredump.mount", shell=True, check=True)
+            try:
+                run("/opt/scylladb/scripts/scylla_sysconfig_setup --nic eth0 --setup-nic", shell=True, check=True)
+            except subprocess.CalledProcessError as e:
+                # There are kernel bug on some aarch64 instance types on EC2, it does not provide NUMA topology
+                # information, perftune crashes because of that.
+                # Only possible workaround is disable perftune for these instance types, for now.
+                # see: scylladb/seastar#2925
+                affected_instance_types = ["im4gn.8xlarge", "im4gn.16xlarge"]
+                if e.returncode == 3 and is_ec2() and cloud_instance.instancetype in affected_instance_types:
+                    disable_perftune()
+                    LOGGER.warning("Failed to enable perftune.py, continue without using it")
+                else:
+                    raise e
+            if os.path.ismount("/var/lib/scylla") and cloud_instance.is_supported_instance_class():
+                cloud_instance.io_setup()
+                run("systemctl daemon-reload", shell=True, check=True)
+                run("systemctl enable var-lib-systemd-coredump.mount", shell=True, check=True)
+                run("systemctl start var-lib-systemd-coredump.mount", shell=True, check=True)
 
-        if not os.path.ismount("/var/lib/scylla") and not cloud_instance.is_dev_instance_type():
-            LOGGER.error("Failed to initialize RAID volume!")
-        machine_image_configured.touch()
-
-    if is_gce():
-        # On Tier 1 instances, query the VPC-configured MTU from GCP metadata
-        # on every boot and apply it to eth0 as a defensive reconcile. This
-        # runs outside the machine_image_configured guard so it picks up VPC
-        # MTU changes after a stop/start cycle. Standard instances are clamped
-        # to 1460 to reserve jumbo frames for Tier 1 only.
-        sync_gcp_mtu_from_vpc()
+            if not os.path.ismount("/var/lib/scylla") and not cloud_instance.is_dev_instance_type():
+                LOGGER.error("Failed to initialize RAID volume!")
+            machine_image_configured.touch()
+    finally:
+        if is_gce():
+            # On Tier 1 instances, query the VPC-configured MTU from GCP metadata on
+            # every boot and apply it to eth0 as a defensive reconcile. Standard
+            # instances are clamped to 1460 to reserve jumbo frames for Tier 1 only.
+            #
+            # In a `finally` so it runs on every boot regardless of the guard above,
+            # and regardless of an earlier failure in it: the MTU depends on neither
+            # disks nor scylla.yaml, and a boot that failed for an unrelated reason is
+            # exactly when the operator still needs the jumbo-frames warning. It cannot
+            # mask that failure -- sync_gcp_mtu_from_vpc() handles its own exceptions,
+            # so nothing escapes the finally and the original error still propagates.
+            sync_gcp_mtu_from_vpc()
