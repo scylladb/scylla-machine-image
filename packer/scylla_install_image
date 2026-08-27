@@ -257,7 +257,7 @@ if __name__ == "__main__":
     apt_get(
         f"install -y --auto-remove {args.product}-machine-image {args.product}-server-dbg "
         "chrony cpufrequtils curl dnsutils ethtool htop initramfs-tools jq mdadm ncat netcat-openbsd "
-        "net-tools nftables nload nmap python3-boto3 sysstat systemd-coredump tmux traceroute vim-nox vim.tiny wget xfsprogs aide"
+        "net-tools nftables nload nmap python3-boto3 sysstat systemd-coredump tmux traceroute vim wget xfsprogs aide"
     )
     apt_get(
         "purge -y accountsservice acpid amd64-microcode apport fuse fwupd-signed modemmanager motd-news-config open-vm-tools postfix python3-apport snapd sudo-rs udisks2 unattended-upgrades update-notifier-common"
