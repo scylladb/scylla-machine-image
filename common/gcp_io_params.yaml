@@ -184,3 +184,44 @@ measured_local_ssd:
       read_bandwidth: 10026428416
       write_iops: 1400363
       write_bandwidth: 5834600960
+  n2-standard-32:
+    8:
+      read_iops: 719943
+      read_bandwidth: 2949060608
+      write_iops: 399649
+      write_bandwidth: 1648710016
+  # n2d reaches 8.3 GB/s read on 24 disks at 32 vCPUs, where n2-highmem-32 only
+  # reaches 6.4 GB/s -- the ceiling is a property of the machine family, not of
+  # the vCPU count. n2d never reaches Google's 9814671360, even at 96 vCPUs.
+  n2d-highmem-32:
+    24:
+      read_iops: 2332396
+      read_bandwidth: 8300612096
+      write_iops: 1400001
+      write_bandwidth: 5759377408
+  n2d-highmem-64:
+    24:
+      read_iops: 2520702
+      read_bandwidth: 8837319680
+      write_iops: 1399428
+      write_bandwidth: 5784706048
+  n2d-highmem-96:
+    24:
+      read_iops: 2519431
+      read_bandwidth: 8922923008
+      write_iops: 1399155
+      write_bandwidth: 5807921152
+  # c2 accepts at most 8 local SSDs (GCE rejects anything else with
+  # "should be one of [0, 4, 8]"), so there is no 16 or 24 disk entry for it.
+  c2-standard-30:
+    8:
+      read_iops: 719975
+      read_bandwidth: 2946133504
+      write_iops: 399731
+      write_bandwidth: 1649673344
+  c2-standard-60:
+    8:
+      read_iops: 719508
+      read_bandwidth: 2949644800
+      write_iops: 399585
+      write_bandwidth: 1660481280
