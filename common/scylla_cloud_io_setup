@@ -93,13 +93,18 @@ class GcpIoSetup(CloudIoSetup):
         instance_type = self.idata.instancetype
         nr_disks = self.idata.nvme_disk_count
 
-        # Try to load parameters from YAML file, first by instance type, then by
+        # Try to load parameters from YAML file: what we measured for this exact
+        # instance type and disk count first, then by instance type, and finally by
         # the number of local SSDs attached (Google's published limits).
         params = None
         try:
             with open("/opt/scylladb/scylla-machine-image/gcp_io_params.yaml") as f:
                 io_params = yaml.safe_load(f)
-            params = io_params.get(instance_type) or self.local_ssd_params(io_params, nr_disks)
+            params = (
+                io_params.get("measured_local_ssd", {}).get(instance_type, {}).get(nr_disks)
+                or io_params.get(instance_type)
+                or self.local_ssd_params(io_params, nr_disks)
+            )
         except FileNotFoundError:
             logging.warning("GCP I/O parameters file not found, falling back to scylla_io_setup")
         except Exception as e:
@@ -117,8 +122,10 @@ class GcpIoSetup(CloudIoSetup):
     def local_ssd_params(self, io_params, nr_disks):
         """Google's published local SSD (NVMe) limits for this number of disks, if applicable.
 
-        Returns None when the numbers are not applicable, so that the caller falls
-        back to measuring the disks with iotune.
+        Only consulted when we have no measurement of our own for this instance type
+        and disk count, see `measured_local_ssd` in gcp_io_params.yaml. Returns None
+        when the numbers are not applicable, so that the caller falls back to
+        measuring the disks with iotune.
         """
         min_cpu = self.min_cpu_for_max_performance()
         if self.idata.cpu < min_cpu:

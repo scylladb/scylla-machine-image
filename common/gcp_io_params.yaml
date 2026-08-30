@@ -127,3 +127,60 @@ local_ssd_nvme:
     read_bandwidth: 13086228480
     write_iops: 1600000
     write_bandwidth: 6543114240
+
+# Measured on real instances by the SCT artifacts-gce-image-test job, keyed by
+# instance type and the number of local SSDs attached.
+#
+# Google's published figures under `local_ssd_nvme` below are not reachable on
+# every instance that clears MIN_CPU_FOR_MAX_PERFORMANCE: read_bandwidth in
+# particular depends on the instance size, not just the disk count. Measured on
+# 24 local SSDs, read_bandwidth ranged from 6.37 GB/s on n2-highmem-32 to
+# 10.16 GB/s on n2-highmem-64, against Google's published 9.81 GB/s.
+#
+# Values here are the lowest measurement observed for that instance type and
+# disk count, so the preset stays reachable, the same way aws_io_params.yaml is
+# built from measurements rather than published specs. This table is consulted
+# before `local_ssd_nvme`.
+measured_local_ssd:
+  n2-highmem-32:
+    # lowest of two runs (read_bandwidth 6372356096 and 6478479360)
+    16:
+      read_iops: 1679282
+      read_bandwidth: 5800099328
+      write_iops: 905453
+      write_bandwidth: 3841603328
+    24:
+      read_iops: 2386730
+      read_bandwidth: 6372356096
+      write_iops: 1358652
+      write_bandwidth: 5564101632
+  n2-highmem-48:
+    24:
+      read_iops: 2520061
+      read_bandwidth: 8896606208
+      write_iops: 1398789
+      write_bandwidth: 5772357632
+  n2-highmem-64:
+    24:
+      read_iops: 2520072
+      read_bandwidth: 10159486976
+      write_iops: 1400613
+      write_bandwidth: 5786063360
+  n2-highmem-80:
+    24:
+      read_iops: 2153194
+      read_bandwidth: 8922985472
+      write_iops: 1400245
+      write_bandwidth: 5796071936
+  n2-highmem-96:
+    24:
+      read_iops: 2519918
+      read_bandwidth: 10086702080
+      write_iops: 1399398
+      write_bandwidth: 5810061312
+  n2-highmem-128:
+    24:
+      read_iops: 2517489
+      read_bandwidth: 10026428416
+      write_iops: 1400363
+      write_bandwidth: 5834600960
