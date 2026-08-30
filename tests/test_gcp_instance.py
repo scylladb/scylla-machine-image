@@ -691,6 +691,16 @@ MOCK_GCP_IO_PARAMS = {
             "write_bandwidth": 4907335680,
         },
     },
+    "measured_local_ssd": {
+        "n2-highmem-32": {
+            24: {
+                "read_iops": 2386730,
+                "read_bandwidth": 6372356096,
+                "write_iops": 1358652,
+                "write_bandwidth": 5564101632,
+            },
+        },
+    },
 }
 
 
@@ -797,6 +807,45 @@ class TestGcpIoSetup(TestCase):
                     assert io_setup.disk_properties["write_iops"] == write_iops
                     assert io_setup.disk_properties["write_bandwidth"] == write_bandwidth
                     mock_save.assert_called_once()
+
+    def test_gcp_io_setup_prefers_measured_values(self):
+        """What we measured for this instance type and disk count wins over Google's table.
+
+        n2-highmem-32 clears the 24 vCPU gate but only reaches 6372356096 read_bandwidth
+        on 24 local SSDs, not the 9814671360 Google publishes.
+        """
+        mock_instance = MockGcpInstance(instance_type="n2-highmem-32", nvme_disk_count=24, cpu=32)
+        io_setup = GcpIoSetup(mock_instance)
+
+        mock_yaml_content = yaml.dump(MOCK_GCP_IO_PARAMS)
+
+        with (
+            unittest.mock.patch("builtins.open", unittest.mock.mock_open(read_data=mock_yaml_content)),
+            unittest.mock.patch.object(io_setup, "save") as mock_save,
+        ):
+            io_setup.generate()
+
+            assert io_setup.disk_properties["read_iops"] == 2386730
+            assert io_setup.disk_properties["read_bandwidth"] == 6372356096
+            assert io_setup.disk_properties["write_iops"] == 1358652
+            assert io_setup.disk_properties["write_bandwidth"] == 5564101632
+            mock_save.assert_called_once()
+
+    def test_gcp_io_setup_measured_only_applies_to_the_disk_count_measured(self):
+        """A measured instance type at a disk count we never measured uses Google's table."""
+        mock_instance = MockGcpInstance(instance_type="n2-highmem-32", nvme_disk_count=4, cpu=32)
+        io_setup = GcpIoSetup(mock_instance)
+
+        mock_yaml_content = yaml.dump(MOCK_GCP_IO_PARAMS)
+
+        with (
+            unittest.mock.patch("builtins.open", unittest.mock.mock_open(read_data=mock_yaml_content)),
+            unittest.mock.patch.object(io_setup, "save") as mock_save,
+        ):
+            io_setup.generate()
+
+            assert io_setup.disk_properties["read_bandwidth"] == 2778726400
+            mock_save.assert_called_once()
 
     def test_gcp_io_setup_runs_iotune_when_not_enough_cpus(self):
         """Instances with too few vCPUs cannot reach Google's limits, so iotune measures them."""
