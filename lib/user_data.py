@@ -12,9 +12,12 @@ LOGGER = logging.getLogger(__name__)
 
 
 class UserData:
-    def __init__(self, *arg, **kwargs):
+    def __init__(self, *arg, cloud_instance=None, **kwargs):
         self._instance_user_data = None
-        self._cloud_instance = None
+        # Callers that already hold a CloudInstance can pass it in, so the
+        # user-data is read from that instance rather than a freshly
+        # identified one.
+        self._cloud_instance = cloud_instance
 
     @property
     def cloud_instance(self):
@@ -44,7 +47,14 @@ class UserData:
                 # try parse yaml, and fallback to parsing json
                 self._instance_user_data = {}
                 if raw_user_data:
-                    self._instance_user_data = yaml.safe_load(raw_user_data)
+                    parsed = yaml.safe_load(raw_user_data)
+                    # user-data can be valid YAML without being a mapping (a bare
+                    # string parses fine), while every consumer here expects a
+                    # dict to .get() from.
+                    if isinstance(parsed, dict):
+                        self._instance_user_data = parsed
+                    else:
+                        LOGGER.warning("user-data is not a mapping (got %s). Will use defaults!", type(parsed).__name__)
                 LOGGER.debug("parsed user-data: %s", self._instance_user_data)
             except Exception as e:
                 LOGGER.warning("Error getting user data: %s. Will use defaults!", e)

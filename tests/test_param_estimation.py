@@ -14,8 +14,8 @@ import pytest
 sys.path.append(str(Path(__file__).parent.parent))
 
 from lib.param_estimation import (
-    _detect_gcp_tier1,
     _get_nic_speed_mbps,
+    detect_gcp_tier1,
     estimate_streaming_bandwidth,
 )
 
@@ -27,6 +27,11 @@ OCI_NET_PARAMS_PATH = str(Path(__file__).parent.parent / "common" / "oci_net_par
 class DummyCloudInstance:
     def __init__(self, instancetype):
         self.instancetype = instancetype
+
+    @property
+    def tier1_override(self):
+        """Mirror GcpInstance.tier1_override, which honours an assigned override."""
+        return getattr(self, "_tier1_override", None)
 
 
 class DummyOciCloudInstance:
@@ -287,19 +292,19 @@ class TestGcpTier1Detection(TestCase):
         assert result is None
 
     def test_detect_gcp_tier1_returns_false_for_unsupported_instance(self):
-        """_detect_gcp_tier1 returns False when tier1_bw_gbps is None regardless of inputs."""
-        assert _detect_gcp_tier1(10.0, None) is False
-        assert _detect_gcp_tier1(10.0, None, tier1_override=True) is False
+        """detect_gcp_tier1 returns False when tier1_bw_gbps is None regardless of inputs."""
+        assert detect_gcp_tier1(10.0, None) is False
+        assert detect_gcp_tier1(10.0, None, tier1_override=True) is False
 
     def test_detect_gcp_tier1_override_respected_before_sysfs(self):
-        """_detect_gcp_tier1 returns override value before any sysfs/API calls."""
+        """detect_gcp_tier1 returns override value before any sysfs/API calls."""
         with (
             unittest.mock.patch("lib.param_estimation._get_nic_speed_mbps") as mock_speed,
             unittest.mock.patch("lib.param_estimation._query_compute_api_tier") as mock_api,
             unittest.mock.patch("lib.param_estimation._query_metadata_tier1_attribute") as mock_meta,
         ):
-            assert _detect_gcp_tier1(32.0, 50.0, tier1_override=True) is True
-            assert _detect_gcp_tier1(32.0, 50.0, tier1_override=False) is False
+            assert detect_gcp_tier1(32.0, 50.0, tier1_override=True) is True
+            assert detect_gcp_tier1(32.0, 50.0, tier1_override=False) is False
             mock_speed.assert_not_called()
             mock_api.assert_not_called()
             mock_meta.assert_not_called()
@@ -311,8 +316,32 @@ class TestGcpTier1Detection(TestCase):
             unittest.mock.patch("lib.param_estimation._get_nic_speed_mbps", return_value=None),
             unittest.mock.patch("lib.param_estimation._query_compute_api_tier", return_value=None),
         ):
-            result = _detect_gcp_tier1(32.0, 50.0, tier1_override=None)
+            result = detect_gcp_tier1(32.0, 50.0, tier1_override=None)
         assert result is True
+
+    def test_detect_gcp_tier1_inconclusive_returns_none(self):
+        """No evidence in either direction returns None, not False.
+
+        None must stay distinguishable from False: callers clamp the MTU on
+        False and skip entirely on None.
+        """
+        with (
+            unittest.mock.patch("lib.param_estimation._query_metadata_tier1_attribute", return_value=None),
+            unittest.mock.patch("lib.param_estimation._get_nic_speed_mbps", return_value=None),
+            unittest.mock.patch("lib.param_estimation._query_compute_api_tier", return_value=None),
+        ):
+            result = detect_gcp_tier1(32.0, 50.0, tier1_override=None)
+        assert result is None
+
+    def test_detect_gcp_tier1_api_default_returns_false(self):
+        """An explicit DEFAULT tier from the Compute API is negative evidence, not absence of it."""
+        with (
+            unittest.mock.patch("lib.param_estimation._query_metadata_tier1_attribute", return_value=None),
+            unittest.mock.patch("lib.param_estimation._get_nic_speed_mbps", return_value=None),
+            unittest.mock.patch("lib.param_estimation._query_compute_api_tier", return_value="DEFAULT"),
+        ):
+            result = detect_gcp_tier1(32.0, 50.0, tier1_override=None)
+        assert result is False
 
     def test_detect_gcp_tier1_metadata_attribute_false(self):
         """GCP instance metadata attribute scylla_tier1_networking=false disables tier1 even if sysfs says tier1."""
@@ -321,7 +350,7 @@ class TestGcpTier1Detection(TestCase):
             unittest.mock.patch("lib.param_estimation._get_nic_speed_mbps", return_value=50000),
             unittest.mock.patch("lib.param_estimation._query_compute_api_tier", return_value="TIER_1"),
         ):
-            result = _detect_gcp_tier1(32.0, 50.0, tier1_override=None)
+            result = detect_gcp_tier1(32.0, 50.0, tier1_override=None)
         assert result is False
 
     def test_detect_gcp_tier1_user_override_beats_metadata_attribute(self):
@@ -331,7 +360,7 @@ class TestGcpTier1Detection(TestCase):
             unittest.mock.patch("lib.param_estimation._get_nic_speed_mbps") as mock_speed,
         ):
             # User says False, metadata says True — user wins
-            result = _detect_gcp_tier1(32.0, 50.0, tier1_override=False)
+            result = detect_gcp_tier1(32.0, 50.0, tier1_override=False)
             assert result is False
             mock_meta.assert_not_called()
             mock_speed.assert_not_called()
@@ -343,15 +372,15 @@ class TestGcpTier1Detection(TestCase):
             unittest.mock.patch("lib.param_estimation._get_nic_speed_mbps") as mock_speed,
             unittest.mock.patch("lib.param_estimation._query_compute_api_tier") as mock_api,
         ):
-            assert _detect_gcp_tier1(32.0, 50.0, tier1_override="true") is True
-            assert _detect_gcp_tier1(32.0, 50.0, tier1_override="True") is True
-            assert _detect_gcp_tier1(32.0, 50.0, tier1_override="1") is True
-            assert _detect_gcp_tier1(32.0, 50.0, tier1_override="yes") is True
-            assert _detect_gcp_tier1(32.0, 50.0, tier1_override="false") is False
-            assert _detect_gcp_tier1(32.0, 50.0, tier1_override="False") is False
-            assert _detect_gcp_tier1(32.0, 50.0, tier1_override="0") is False
-            assert _detect_gcp_tier1(32.0, 50.0, tier1_override="no") is False
-            assert _detect_gcp_tier1(32.0, 50.0, tier1_override="garbage") is False
+            assert detect_gcp_tier1(32.0, 50.0, tier1_override="true") is True
+            assert detect_gcp_tier1(32.0, 50.0, tier1_override="True") is True
+            assert detect_gcp_tier1(32.0, 50.0, tier1_override="1") is True
+            assert detect_gcp_tier1(32.0, 50.0, tier1_override="yes") is True
+            assert detect_gcp_tier1(32.0, 50.0, tier1_override="false") is False
+            assert detect_gcp_tier1(32.0, 50.0, tier1_override="False") is False
+            assert detect_gcp_tier1(32.0, 50.0, tier1_override="0") is False
+            assert detect_gcp_tier1(32.0, 50.0, tier1_override="no") is False
+            assert detect_gcp_tier1(32.0, 50.0, tier1_override="garbage") is False
             mock_meta.assert_not_called()
             mock_speed.assert_not_called()
             mock_api.assert_not_called()
