@@ -648,6 +648,66 @@ r6gd.metal:
   read_iops: 416257
   write_bandwidth: 1063657088
   write_iops: 156326
+r8gd.medium:
+  read_bandwidth: 117932072
+  read_iops: 16771
+  write_bandwidth: 56385928
+  write_iops: 8385
+r8gd.large:
+  read_bandwidth: 235789488
+  read_iops: 33548
+  write_bandwidth: 112773888
+  write_iops: 16772
+r8gd.xlarge:
+  read_bandwidth: 472369472
+  read_iops: 67097
+  write_bandwidth: 225749696
+  write_iops: 33548
+r8gd.2xlarge:
+  read_bandwidth: 948230208
+  read_iops: 134267
+  write_bandwidth: 452298752
+  write_iops: 67099
+r8gd.4xlarge:
+  read_bandwidth: 1910486656
+  read_iops: 268820
+  write_bandwidth: 907869248
+  write_iops: 134269
+r8gd.8xlarge:
+  read_bandwidth: 3878807808
+  read_iops: 559412
+  write_bandwidth: 1828678784
+  write_iops: 268820
+r8gd.12xlarge:
+  read_bandwidth: 1906166784
+  read_iops: 268756
+  write_bandwidth: 911090347
+  write_iops: 134096
+r8gd.16xlarge:
+  read_bandwidth: 3878810624
+  read_iops: 568397
+  write_bandwidth: 1830917632
+  write_iops: 268880
+r8gd.24xlarge:
+  read_bandwidth: 3878781269
+  read_iops: 567360
+  write_bandwidth: 1835725141
+  write_iops: 268624
+r8gd.48xlarge:
+  read_bandwidth: 3870049280
+  read_iops: 570023
+  write_bandwidth: 1856097451
+  write_iops: 268816
+r8gd.metal-24xl:
+  read_bandwidth: 3878781269
+  read_iops: 567360
+  write_bandwidth: 1835725141
+  write_iops: 268624
+r8gd.metal-48xl:
+  read_bandwidth: 3870049280
+  read_iops: 570023
+  write_bandwidth: 1856097451
+  write_iops: 268816
 x2gd.medium:
   read_bandwidth: 77869147
   read_iops: 14808

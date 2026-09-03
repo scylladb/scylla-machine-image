@@ -270,6 +270,12 @@ class TestAwsInstance(TestCase, AwsMetadata):
         ins = AwsInstance()
         assert ins.endpoint_snitch == "Ec2Snitch"
 
+    def test_is_supported_instance_class_r8gd(self):
+        self.httpretty_aws_metadata(instance_type="r8gd.8xlarge")
+        ins = AwsInstance()
+        assert ins.is_supported_instance_class()
+        assert ins.get_en_interface_type() == "ena"
+
     def test_instancetype_i3en_2xlarge(self):
         self.httpretty_aws_metadata()
         ins = AwsInstance()
