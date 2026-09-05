@@ -63,3 +63,165 @@ z3-highmem-176-standardlssd:
   read_bandwidth: 38654705664
   write_iops: 6000000
   write_bandwidth: 32212254720
+
+# Local SSD (NVMe) performance limits published by Google, keyed by the number of
+# local SSD disks attached to the instance. Used for machine types which do not
+# have their own entry above (n1, n2, n2d, c2, ...).
+# https://cloud.google.com/compute/docs/disks/local-ssd#local-ssd-perf-nvme
+# Bandwidth is Google's MiB/s figure converted to bytes/s.
+# These numbers are only reachable when the instance has enough vCPUs, see
+# GcpIoSetup.MIN_CPU_FOR_MAX_PERFORMANCE in scylla_cloud_io_setup.
+local_ssd_nvme:
+  1:
+    read_iops: 170000
+    read_bandwidth: 692060160
+    write_iops: 90000
+    write_bandwidth: 367001600
+  2:
+    read_iops: 340000
+    read_bandwidth: 1384120320
+    write_iops: 180000
+    write_bandwidth: 734003200
+  3:
+    read_iops: 510000
+    read_bandwidth: 2076180480
+    write_iops: 270000
+    write_bandwidth: 1101004800
+  4:
+    read_iops: 680000
+    read_bandwidth: 2778726400
+    write_iops: 360000
+    write_bandwidth: 1468006400
+  5:
+    read_iops: 680000
+    read_bandwidth: 2778726400
+    write_iops: 360000
+    write_bandwidth: 1468006400
+  6:
+    read_iops: 680000
+    read_bandwidth: 2778726400
+    write_iops: 360000
+    write_bandwidth: 1468006400
+  7:
+    read_iops: 680000
+    read_bandwidth: 2778726400
+    write_iops: 360000
+    write_bandwidth: 1468006400
+  8:
+    read_iops: 680000
+    read_bandwidth: 2778726400
+    write_iops: 360000
+    write_bandwidth: 1468006400
+  16:
+    read_iops: 1600000
+    read_bandwidth: 6543114240
+    write_iops: 800000
+    write_bandwidth: 3271557120
+  24:
+    read_iops: 2400000
+    read_bandwidth: 9814671360
+    write_iops: 1200000
+    write_bandwidth: 4907335680
+  32:
+    read_iops: 3200000
+    read_bandwidth: 13086228480
+    write_iops: 1600000
+    write_bandwidth: 6543114240
+
+# Measured on real instances by the SCT artifacts-gce-image-test job, keyed by
+# instance type and the number of local SSDs attached.
+#
+# Google's published figures under `local_ssd_nvme` below are not reachable on
+# every instance that clears MIN_CPU_FOR_MAX_PERFORMANCE: read_bandwidth in
+# particular depends on the instance size, not just the disk count. Measured on
+# 24 local SSDs, read_bandwidth ranged from 6.37 GB/s on n2-highmem-32 to
+# 10.16 GB/s on n2-highmem-64, against Google's published 9.81 GB/s.
+#
+# Values here are the lowest measurement observed for that instance type and
+# disk count, so the preset stays reachable, the same way aws_io_params.yaml is
+# built from measurements rather than published specs. This table is consulted
+# before `local_ssd_nvme`.
+measured_local_ssd:
+  n2-highmem-32:
+    # lowest of two runs (read_bandwidth 6372356096 and 6478479360)
+    16:
+      read_iops: 1679282
+      read_bandwidth: 5800099328
+      write_iops: 905453
+      write_bandwidth: 3841603328
+    24:
+      read_iops: 2386730
+      read_bandwidth: 6372356096
+      write_iops: 1358652
+      write_bandwidth: 5564101632
+  n2-highmem-48:
+    24:
+      read_iops: 2520061
+      read_bandwidth: 8896606208
+      write_iops: 1398789
+      write_bandwidth: 5772357632
+  n2-highmem-64:
+    24:
+      read_iops: 2520072
+      read_bandwidth: 10159486976
+      write_iops: 1400613
+      write_bandwidth: 5786063360
+  n2-highmem-80:
+    24:
+      read_iops: 2153194
+      read_bandwidth: 8922985472
+      write_iops: 1400245
+      write_bandwidth: 5796071936
+  n2-highmem-96:
+    24:
+      read_iops: 2519918
+      read_bandwidth: 10086702080
+      write_iops: 1399398
+      write_bandwidth: 5810061312
+  n2-highmem-128:
+    24:
+      read_iops: 2517489
+      read_bandwidth: 10026428416
+      write_iops: 1400363
+      write_bandwidth: 5834600960
+  n2-standard-32:
+    8:
+      read_iops: 719943
+      read_bandwidth: 2949060608
+      write_iops: 399649
+      write_bandwidth: 1648710016
+  # n2d reaches 8.3 GB/s read on 24 disks at 32 vCPUs, where n2-highmem-32 only
+  # reaches 6.4 GB/s -- the ceiling is a property of the machine family, not of
+  # the vCPU count. n2d never reaches Google's 9814671360, even at 96 vCPUs.
+  n2d-highmem-32:
+    24:
+      read_iops: 2332396
+      read_bandwidth: 8300612096
+      write_iops: 1400001
+      write_bandwidth: 5759377408
+  n2d-highmem-64:
+    24:
+      read_iops: 2520702
+      read_bandwidth: 8837319680
+      write_iops: 1399428
+      write_bandwidth: 5784706048
+  n2d-highmem-96:
+    24:
+      read_iops: 2519431
+      read_bandwidth: 8922923008
+      write_iops: 1399155
+      write_bandwidth: 5807921152
+  # c2 accepts at most 8 local SSDs (GCE rejects anything else with
+  # "should be one of [0, 4, 8]"), so there is no 16 or 24 disk entry for it.
+  c2-standard-30:
+    8:
+      read_iops: 719975
+      read_bandwidth: 2946133504
+      write_iops: 399731
+      write_bandwidth: 1649673344
+  c2-standard-60:
+    8:
+      read_iops: 719508
+      read_bandwidth: 2949644800
+      write_iops: 399585
+      write_bandwidth: 1660481280
