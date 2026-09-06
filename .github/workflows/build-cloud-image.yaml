@@ -1,0 +1,247 @@
+name: Build Cloud Image from PR
+
+on:
+  pull_request_target:
+    types: [labeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+
+jobs:
+  trigger-build:
+    if: >-
+      startsWith(github.event.label.name, 'build/') ||
+      startsWith(github.event.label.name, 'test/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: machine-image-build-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Verify org membership
+        env:
+          SENDER_ASSOCIATION: ${{ github.event.sender.author_association }}
+        run: |
+          if [[ "$SENDER_ASSOCIATION" != "MEMBER" && "$SENDER_ASSOCIATION" != "OWNER" ]]; then
+            echo "::error::Only organization members can trigger image builds"
+            exit 1
+          fi
+
+      - name: Collect build and test labels
+        id: labels
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          LABELS=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/labels" --jq '.[].name')
+
+          BUILD_AMI=false
+          BUILD_GCP=false
+          BUILD_AZURE=false
+          BUILD_OCI=false
+          RUN_AMI_TEST=false
+          RUN_GCE_TEST=false
+          RUN_AZURE_TEST=false
+          RUN_OCI_TEST=false
+
+          while IFS= read -r label; do
+            case "$label" in
+              build/aws)   BUILD_AMI=true ;;
+              build/gce)   BUILD_GCP=true ;;
+              build/azure) BUILD_AZURE=true ;;
+              build/oci)   BUILD_OCI=true ;;
+              build/all)
+                BUILD_AMI=true; BUILD_GCP=true; BUILD_AZURE=true; BUILD_OCI=true ;;
+              test/aws)    BUILD_AMI=true; RUN_AMI_TEST=true ;;
+              test/gce)    BUILD_GCP=true; RUN_GCE_TEST=true ;;
+              test/azure)  BUILD_AZURE=true; RUN_AZURE_TEST=true ;;
+              test/oci)    BUILD_OCI=true; RUN_OCI_TEST=true ;;
+              test/all)
+                BUILD_AMI=true; BUILD_GCP=true; BUILD_AZURE=true; BUILD_OCI=true
+                RUN_AMI_TEST=true; RUN_GCE_TEST=true; RUN_AZURE_TEST=true; RUN_OCI_TEST=true ;;
+            esac
+          done <<< "$LABELS"
+
+          if [[ "$BUILD_AMI" == "false" && "$BUILD_GCP" == "false" && \
+                "$BUILD_AZURE" == "false" && "$BUILD_OCI" == "false" ]]; then
+            echo "::error::No valid build/ or test/ label found"
+            exit 1
+          fi
+
+          echo "build_ami=${BUILD_AMI}" >> "$GITHUB_OUTPUT"
+          echo "build_gcp=${BUILD_GCP}" >> "$GITHUB_OUTPUT"
+          echo "build_azure=${BUILD_AZURE}" >> "$GITHUB_OUTPUT"
+          echo "build_oci=${BUILD_OCI}" >> "$GITHUB_OUTPUT"
+          echo "run_ami_test=${RUN_AMI_TEST}" >> "$GITHUB_OUTPUT"
+          echo "run_gce_test=${RUN_GCE_TEST}" >> "$GITHUB_OUTPUT"
+          echo "run_azure_test=${RUN_AZURE_TEST}" >> "$GITHUB_OUTPUT"
+          echo "run_oci_test=${RUN_OCI_TEST}" >> "$GITHUB_OUTPUT"
+
+          TARGETS=""
+          [[ "$BUILD_AMI" == "true" ]] && TARGETS="${TARGETS}AWS "
+          [[ "$BUILD_GCP" == "true" ]] && TARGETS="${TARGETS}GCE "
+          [[ "$BUILD_AZURE" == "true" ]] && TARGETS="${TARGETS}Azure "
+          [[ "$BUILD_OCI" == "true" ]] && TARGETS="${TARGETS}OCI "
+          echo "targets=${TARGETS}" >> "$GITHUB_OUTPUT"
+
+          TESTS=""
+          [[ "$RUN_AMI_TEST" == "true" ]] && TESTS="${TESTS}AWS "
+          [[ "$RUN_GCE_TEST" == "true" ]] && TESTS="${TESTS}GCE "
+          [[ "$RUN_AZURE_TEST" == "true" ]] && TESTS="${TESTS}Azure "
+          [[ "$RUN_OCI_TEST" == "true" ]] && TESTS="${TESTS}OCI "
+          echo "tests=${TESTS:-none}" >> "$GITHUB_OUTPUT"
+
+      - name: Determine repo and branch
+        id: repo
+        env:
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          BASE_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$PR_HEAD_REPO" == "$BASE_REPO" ]]; then
+            MACHINE_IMAGE_REPO="git@github.com:${BASE_REPO}.git"
+          else
+            MACHINE_IMAGE_REPO="git@github.com:${PR_HEAD_REPO}.git"
+          fi
+
+          echo "repo=${MACHINE_IMAGE_REPO}" >> "$GITHUB_OUTPUT"
+          echo "branch=${PR_HEAD_REF}" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger Jenkins build
+        id: jenkins
+        env:
+          JENKINS_USER: ${{ secrets.JENKINS_USERNAME }}
+          JENKINS_TOKEN: ${{ secrets.JENKINS_TOKEN }}
+          JENKINS_URL: "https://jenkins.scylladb.com"
+          MACHINE_IMAGE_REPO: ${{ steps.repo.outputs.repo }}
+          MACHINE_IMAGE_BRANCH: ${{ steps.repo.outputs.branch }}
+          BUILD_AMI: ${{ steps.labels.outputs.build_ami }}
+          BUILD_GCP: ${{ steps.labels.outputs.build_gcp }}
+          BUILD_AZURE: ${{ steps.labels.outputs.build_azure }}
+          BUILD_OCI: ${{ steps.labels.outputs.build_oci }}
+          RUN_AMI_TEST: ${{ steps.labels.outputs.run_ami_test }}
+          RUN_GCE_TEST: ${{ steps.labels.outputs.run_gce_test }}
+          RUN_AZURE_TEST: ${{ steps.labels.outputs.run_azure_test }}
+          RUN_OCI_TEST: ${{ steps.labels.outputs.run_oci_test }}
+        run: |
+          set -euo pipefail
+
+          JOB_PATH="releng-testing/job/next-machine-image"
+
+          RESPONSE=$(curl -s -i -X POST \
+            "${JENKINS_URL}/job/${JOB_PATH}/buildWithParameters" \
+            --user "${JENKINS_USER}:${JENKINS_TOKEN}" \
+            --data-urlencode "MACHINE_IMAGE_REPO=${MACHINE_IMAGE_REPO}" \
+            --data-urlencode "MACHINE_IMAGE_BRANCH=${MACHINE_IMAGE_BRANCH}" \
+            --data-urlencode "BUILD_AMI=${BUILD_AMI}" \
+            --data-urlencode "BUILD_GCP=${BUILD_GCP}" \
+            --data-urlencode "BUILD_AZURE=${BUILD_AZURE}" \
+            --data-urlencode "BUILD_OCI=${BUILD_OCI}" \
+            --data-urlencode "BUILD_ARM=true" \
+            --data-urlencode "RUN_UNIFIED_TEST=true" \
+            --data-urlencode "RUN_AMI_TEST=${RUN_AMI_TEST}" \
+            --data-urlencode "RUN_GCE_TEST=${RUN_GCE_TEST}" \
+            --data-urlencode "RUN_AZURE_TEST=${RUN_AZURE_TEST}" \
+            --data-urlencode "RUN_OCI_TEST=${RUN_OCI_TEST}" \
+            --data-urlencode "DEBUG_MAIL=true" \
+            -w "\n%{http_code}")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          if [[ "$HTTP_CODE" -lt 200 || "$HTTP_CODE" -ge 300 ]]; then
+            echo "::error::Failed to trigger Jenkins job (HTTP ${HTTP_CODE})"
+            echo "$RESPONSE" | head -20
+            exit 1
+          fi
+
+          QUEUE_URL=$(echo "$RESPONSE" | grep -i "^Location:" | sed 's/[Ll]ocation: //;s/\r//')
+
+          BUILD_URL=""
+          for i in $(seq 1 30); do
+            sleep 5
+            QUEUE_JSON=$(curl -s --user "${JENKINS_USER}:${JENKINS_TOKEN}" \
+              "${QUEUE_URL}api/json" 2>/dev/null || true)
+            BUILD_URL=$(echo "$QUEUE_JSON" | jq -r '.executable.url // empty' 2>/dev/null || true)
+            if [[ -n "$BUILD_URL" ]]; then
+              break
+            fi
+          done
+
+          if [[ -z "$BUILD_URL" ]]; then
+            BUILD_URL="${JENKINS_URL}/job/${JOB_PATH}/"
+          fi
+
+          echo "build_url=${BUILD_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Add pending-ci label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh api "repos/${REPO}/issues/${PR_NUMBER}/labels" \
+            -f "labels[]=pending-ci" 2>/dev/null || true
+
+      - name: Set commit status
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          BUILD_URL: ${{ steps.jenkins.outputs.build_url }}
+          TARGETS: ${{ steps.labels.outputs.targets }}
+        run: |
+          gh api "repos/${REPO}/statuses/${SHA}" \
+            -f state="pending" \
+            -f context="jenkins/machine-image-build" \
+            -f description="Building: ${TARGETS}" \
+            -f target_url="${BUILD_URL}"
+
+      - name: Post PR comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          BUILD_URL: ${{ steps.jenkins.outputs.build_url }}
+          TARGETS: ${{ steps.labels.outputs.targets }}
+          TESTS: ${{ steps.labels.outputs.tests }}
+          BRANCH: ${{ steps.repo.outputs.branch }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          SENDER: ${{ github.event.sender.login }}
+        run: |
+          SHORT_SHA="${SHA:0:8}"
+
+          BODY="## :rocket: Machine Image Build Triggered
+
+          | Field | Value |
+          |-------|-------|
+          | **Build targets** | ${TARGETS} |
+          | **Test targets** | ${TESTS} |
+          | **Branch** | \`${BRANCH}\` |
+          | **Commit** | \`${SHORT_SHA}\` |
+          | **Jenkins** | [Build Link](${BUILD_URL}) |
+          | **Triggered by** | @${SENDER} |
+
+          Status will be updated when the build completes."
+
+          gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" -f body="${BODY}"
+
+      - name: Post failure comment
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          BODY="## :x: Machine Image Build Failed to Trigger
+
+          Check [workflow logs](${RUN_URL}) for details."
+
+          gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" -f body="${BODY}"
