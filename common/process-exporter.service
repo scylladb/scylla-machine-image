@@ -1,0 +1,8 @@
+[Unit]
+Description=Process Exporter
+
+[Service]
+ExecStart=/opt/scylladb/dependencies/process-exporter -config.path /opt/scylladb/dependencies/process-exporter.yml
+
+[Install]
+WantedBy=multi-user.target
