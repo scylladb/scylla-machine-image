@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import logging
 import sys
 import unittest.mock
@@ -309,6 +310,18 @@ class TestAwsInstance(TestCase, AwsMetadata):
         self.httpretty_aws_metadata(instance_type="t3.nano")
         ins = AwsInstance()
         assert not ins.is_supported_instance_class()
+
+    def test_is_supported_instance_class_m8gd(self):
+        self.httpretty_aws_metadata(instance_type="m8gd.4xlarge")
+        ins = AwsInstance()
+        assert ins.is_supported_instance_class()
+        assert ins.get_en_interface_type() == "ena"
+
+    def test_is_supported_instance_class_m9gd(self):
+        self.httpretty_aws_metadata(instance_type="m9gd.metal-48xl")
+        ins = AwsInstance()
+        assert ins.is_supported_instance_class()
+        assert ins.get_en_interface_type() == "ena"
 
     def test_get_en_interface_type_ena(self):
         self.httpretty_aws_metadata()
@@ -771,3 +784,50 @@ class TestAwsIoSetup(TestCase):
 
         with pytest.raises(UnsupportedInstanceClassError):
             io_setup.generate()
+
+
+@pytest.mark.unit
+class TestAwsM8gdM9gdParams(TestCase):
+    """m8gd/m9gd must have both pre-configured IO params and network params."""
+
+    io_params_path = Path(__file__).parent.parent / "common" / "aws_io_params.yaml"
+    net_params_path = Path(__file__).parent.parent / "common" / "aws_net_params.json"
+
+    sizes = [
+        "medium",
+        "large",
+        "xlarge",
+        "2xlarge",
+        "4xlarge",
+        "8xlarge",
+        "12xlarge",
+        "16xlarge",
+        "24xlarge",
+        "48xlarge",
+    ]
+
+    def test_io_and_net_params_present(self):
+        with open(self.io_params_path) as f:
+            io_params = yaml.safe_load(f)
+        with open(self.net_params_path) as f:
+            net_params = {info[0] for info in json.load(f)}
+
+        for family in ("m8gd", "m9gd"):
+            for size in self.sizes:
+                instance_type = f"{family}.{size}"
+                assert instance_type in io_params, f"{instance_type} missing from aws_io_params.yaml"
+                assert instance_type in net_params, f"{instance_type} missing from aws_net_params.json"
+                params = io_params[instance_type]
+                for key in ("read_iops", "read_bandwidth", "write_iops", "write_bandwidth"):
+                    assert params[key] > 0, f"{instance_type}: {key} must be positive"
+
+    def test_metal_sizes_match_their_virtualized_counterpart(self):
+        with open(self.io_params_path) as f:
+            io_params = yaml.safe_load(f)
+
+        for metal, virtualized in (
+            ("m8gd.metal-24xl", "m8gd.24xlarge"),
+            ("m8gd.metal-48xl", "m8gd.48xlarge"),
+            ("m9gd.metal-48xl", "m9gd.48xlarge"),
+        ):
+            assert io_params[metal] == io_params[virtualized]

@@ -2990,6 +2990,61 @@
     1.875
   ],
   [
+    "m9gd.12xlarge",
+    "25 Gigabit",
+    25.0
+  ],
+  [
+    "m9gd.16xlarge",
+    "34 Gigabit",
+    34.0
+  ],
+  [
+    "m9gd.24xlarge",
+    "50 Gigabit",
+    50.0
+  ],
+  [
+    "m9gd.2xlarge",
+    "Up to 17 Gigabit",
+    4.25
+  ],
+  [
+    "m9gd.48xlarge",
+    "100 Gigabit",
+    100.0
+  ],
+  [
+    "m9gd.4xlarge",
+    "Up to 17 Gigabit",
+    8.5
+  ],
+  [
+    "m9gd.8xlarge",
+    "17 Gigabit",
+    17.0
+  ],
+  [
+    "m9gd.large",
+    "Up to 15 Gigabit",
+    1.0
+  ],
+  [
+    "m9gd.medium",
+    "Up to 15 Gigabit",
+    0.55
+  ],
+  [
+    "m9gd.metal-48xl",
+    "100 Gigabit",
+    100.0
+  ],
+  [
+    "m9gd.xlarge",
+    "Up to 15 Gigabit",
+    2.1
+  ],
+  [
     "mac1.metal",
     "25 Gigabit",
     25.0
