@@ -1035,6 +1035,8 @@ class AwsInstance(CloudInstance):
             "i7ie",
             "i8g",
             "i8ge",
+            "m8gd",
+            "m9gd",
         ]
 
     def is_dev_instance_type(self):
@@ -1104,6 +1106,8 @@ class AwsInstance(CloudInstance):
             "i7ie",
             "i8g",
             "i8ge",
+            "m8gd",
+            "m9gd",
         ]:
             return "ena"
         if instance_class == "m4":
