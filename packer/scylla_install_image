@@ -396,11 +396,9 @@ WantedBy=multi-user.target
     os.makedirs("/var/lib/scylla/coredump", exist_ok=True)
 
     os.remove(f"{homedir}/.ssh/authorized_keys")
-    try:
+    # Newer versions dropped the housekeeping script and package, so the file may not be there
+    with contextlib.suppress(FileNotFoundError):
         os.remove("/var/lib/scylla-housekeeping/housekeeping.uuid")
-    except FileNotFoundError:
-        # Do nothing - newer versions dropped housekeeping script and package
-        pass
     os.remove("/var/cache/debconf/config.dat")
 
     with open("/etc/default/grub.d/50-cloudimg-settings.cfg") as f:
