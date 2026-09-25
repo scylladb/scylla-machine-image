@@ -1180,3 +1180,70 @@ class TestSyncGcpMtu(TestCase, GcpMetadata):
         assert paths.warning.exists()
         self._sync(tier1=True, mtu=8896, paths=paths)
         assert not paths.warning.exists()
+
+
+@pytest.fixture
+def image_setup(tmp_path, monkeypatch):
+    """Run the entrypoint without touching the host or invoking setup commands."""
+    (tmp_path / "swapfile").touch()
+    marker = tmp_path / "etc/scylla/machine_image_configured"
+    marker.parent.mkdir(parents=True)
+    monkeypatch.setattr(scylla_image_setup, "Path", lambda path: tmp_path / path.lstrip("/"))
+    monkeypatch.setattr(scylla_image_setup, "setup_logging", unittest.mock.Mock())
+    monkeypatch.setattr(scylla_image_setup, "is_azure", lambda: False)
+    monkeypatch.setattr(scylla_image_setup, "is_gce", lambda: True)
+    monkeypatch.setattr(scylla_image_setup.os.path, "ismount", lambda _path: True)
+    cloud = unittest.mock.Mock()
+    monkeypatch.setattr(scylla_image_setup, "get_cloud_instance", lambda: cloud)
+    run = unittest.mock.Mock()
+    monkeypatch.setattr(scylla_image_setup, "run", run)
+    mtu = unittest.mock.Mock()
+    monkeypatch.setattr(scylla_image_setup, "sync_gcp_mtu_from_vpc", mtu)
+    return SimpleNamespace(marker=marker, run=run, cloud=cloud, mtu=mtu)
+
+
+@pytest.mark.parametrize("gcp", [True, False])
+def test_image_setup_publishes_marker_after_network_setup(image_setup, monkeypatch, gcp):
+    monkeypatch.setattr(scylla_image_setup, "is_gce", lambda: gcp)
+
+    def check_not_ready():
+        assert not image_setup.marker.exists()
+        image_setup.run.assert_any_call(
+            "/opt/scylladb/scylla-machine-image/scylla_configure.py", shell=True, check=True
+        )
+        image_setup.cloud.io_setup.assert_called_once_with()
+
+    image_setup.mtu.side_effect = check_not_ready
+    scylla_image_setup.main()
+
+    assert image_setup.marker.exists()
+    if gcp:
+        image_setup.mtu.assert_called_once_with()
+    else:
+        image_setup.mtu.assert_not_called()
+
+
+def test_image_setup_failure_reconciles_mtu_without_publishing_marker(image_setup):
+    error = RuntimeError("initial setup failed")
+    image_setup.run.side_effect = error
+
+    def check_not_ready():
+        assert not image_setup.marker.exists()
+
+    image_setup.mtu.side_effect = check_not_ready
+    with pytest.raises(RuntimeError, match="initial setup failed") as exc:
+        scylla_image_setup.main()
+
+    assert exc.value is error
+    assert not image_setup.marker.exists()
+    image_setup.mtu.assert_called_once_with()
+
+
+def test_image_setup_already_configured_still_reconciles_mtu(image_setup):
+    image_setup.marker.touch()
+    scylla_image_setup.main()
+
+    assert image_setup.marker.exists()
+    image_setup.run.assert_not_called()
+    image_setup.cloud.io_setup.assert_not_called()
+    image_setup.mtu.assert_called_once_with()
