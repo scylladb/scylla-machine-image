@@ -145,7 +145,7 @@ def disable_perftune():
         f.write(sysconfig)
 
 
-if __name__ == "__main__":
+def main():
     setup_logging()
     if is_azure():
         swap_directory = Path("/mnt")
@@ -185,7 +185,6 @@ if __name__ == "__main__":
 
             if not os.path.ismount("/var/lib/scylla") and not cloud_instance.is_dev_instance_type():
                 LOGGER.error("Failed to initialize RAID volume!")
-            machine_image_configured.touch()
     finally:
         if is_gce():
             # On Tier 1 instances, query the VPC-configured MTU from GCP metadata on
@@ -199,3 +198,12 @@ if __name__ == "__main__":
             # mask that failure -- sync_gcp_mtu_from_vpc() handles its own exceptions,
             # so nothing escapes the finally and the original error still propagates.
             sync_gcp_mtu_from_vpc()
+
+    # The MTU reconcile can interrupt SSH. Publish first-boot readiness only
+    # after it finishes, and never when the initial setup raised an exception.
+    if not machine_image_configured.exists():
+        machine_image_configured.touch()
+
+
+if __name__ == "__main__":
+    main()
