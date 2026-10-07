@@ -1,0 +1,173 @@
+name: Check Jenkins Build Status
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+
+jobs:
+  check-status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Find PRs with pending-ci label
+        id: pending
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          PRS=$(gh api "repos/${REPO}/issues?labels=pending-ci&state=open&per_page=50" \
+            --jq '[.[] | select(.pull_request) | .number]')
+
+          COUNT=$(echo "$PRS" | jq 'length')
+          echo "count=${COUNT}" >> "$GITHUB_OUTPUT"
+          echo "prs=${PRS}" >> "$GITHUB_OUTPUT"
+          echo "Found ${COUNT} PRs with pending-ci label"
+
+      - name: Check Jenkins and update statuses
+        if: steps.pending.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JENKINS_USER: ${{ secrets.JENKINS_USERNAME }}
+          JENKINS_TOKEN: ${{ secrets.JENKINS_TOKEN }}
+          JENKINS_URL: "https://jenkins.scylladb.com"
+          REPO: ${{ github.repository }}
+          PENDING_PRS: ${{ steps.pending.outputs.prs }}
+        run: |
+          set -euo pipefail
+
+          echo "$PENDING_PRS" | jq -r '.[]' | while read -r PR_NUMBER; do
+            echo "==> Checking PR #${PR_NUMBER}"
+
+            HEAD_SHA=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq '.head.sha')
+
+            STATUS_JSON=$(gh api "repos/${REPO}/commits/${HEAD_SHA}/statuses" \
+              --jq '[.[] | select(.context == "jenkins/machine-image-build")] | sort_by(.updated_at) | last')
+
+            if [[ -z "$STATUS_JSON" || "$STATUS_JSON" == "null" ]]; then
+              echo "  No pending status found, removing label"
+              gh api -X DELETE "repos/${REPO}/issues/${PR_NUMBER}/labels/pending-ci" 2>/dev/null || true
+              continue
+            fi
+
+            STATE=$(echo "$STATUS_JSON" | jq -r '.state')
+            if [[ "$STATE" != "pending" ]]; then
+              echo "  Status already resolved (${STATE}), removing label"
+              gh api -X DELETE "repos/${REPO}/issues/${PR_NUMBER}/labels/pending-ci" 2>/dev/null || true
+              continue
+            fi
+
+            BUILD_URL=$(echo "$STATUS_JSON" | jq -r '.target_url')
+            if [[ -z "$BUILD_URL" || "$BUILD_URL" == "null" ]]; then
+              echo "  No build URL in status, skipping"
+              continue
+            fi
+
+            BUILD_JSON=$(curl -s --user "${JENKINS_USER}:${JENKINS_TOKEN}" \
+              "${BUILD_URL}api/json" 2>/dev/null || true)
+
+            if [[ -z "$BUILD_JSON" ]]; then
+              echo "  Could not reach Jenkins, skipping"
+              continue
+            fi
+
+            RESULT=$(echo "$BUILD_JSON" | jq -r '.result // empty')
+            if [[ -z "$RESULT" ]]; then
+              echo "  Build still running"
+              continue
+            fi
+
+            DURATION=$(echo "$BUILD_JSON" | jq -r '.duration // 0')
+            DURATION_MIN=$(( DURATION / 60000 ))
+
+            CONSOLE_URL="${BUILD_URL}consoleText"
+            CONSOLE=$(curl -s --user "${JENKINS_USER}:${JENKINS_TOKEN}" \
+              "${CONSOLE_URL}" 2>/dev/null || true)
+
+            SUBJOBS=""
+            if [[ -n "$CONSOLE" ]]; then
+              SUBJOBS=$(echo "$CONSOLE" | grep -oP 'Build .+ completed: \S+' | sort -u || true)
+            fi
+
+            SUBJOB_TABLE=""
+            if [[ -n "$SUBJOBS" ]]; then
+              SUBJOB_TABLE="
+          ### Sub-job Results
+          | Job | Result |
+          |-----|--------|"
+
+              while IFS= read -r line; do
+                JOB_NAME=$(echo "$line" | sed 's/Build //;s/ completed:.*//' | sed 's/ #[0-9]*//')
+                JOB_RESULT=$(echo "$line" | grep -oP 'completed: \K\S+')
+
+                case "$JOB_RESULT" in
+                  SUCCESS)  EMOJI=":white_check_mark:" ;;
+                  FAILURE)  EMOJI=":x:" ;;
+                  ABORTED)  EMOJI=":stop_sign:" ;;
+                  UNSTABLE) EMOJI=":warning:" ;;
+                  *)        EMOJI=":grey_question:" ;;
+                esac
+
+                SUBJOB_TABLE="${SUBJOB_TABLE}
+          | ${JOB_NAME} | ${EMOJI} ${JOB_RESULT} |"
+              done <<< "$SUBJOBS"
+            fi
+
+            case "$RESULT" in
+              SUCCESS)
+                GH_STATE="success"
+                DESCRIPTION="Build succeeded"
+                HEADER=":white_check_mark: Machine Image Build Succeeded"
+                ;;
+              FAILURE)
+                GH_STATE="failure"
+                DESCRIPTION="Build failed"
+                HEADER=":x: Machine Image Build Failed"
+                ;;
+              ABORTED)
+                GH_STATE="error"
+                DESCRIPTION="Build aborted"
+                HEADER=":stop_sign: Machine Image Build Aborted"
+                ;;
+              UNSTABLE)
+                GH_STATE="failure"
+                DESCRIPTION="Build unstable (test failures)"
+                HEADER=":warning: Machine Image Build Unstable"
+                ;;
+              *)
+                GH_STATE="error"
+                DESCRIPTION="Build result: ${RESULT}"
+                HEADER=":grey_question: Machine Image Build: ${RESULT}"
+                ;;
+            esac
+
+            gh api "repos/${REPO}/statuses/${HEAD_SHA}" \
+              -f state="${GH_STATE}" \
+              -f context="jenkins/machine-image-build" \
+              -f description="${DESCRIPTION}" \
+              -f target_url="${BUILD_URL}"
+
+            BODY="## ${HEADER}
+
+          | Field | Value |
+          |-------|-------|
+          | **Result** | ${RESULT} |
+          | **Duration** | ${DURATION_MIN}m |
+          | **Jenkins** | [Build Link](${BUILD_URL}) |
+          | **Console** | [Full Output](${BUILD_URL}console) |
+          ${SUBJOB_TABLE}"
+
+            gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" -f body="${BODY}"
+
+            gh api -X DELETE "repos/${REPO}/issues/${PR_NUMBER}/labels/pending-ci" 2>/dev/null || true
+
+            echo "  PR #${PR_NUMBER}: ${GH_STATE} (${RESULT})"
+          done
