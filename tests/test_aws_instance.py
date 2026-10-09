@@ -837,3 +837,76 @@ class TestAwsM8gdM9gdParams(TestCase):
             ("m9gd.metal-48xl", "m9gd.48xlarge"),
         ):
             assert io_params[metal] == io_params[virtualized]
+
+
+# Local NVMe disks per instance type as (count, size in GB), from `aws ec2 describe-instance-types`
+# (InstanceStorageInfo.Disks).
+# fmt: off
+AWS_LOCAL_DISKS = {
+    "c5d": {"large": (1, 50), "xlarge": (1, 100), "2xlarge": (1, 200), "4xlarge": (1, 400), "9xlarge": (1, 900), "12xlarge": (2, 900), "18xlarge": (2, 900), "24xlarge": (4, 900), "metal": (4, 900)},
+    "c6gd": {"medium": (1, 59), "large": (1, 118), "xlarge": (1, 237), "2xlarge": (1, 474), "4xlarge": (1, 950), "8xlarge": (1, 1900), "12xlarge": (2, 1425), "16xlarge": (2, 1900), "metal": (2, 1900)},
+    "i3": {"large": (1, 475), "xlarge": (1, 950)},
+    "i3en": {"large": (1, 1250), "xlarge": (1, 2500), "2xlarge": (2, 2500)},
+    "i4g": {"large": (1, 468), "xlarge": (1, 937), "2xlarge": (1, 1875), "4xlarge": (1, 3750), "8xlarge": (2, 3750), "16xlarge": (4, 3750)},
+    "i4i": {"large": (1, 468), "xlarge": (1, 937), "2xlarge": (1, 1875), "4xlarge": (1, 3750), "8xlarge": (2, 3750), "12xlarge": (3, 3750), "16xlarge": (4, 3750), "24xlarge": (6, 3750), "32xlarge": (8, 3750), "metal": (8, 3750)},
+    "i7i": {"large": (1, 468), "xlarge": (1, 937), "2xlarge": (1, 1875), "4xlarge": (1, 3750), "8xlarge": (2, 3750), "12xlarge": (3, 3750), "16xlarge": (4, 3750), "24xlarge": (6, 3750)},
+    "i7ie": {"large": (1, 1250), "xlarge": (1, 2500), "2xlarge": (2, 2500), "3xlarge": (1, 7500), "6xlarge": (2, 7500), "12xlarge": (4, 7500), "18xlarge": (6, 7500), "24xlarge": (8, 7500)},
+    "i8g": {"large": (1, 468), "xlarge": (1, 937), "2xlarge": (1, 1875), "4xlarge": (1, 3750), "8xlarge": (2, 3750), "12xlarge": (3, 3750), "16xlarge": (4, 3750), "24xlarge": (6, 3750)},
+    "i8ge": {"large": (1, 1250), "xlarge": (1, 2500), "2xlarge": (2, 2500), "3xlarge": (1, 7500), "6xlarge": (2, 7500), "12xlarge": (4, 7500), "18xlarge": (6, 7500), "24xlarge": (8, 7500)},
+    "im4gn": {"large": (1, 937), "xlarge": (1, 1875), "2xlarge": (1, 3750), "4xlarge": (1, 7500), "8xlarge": (2, 7500), "16xlarge": (4, 7500)},
+    "is4gen": {"medium": (1, 937), "large": (1, 1875), "xlarge": (1, 3750), "2xlarge": (1, 7500), "4xlarge": (2, 7500), "8xlarge": (4, 7500)},
+    "m5ad": {"large": (1, 75), "xlarge": (1, 150), "2xlarge": (1, 300), "4xlarge": (2, 300), "8xlarge": (2, 600), "12xlarge": (2, 900), "16xlarge": (4, 600), "24xlarge": (4, 900)},
+    "m5d": {"large": (1, 75), "xlarge": (1, 150), "2xlarge": (1, 300), "4xlarge": (2, 300), "8xlarge": (2, 600), "12xlarge": (2, 900), "16xlarge": (4, 600), "24xlarge": (4, 900), "metal": (4, 900)},
+    "m6gd": {"medium": (1, 59), "large": (1, 118), "xlarge": (1, 237), "2xlarge": (1, 474), "4xlarge": (1, 950), "8xlarge": (1, 1900), "12xlarge": (2, 1425), "16xlarge": (2, 1900), "metal": (2, 1900)},
+    "m8gd": {"medium": (1, 59), "large": (1, 118), "xlarge": (1, 237), "2xlarge": (1, 474), "4xlarge": (1, 950), "8xlarge": (1, 1900), "12xlarge": (3, 950), "16xlarge": (2, 1900), "24xlarge": (3, 1900), "48xlarge": (6, 1900), "metal-24xl": (3, 1900), "metal-48xl": (6, 1900)},
+    "m9gd": {"medium": (1, 59), "large": (1, 118), "xlarge": (1, 237), "2xlarge": (1, 474), "4xlarge": (1, 950), "8xlarge": (1, 1900), "12xlarge": (3, 950), "16xlarge": (1, 3800), "24xlarge": (3, 1900), "48xlarge": (3, 3800), "metal-48xl": (3, 3800)},
+    "r5d": {"large": (1, 75), "xlarge": (1, 150), "2xlarge": (1, 300), "4xlarge": (2, 300), "8xlarge": (2, 600), "12xlarge": (2, 900), "16xlarge": (4, 600), "24xlarge": (4, 900), "metal": (4, 900)},
+    "r6gd": {"medium": (1, 59), "large": (1, 118), "xlarge": (1, 237), "2xlarge": (1, 474), "4xlarge": (1, 950), "8xlarge": (1, 1900), "12xlarge": (2, 1425), "16xlarge": (2, 1900), "metal": (2, 1900)},
+    "r8gd": {"medium": (1, 59), "large": (1, 118), "xlarge": (1, 237), "2xlarge": (1, 474), "4xlarge": (1, 950), "8xlarge": (1, 1900), "12xlarge": (3, 950), "16xlarge": (2, 1900), "24xlarge": (3, 1900), "48xlarge": (6, 1900), "metal-24xl": (3, 1900), "metal-48xl": (6, 1900)},
+    "x2gd": {"medium": (1, 59), "large": (1, 118), "xlarge": (1, 237), "2xlarge": (1, 475), "4xlarge": (1, 950), "8xlarge": (1, 1900), "12xlarge": (2, 1425), "16xlarge": (2, 1900), "metal": (2, 1900)},
+    "z1d": {"large": (1, 75), "xlarge": (1, 150), "2xlarge": (1, 300), "3xlarge": (1, 450), "6xlarge": (1, 900), "12xlarge": (2, 900), "metal": (2, 900)},
+}
+# fmt: on
+
+
+@pytest.mark.unit
+class TestAwsIoParamsPerDisk(TestCase):
+    """aws_io_params.yaml entries are per local disk, since AwsIoSetup multiplies them by the disk count.
+
+    i7i, i7ie, i8g and i8ge once had whole-instance entries for their multi-disk
+    sizes, so e.g. i8ge.12xlarge got 4x its real bandwidth in io_properties.yaml.
+    """
+
+    io_params_path = Path(__file__).parent.parent / "common" / "aws_io_params.yaml"
+
+    # Sizes built from the same drive differ by up to ~1.4x in bandwidth (im4gn), while a
+    # whole-instance entry is at least 2x the per-disk one. IOPS vary too much to compare.
+    max_bandwidth_spread = 1.75
+
+    def io_params(self):
+        with open(self.io_params_path) as f:
+            return yaml.safe_load(f)
+
+    def test_every_instance_type_has_its_disks_listed(self):
+        for instance_type in self.io_params():
+            family, size = instance_type.split(".")
+            if size == "ALL":
+                continue
+            assert size in AWS_LOCAL_DISKS.get(family, {}), (
+                f"{instance_type}: add its local disks to AWS_LOCAL_DISKS, "
+                "and make sure its aws_io_params.yaml entry is per disk"
+            )
+
+    def test_sizes_with_the_same_drive_have_the_same_per_disk_bandwidth(self):
+        io_params = self.io_params()
+        for family, sizes in AWS_LOCAL_DISKS.items():
+            by_drive = {}
+            for size, (count, disk_gb) in sizes.items():
+                by_drive.setdefault(disk_gb, []).append((f"{family}.{size}", count))
+            for disk_gb, instance_types in by_drive.items():
+                for key in ("read_bandwidth", "write_bandwidth"):
+                    values = {f"{it} ({count} disks)": io_params[it][key] for it, count in instance_types}
+                    assert max(values.values()) <= self.max_bandwidth_spread * min(values.values()), (
+                        f"{family} sizes with {disk_gb} GB disks disagree on per-disk {key}, "
+                        f"is one of them a whole-instance total? {values}"
+                    )
