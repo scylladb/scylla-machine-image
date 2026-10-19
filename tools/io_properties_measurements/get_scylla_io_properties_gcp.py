@@ -15,6 +15,8 @@ Usage:
         c4-highmem-8-lssd c4d-highmem-16-lssd
     # or every machine type matching a regex, as listed by gcloud:
     ... --family '^(c4|c4d)-highmem-.*-lssd(-metal)?$'
+    # arm64 machine types (c4a, t2a, ...) boot from --arm-image, a scylla-arm64 family image:
+    ... --image <x86 image> --arm-image <arm64 image> --family '^(c4|c4a|c4d)-highmem-.*-lssd$'
 """
 
 import argparse
@@ -34,6 +36,8 @@ IO_KEYS = ["read_iops", "read_bandwidth", "write_iops", "write_bandwidth"]
 GCP_PARAMS_PATH = Path(__file__).parent.parent.parent / "common" / "gcp_io_params.yaml"
 # no capacity, a regional quota other VMs of the run are using up, or no such machine type in the zone
 RETRY_IN_NEXT_ZONE = ("stockout", "ZONE_RESOURCE_POOL_EXHAUSTED", "Quota", "does not exist in zone")
+# same as SCT's _ARM_INSTANCE_TYPE_PATTERNS for gce
+ARM_MACHINE_TYPE = re.compile(r"^(t2a|c4a|n4a|x4a)-")
 SSH_OPTS = ["-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=30"]
 
 
@@ -52,13 +56,21 @@ def image_url(image):
     return image if "/" in image else f"projects/scylla-images/global/images/{image}"
 
 
+def image_for(machine_type, args):
+    if not ARM_MACHINE_TYPE.match(machine_type):
+        return args.image
+    if not args.arm_image:
+        raise ValueError(f"{machine_type} is arm64, pass --arm-image")
+    return args.arm_image
+
+
 def create_vm(name, machine_type, zone, args):
     pub_key = Path(args.key_path).with_suffix(".pub").read_text().strip()
     out = gcloud(
         "compute", "instances", "create", name,
         f"--zone={zone}",
         f"--machine-type={machine_type}",
-        f"--image={image_url(args.image)}",
+        f"--image={image_url(image_for(machine_type, args))}",
         "--boot-disk-type=hyperdisk-balanced",  # c4 and c4d reject every pd-* boot disk
         "--boot-disk-size=50GB",
         f"--network={args.network}",
@@ -92,8 +104,9 @@ def ssh(ip, args, command):
 
 def measure(machine_type, args):
     name = f"io-props-{machine_type}-{uuid.uuid4().hex[:6]}"[:63].rstrip("-")
-    result = {"machine_type": machine_type, "image": args.image, "vm": name, "zone": None}
+    result = {"machine_type": machine_type, "image": None, "vm": name, "zone": None}
     try:
+        result["image"] = image_for(machine_type, args)
         for zone in args.zones:
             print(f"[{machine_type}] creating {name} in {zone}")
             try:
@@ -171,6 +184,7 @@ if __name__ == "__main__":
     parser.add_argument("machine_types", nargs="*", help="GCP machine types to measure")
     parser.add_argument("--family", help="regex of machine types to measure, as listed by gcloud in --zone")
     parser.add_argument("--image", required=True, help="Scylla GCE image id, name or URL (project scylla-images)")
+    parser.add_argument("--arm-image", help="Scylla arm64 GCE image, used for arm64 machine types (c4a, t2a, ...)")
     parser.add_argument("--key-path", required=True, help="SSH private key, with the public key next to it (.pub)")
     parser.add_argument("--username", default="scyllaadm")
     parser.add_argument(
@@ -202,13 +216,13 @@ if __name__ == "__main__":
             results_file.write(json.dumps(results[-1]) + "\n")
             results_file.flush()
 
-    print(f"\n{'machine type':<28} {'cpus':>5} {"nvme":>5} {'iotune':>6} " + " ".join(f"{k:>16}" for k in IO_KEYS))
+    print(f"\n{'machine type':<28} {'cpus':>5} {'nvme':>5} {'iotune':>6} " + " ".join(f"{k:>16}" for k in IO_KEYS))
     for r in sorted(results, key=lambda r: machine_types.index(r["machine_type"])):
         if "error" in r:
             print(f"{r['machine_type']:<28} ERROR: {r['error']}")
         else:
             print(
-                f"{r['machine_type']:<28} {r['cpus']:>5} {r["nvme_devices"]:>5} {str(r['iotune_ran']):>6} "
+                f"{r['machine_type']:<28} {r['cpus']:>5} {r['nvme_devices']:>5} {str(r['iotune_ran']):>6} "
                 + " ".join(f"{r[k]:>16}" for k in IO_KEYS)
             )
 
