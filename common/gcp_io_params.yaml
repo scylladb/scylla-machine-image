@@ -188,10 +188,10 @@ c4-highmem-48-lssd:
   write_bandwidth: 2801137664
 
 c4-highmem-96-lssd:
-  read_iops: 2458706
-  read_bandwidth: 10679584768
-  write_iops: 1361720
-  write_bandwidth: 5593568256
+  read_iops: 2640153
+  read_bandwidth: 10537150464
+  write_iops: 1359181
+  write_bandwidth: 5570135040
 
 c4-highmem-144-lssd:
   read_iops: 3967750
@@ -200,10 +200,10 @@ c4-highmem-144-lssd:
   write_bandwidth: 8368099328
 
 c4-highmem-192-lssd:
-  read_iops: 3186713
-  read_bandwidth: 19953188864
-  write_iops: 2694106
-  write_bandwidth: 11193213952
+  read_iops: 5277783
+  read_bandwidth: 20139259904
+  write_iops: 2693469
+  write_bandwidth: 11218304000
 
 c4d-highmem-8-lssd:
   read_iops: 166422
@@ -246,6 +246,126 @@ c4d-highmem-192-lssd:
   read_bandwidth: 10906935296
   write_iops: 1336673
   write_bandwidth: 5608107520
+
+c4-highmem-288-lssd:
+  read_iops: 5485508
+  read_bandwidth: 30164424704
+  write_iops: 4045012
+  write_bandwidth: 16882661376
+
+c4-standard-4-lssd:
+  read_iops: 166418
+  read_bandwidth: 681711104
+  write_iops: 85761
+  write_bandwidth: 351282720
+
+c4-standard-8-lssd:
+  read_iops: 166418
+  read_bandwidth: 681689024
+  write_iops: 85760
+  write_bandwidth: 351288416
+
+c4-standard-16-lssd:
+  read_iops: 332841
+  read_bandwidth: 1363403136
+  write_iops: 171521
+  write_bandwidth: 702445248
+
+c4-standard-24-lssd:
+  read_iops: 664906
+  read_bandwidth: 2723880448
+  write_iops: 342995
+  write_bandwidth: 1404640128
+
+c4-standard-32-lssd:
+  read_iops: 831921
+  read_bandwidth: 3390597632
+  write_iops: 428692
+  write_bandwidth: 1757065216
+
+c4-standard-48-lssd:
+  read_iops: 1329774
+  read_bandwidth: 5398620160
+  write_iops: 683598
+  write_bandwidth: 2801242368
+
+c4-standard-96-lssd:
+  read_iops: 2659403
+  read_bandwidth: 10610141184
+  write_iops: 1358860
+  write_bandwidth: 5561456640
+
+c4-standard-144-lssd:
+  read_iops: 3971139
+  read_bandwidth: 15507940352
+  write_iops: 2031404
+  write_bandwidth: 8352702976
+
+c4-standard-192-lssd:
+  read_iops: 5311489
+  read_bandwidth: 20165447680
+  write_iops: 2704961
+  write_bandwidth: 11217281024
+
+c4-standard-288-lssd:
+  read_iops: 4904161
+  read_bandwidth: 32207331328
+  write_iops: 3976297
+  write_bandwidth: 16903011328
+
+c4d-highmem-384-lssd:
+  read_iops: 5309642
+  read_bandwidth: 20297177088
+  write_iops: 2559668
+  write_bandwidth: 11222398976
+
+c4d-standard-8-lssd:
+  read_iops: 166419
+  read_bandwidth: 681723648
+  write_iops: 85761
+  write_bandwidth: 351271424
+
+c4d-standard-16-lssd:
+  read_iops: 166417
+  read_bandwidth: 681671488
+  write_iops: 83667
+  write_bandwidth: 343659072
+
+c4d-standard-32-lssd:
+  read_iops: 332327
+  read_bandwidth: 1363416448
+  write_iops: 171408
+  write_bandwidth: 701949760
+
+c4d-standard-48-lssd:
+  read_iops: 664544
+  read_bandwidth: 2715764736
+  write_iops: 342900
+  write_bandwidth: 1404818304
+
+c4d-standard-64-lssd:
+  read_iops: 998230
+  read_bandwidth: 4077937152
+  write_iops: 514496
+  write_bandwidth: 2108573184
+
+c4d-standard-96-lssd:
+  read_iops: 1331093
+  read_bandwidth: 5453344768
+  write_iops: 685122
+  write_bandwidth: 2815803648
+
+c4d-standard-192-lssd:
+  read_iops: 2650002
+  read_bandwidth: 10626153472
+  write_iops: 1366559
+  write_bandwidth: 5605246464
+
+c4d-standard-384-lssd:
+  read_iops: 5294579
+  read_bandwidth: 21642125312
+  write_iops: 2574418
+  write_bandwidth: 11253578752
 
 c4a-highmem-4-lssd:
   read_iops: 166420
