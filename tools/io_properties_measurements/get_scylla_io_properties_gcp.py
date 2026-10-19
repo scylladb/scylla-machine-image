@@ -120,13 +120,23 @@ def measure(machine_type, args):
                 raise TimeoutError(f"{IO_PROPERTIES} not written after {args.wait_minutes} minutes")
             time.sleep(15)
 
-        disk = yaml.safe_load(ssh(ip, args, f"cat {IO_PROPERTIES}").stdout)["disks"][0]
+        # keep everything worth having from the VM, so a big machine type never needs a second run
+        result["io_properties_yaml"] = ssh(ip, args, f"cat {IO_PROPERTIES}").stdout
+        disk = yaml.safe_load(result["io_properties_yaml"])["disks"][0]
         result.update({k: disk[k] for k in IO_KEYS})
         # includes the boot disk, which is NVMe too on c4/c4d
         result["nvme_devices"] = int(ssh(ip, args, "ls /dev/ | grep -cE '^nvme[0-9]+n[0-9]+$'").stdout.strip() or 0)
         result["cpus"] = int(ssh(ip, args, "nproc").stdout.strip())
+        result["lsblk"] = ssh(ip, args, "lsblk -b -o NAME,SIZE,TYPE,MODEL,MOUNTPOINT").stdout
+        result["scylla_version"] = ssh(ip, args, "scylla --version").stdout.strip()
+        journal = ssh(ip, args, "sudo journalctl -b --no-pager -o short-iso").stdout
+        result["setup_log"] = [
+            line
+            for line in journal.splitlines()
+            if re.search(r"io_setup|iotune|io_properties|scylla_image_setup|raid", line, re.I)
+        ]
         # tells whether the value came from iotune or from a preset in gcp_io_params.yaml
-        result["iotune_ran"] = "scylla_io_setup will be run" in ssh(ip, args, "sudo journalctl -b --no-pager").stdout
+        result["iotune_ran"] = "scylla_io_setup will be run" in journal
         print(f"[{machine_type}] {', '.join(f'{k}={result[k]}' for k in IO_KEYS)}")
     except Exception as e:  # noqa: BLE001
         result["error"] = str(e) if not isinstance(e, subprocess.CalledProcessError) else e.stderr.strip()
