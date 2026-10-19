@@ -404,6 +404,13 @@ class TestGcpInstance(TestCase, GcpMetadata):
         ins = GcpInstance()
         assert ins.is_supported_instance_class()
 
+    def test_is_supported_instance_class_c4_highmem_lssd(self):
+        for instance_type in ["c4-highmem-8-lssd", "c4d-highmem-32-lssd"]:
+            with self.subTest(instance_type=instance_type):
+                self.httpretty_gcp_metadata(instance_type=instance_type)
+                ins = GcpInstance()
+                assert ins.is_supported_instance_class()
+
     def test_is_recommended_instance_size_n2_standard_8(self):
         self.httpretty_gcp_metadata()
         ins = GcpInstance()
@@ -1015,6 +1022,25 @@ class TestGcpIoSetup(TestCase):
 
             assert io_setup.disk_properties["read_iops"] == 750000
             mock_save.assert_called_once()
+
+    def test_gcp_io_setup_titanium_ssd_runs_iotune(self):
+        """c4/c4d use Titanium SSD, Google's local SSD table must not be applied to them."""
+        mock_yaml_content = yaml.dump(MOCK_GCP_IO_PARAMS)
+
+        for instance_type in ["c4-highmem-96-lssd", "c4d-highmem-192-lssd"]:
+            with self.subTest(instance_type=instance_type):
+                mock_instance = MockGcpInstance(instance_type=instance_type, nvme_disk_count=16, cpu=96)
+                io_setup = GcpIoSetup(mock_instance)
+
+                with (
+                    unittest.mock.patch("builtins.open", unittest.mock.mock_open(read_data=mock_yaml_content)),
+                    unittest.mock.patch.object(io_setup, "save") as mock_save,
+                    unittest.mock.patch("subprocess.run") as mock_run,
+                ):
+                    io_setup.generate()
+
+                    mock_save.assert_not_called()
+                    mock_run.assert_called_once()
 
     def test_gcp_io_setup_fallback_when_file_not_found(self):
         """Test GcpIoSetup falls back to iotune when the YAML file is not found."""
