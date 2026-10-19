@@ -32,6 +32,8 @@ import yaml
 IO_PROPERTIES = "/etc/scylla.d/io_properties.yaml"
 IO_KEYS = ["read_iops", "read_bandwidth", "write_iops", "write_bandwidth"]
 GCP_PARAMS_PATH = Path(__file__).parent.parent.parent / "common" / "gcp_io_params.yaml"
+# no capacity, a regional quota other VMs of the run are using up, or no such machine type in the zone
+RETRY_IN_NEXT_ZONE = ("stockout", "ZONE_RESOURCE_POOL_EXHAUSTED", "Quota", "does not exist in zone")
 SSH_OPTS = ["-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=30"]
 
 
@@ -99,11 +101,13 @@ def measure(machine_type, args):
                 result["zone"] = zone
                 break
             except subprocess.CalledProcessError as e:
-                if "stockout" not in e.stderr and "ZONE_RESOURCE_POOL_EXHAUSTED" not in e.stderr:
+                if not any(reason in e.stderr for reason in RETRY_IN_NEXT_ZONE):
                     raise
-                print(f"[{machine_type}] no capacity in {zone}")
+                print(
+                    f"[{machine_type}] can't create in {zone}: {next(r for r in RETRY_IN_NEXT_ZONE if r in e.stderr)}"
+                )
         else:
-            raise RuntimeError(f"no capacity in any of {', '.join(args.zones)}")
+            raise RuntimeError(f"could not create it in any of {', '.join(args.zones)}")
 
         deadline = time.time() + args.wait_minutes * 60
         while ssh(ip, args, "true").returncode != 0:
