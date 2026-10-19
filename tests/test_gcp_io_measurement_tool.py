@@ -1,7 +1,9 @@
 import importlib.util
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
+import pytest
 import yaml
 
 
@@ -61,3 +63,13 @@ def test_delete_vm_reports_a_failed_delete(monkeypatch):
 
     monkeypatch.setattr(tool.subprocess, "run", lambda cmd, **_: subprocess.CompletedProcess(cmd, 0, "", ""))
     assert tool.delete_vm("vm", "us-east1-b") is None
+
+
+def test_arm_machine_types_boot_from_the_arm_image():
+    args = SimpleNamespace(image="x86-image", arm_image="arm-image")
+    assert tool.image_for("c4-highmem-8-lssd", args) == "x86-image"
+    assert tool.image_for("c4d-highmem-8-lssd", args) == "x86-image"
+    assert tool.image_for("c4a-highmem-8-lssd", args) == "arm-image"
+    assert tool.image_for("t2a-standard-4", args) == "arm-image"
+    with pytest.raises(ValueError, match="--arm-image"):
+        tool.image_for("c4a-highmem-8-lssd", SimpleNamespace(image="x86-image", arm_image=None))
