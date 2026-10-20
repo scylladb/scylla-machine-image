@@ -74,6 +74,9 @@ class GcpIoSetup(CloudIoSetup):
     MIN_CPU_FOR_MAX_PERFORMANCE = 24
     # N1 is the exception, it needs more vCPUs than the rest of the machine families.
     MIN_CPU_FOR_MAX_PERFORMANCE_PER_CLASS = {"n1": 32}
+    # These families use Titanium SSD, not the standard local SSD Google's
+    # `local_ssd_nvme` table describes, so without an entry of their own we measure.
+    TITANIUM_SSD_CLASSES = ("c4a",)
 
     def __init__(self, idata):
         self.idata = idata
@@ -127,6 +130,8 @@ class GcpIoSetup(CloudIoSetup):
         when the numbers are not applicable, so that the caller falls back to
         measuring the disks with iotune.
         """
+        if self.idata.instance_class() in self.TITANIUM_SSD_CLASSES:
+            return None
         min_cpu = self.min_cpu_for_max_performance()
         if self.idata.cpu < min_cpu:
             logging.warning(
