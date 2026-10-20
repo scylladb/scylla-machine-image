@@ -45,8 +45,9 @@ def gcloud(*args):
     return subprocess.run(["gcloud", *args, "--format=json"], check=True, capture_output=True, text=True).stdout
 
 
-def list_machine_types(regex, zone):
-    out = gcloud("compute", "machine-types", "list", f"--filter=name~'{regex}' AND zone={zone}")
+def list_machine_types(regex):
+    """Machine types matching regex in any zone, sorted so that c4-highmem-8 comes before c4-highmem-16."""
+    out = gcloud("compute", "machine-types", "list", f"--filter=name~'{regex}'")
     return sorted(
         {mt["name"] for mt in json.loads(out)}, key=lambda n: [int(p) if p.isdigit() else p for p in n.split("-")]
     )
@@ -89,17 +90,25 @@ def delete_vm(name, zone):
         text=True,
         check=False,
     )
-    return proc.stderr.strip() if proc.returncode else None
+    return proc.stderr.strip() if proc.returncode and "was not found" not in proc.stderr else None
 
 
-def ssh(ip, args, command):
+def ssh(ip, args, command, timeout=900):
     return subprocess.run(
         ["ssh", *SSH_OPTS, "-i", args.key_path, f"{args.username}@{ip}", command],
         capture_output=True,
         text=True,
         check=False,
-        timeout=900,
+        timeout=timeout,
     )
+
+
+def probe(ip, args, command):
+    """Exit code of a quick check, so a hung connection doesn't outlast --wait-minutes."""
+    try:
+        return ssh(ip, args, command, timeout=60).returncode
+    except subprocess.TimeoutExpired:
+        return -1
 
 
 def measure(machine_type, args):
@@ -109,13 +118,15 @@ def measure(machine_type, args):
         result["image"] = image_for(machine_type, args)
         for zone in args.zones:
             print(f"[{machine_type}] creating {name} in {zone}")
+            # set before creating: gcloud can fail (polling timeout, unexpected output) after the VM exists
+            result["zone"] = zone
             try:
                 ip = create_vm(name, machine_type, zone, args)
-                result["zone"] = zone
                 break
             except subprocess.CalledProcessError as e:
                 if not any(reason in e.stderr for reason in RETRY_IN_NEXT_ZONE):
                     raise
+                result["zone"] = None
                 print(
                     f"[{machine_type}] can't create in {zone}: {next(r for r in RETRY_IN_NEXT_ZONE if r in e.stderr)}"
                 )
@@ -123,12 +134,12 @@ def measure(machine_type, args):
             raise RuntimeError(f"could not create it in any of {', '.join(args.zones)}")
 
         deadline = time.time() + args.wait_minutes * 60
-        while ssh(ip, args, "true").returncode != 0:
+        while probe(ip, args, "true") != 0:
             if time.time() > deadline:
                 raise TimeoutError("no SSH")
             time.sleep(15)
 
-        while ssh(ip, args, f"test -s {IO_PROPERTIES}").returncode != 0:
+        while probe(ip, args, f"test -s {IO_PROPERTIES}") != 0:
             if time.time() > deadline:
                 raise TimeoutError(f"{IO_PROPERTIES} not written after {args.wait_minutes} minutes")
             time.sleep(15)
@@ -142,14 +153,17 @@ def measure(machine_type, args):
         result["cpus"] = int(ssh(ip, args, "nproc").stdout.strip())
         result["lsblk"] = ssh(ip, args, "lsblk -b -o NAME,SIZE,TYPE,MODEL,MOUNTPOINT").stdout
         result["scylla_version"] = ssh(ip, args, "scylla --version").stdout.strip()
-        journal = ssh(ip, args, "sudo journalctl -b --no-pager -o short-iso").stdout
-        result["setup_log"] = [
-            line
-            for line in journal.splitlines()
-            if re.search(r"io_setup|iotune|io_properties|scylla_image_setup|raid", line, re.I)
-        ]
-        # tells whether the value came from iotune or from a preset in gcp_io_params.yaml
-        result["iotune_ran"] = "scylla_io_setup will be run" in journal
+        journal = ssh(ip, args, "sudo journalctl -b --no-pager -o short-iso")
+        if journal.returncode == 0:
+            result["setup_log"] = [
+                line
+                for line in journal.stdout.splitlines()
+                if re.search(r"io_setup|iotune|io_properties|scylla_image_setup|raid", line, re.I)
+            ]
+            # tells whether the value came from iotune or from a preset in gcp_io_params.yaml
+            result["iotune_ran"] = "scylla_io_setup will be run" in journal.stdout
+        else:
+            result["iotune_ran"] = None  # unknown, the journal couldn't be read
         print(f"[{machine_type}] {', '.join(f'{k}={result[k]}' for k in IO_KEYS)}")
     except Exception as e:  # noqa: BLE001
         result["error"] = str(e) if not isinstance(e, subprocess.CalledProcessError) else e.stderr.strip()
@@ -163,10 +177,21 @@ def measure(machine_type, args):
 
 
 def update_gcp_params(results, path=GCP_PARAMS_PATH):
-    """Add or replace flat `<machine-type>:` entries, keeping the rest of the file (and its comments) as is."""
+    """Add or replace flat `<machine-type>:` entries, keeping the rest of the file (and its comments) as is.
+
+    Only for machine types with bundled local SSD (-lssd, z3), measured by iotune. The others are
+    keyed by disk count (`measured_local_ssd`, `local_ssd_nvme`), and a flat entry would override that.
+    """
     text = path.read_text()
+    marker = "# Local SSD (NVMe) performance limits"
     for r in results:
         if "error" in r:
+            continue
+        if "lssd" not in r["machine_type"]:
+            print(f"{r['machine_type']}: not written, no bundled local SSD, its presets are keyed by disk count")
+            continue
+        if r.get("iotune_ran") is not True:
+            print(f"{r['machine_type']}: not written, iotune didn't run (or unknown), the numbers came from a preset")
             continue
         block = f"{r['machine_type']}:\n" + "".join(f"  {k}: {r[k]}\n" for k in IO_KEYS)
         existing = re.compile(rf"^{re.escape(r['machine_type'])}:\n(?:  .*\n)+", re.M)
@@ -174,7 +199,8 @@ def update_gcp_params(results, path=GCP_PARAMS_PATH):
             text = existing.sub(block, text)
         else:
             # new flat entries go right before Google's per-disk-count table and its comment
-            marker = "# Local SSD (NVMe) performance limits"
+            if marker not in text:
+                raise ValueError(f"{path} has no {marker!r} line to add {r['machine_type']} above")
             text = text.replace(marker, block + "\n" + marker, 1)
     path.write_text(text)
 
@@ -182,7 +208,7 @@ def update_gcp_params(results, path=GCP_PARAMS_PATH):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("machine_types", nargs="*", help="GCP machine types to measure")
-    parser.add_argument("--family", help="regex of machine types to measure, as listed by gcloud in --zone")
+    parser.add_argument("--family", help="regex of machine types to measure, as listed by gcloud in any zone")
     parser.add_argument("--image", required=True, help="Scylla GCE image id, name or URL (project scylla-images)")
     parser.add_argument("--arm-image", help="Scylla arm64 GCE image, used for arm64 machine types (c4a, t2a, ...)")
     parser.add_argument("--key-path", required=True, help="SSH private key, with the public key next to it (.pub)")
@@ -202,7 +228,8 @@ if __name__ == "__main__":
     parser.add_argument("--dry-run", action="store_true", help="only print the machine types that would be measured")
     args = parser.parse_args()
 
-    machine_types = args.machine_types + (list_machine_types(args.family, args.zones[0]) if args.family else [])
+    # deduplicated, or two runs of one machine type would race to write its preset
+    machine_types = list(dict.fromkeys(args.machine_types + (list_machine_types(args.family) if args.family else [])))
     if not machine_types:
         parser.error("no machine types, pass some or --family")
     print(f"Measuring {len(machine_types)} machine types in {','.join(args.zones)}: {' '.join(machine_types)}")
