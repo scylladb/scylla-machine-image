@@ -193,11 +193,21 @@
       "availability_domain": "{{user `oci_availability_domain`}}",
       "compartment_ocid": "{{user `oci_compartment_ocid`}}",
       "subnet_ocid": "{{user `oci_subnet_ocid`}}",
+<<<<<<< HEAD
       "base_image_filter": {
         "operating_system": "Canonical Ubuntu",
         "operating_system_version": "24.04",
         "display_name_search": "Canonical-Ubuntu-24.04-*"
       },
+||||||| parent of bb3d5bb (oci: build on the official Ubuntu 26.04 Minimal image)
+      "base_image_ocid": "{{user `oci_base_image_ocid`}}",
+=======
+      "base_image_filter": {
+        "operating_system": "Canonical Ubuntu",
+        "operating_system_version": "26.04 Minimal",
+        "display_name_search": "^Canonical-Ubuntu-26\\.04-Minimal-"
+      },
+>>>>>>> bb3d5bb (oci: build on the official Ubuntu 26.04 Minimal image)
       "shape": "{{user `oci_instance_shape`}}",
       "shape_config": {
         "ocpus": "{{user `oci_instance_shape_config_ocpus`}}",

@@ -40,7 +40,7 @@ Create a `packer/oci_variables.json` file with your OCI-specific configuration. 
 
 ### 2. Base Image
 
-The builder will automatically find the latest Canonical Ubuntu 24.04 image for your region.
+The builder will automatically find the latest Canonical Ubuntu 26.04 image for your region.
 
 ### 3. Defined Tags (Optional but Recommended)
 
