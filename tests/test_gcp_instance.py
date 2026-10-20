@@ -405,7 +405,7 @@ class TestGcpInstance(TestCase, GcpMetadata):
         assert ins.is_supported_instance_class()
 
     def test_is_supported_instance_class_c4_highmem_lssd(self):
-        for instance_type in ["c4-highmem-8-lssd", "c4d-highmem-32-lssd"]:
+        for instance_type in ["c4-highmem-8-lssd", "c4a-highmem-8-lssd", "c4d-highmem-32-lssd"]:
             with self.subTest(instance_type=instance_type):
                 self.httpretty_gcp_metadata(instance_type=instance_type)
                 ins = GcpInstance()
@@ -1024,10 +1024,10 @@ class TestGcpIoSetup(TestCase):
             mock_save.assert_called_once()
 
     def test_gcp_io_setup_titanium_ssd_runs_iotune(self):
-        """c4/c4d use Titanium SSD, Google's local SSD table must not be applied to them."""
+        """c4/c4a/c4d use Titanium SSD, Google's local SSD table must not be applied to them."""
         mock_yaml_content = yaml.dump(MOCK_GCP_IO_PARAMS)
 
-        for instance_type in ["c4-highmem-96-lssd", "c4d-highmem-192-lssd"]:
+        for instance_type in ["c4-highmem-96-lssd", "c4a-highmem-72-lssd", "c4d-highmem-192-lssd"]:
             with self.subTest(instance_type=instance_type):
                 mock_instance = MockGcpInstance(instance_type=instance_type, nvme_disk_count=16, cpu=96)
                 io_setup = GcpIoSetup(mock_instance)

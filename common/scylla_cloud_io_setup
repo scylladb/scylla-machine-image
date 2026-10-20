@@ -76,7 +76,7 @@ class GcpIoSetup(CloudIoSetup):
     MIN_CPU_FOR_MAX_PERFORMANCE_PER_CLASS = {"n1": 32}
     # These families use Titanium SSD, not the standard local SSD Google's
     # `local_ssd_nvme` table describes, so without an entry of their own we measure.
-    TITANIUM_SSD_CLASSES = ("c4", "c4d")
+    TITANIUM_SSD_CLASSES = ("c4", "c4a", "c4d")
 
     def __init__(self, idata):
         self.idata = idata

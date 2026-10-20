@@ -376,7 +376,7 @@ class GcpInstance(CloudInstance):
         """Returns if this instance type belongs to supported ones for nvmes"""
         if self.instancetype == self.m1supported:
             return True
-        return self.instance_class() in ["n1", "n2", "n2d", "c2", "z3", "c4", "c4d"]
+        return self.instance_class() in ["n1", "n2", "n2d", "c2", "z3", "c4", "c4a", "c4d"]
 
     def is_recommended_instance_size(self):
         """if this instance has at least 2 cpus, it has a recommended size"""
