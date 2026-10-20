@@ -193,7 +193,11 @@
       "availability_domain": "{{user `oci_availability_domain`}}",
       "compartment_ocid": "{{user `oci_compartment_ocid`}}",
       "subnet_ocid": "{{user `oci_subnet_ocid`}}",
-      "base_image_ocid": "{{user `oci_base_image_ocid`}}",
+      "base_image_filter": {
+        "operating_system": "Canonical Ubuntu",
+        "operating_system_version": "26.04 Minimal",
+        "display_name_search": "^Canonical-Ubuntu-26\\.04-Minimal-"
+      },
       "shape": "{{user `oci_instance_shape`}}",
       "shape_config": {
         "ocpus": "{{user `oci_instance_shape_config_ocpus`}}",
@@ -312,7 +316,6 @@
     "oci_availability_domain": "",
     "oci_compartment_ocid": "",
     "oci_subnet_ocid": "",
-    "oci_base_image_ocid": "",
     "oci_instance_shape": "",
     "oci_instance_shape_config_ocpus": "",
     "oci_instance_shape_config_memory_in_gbs": ""
