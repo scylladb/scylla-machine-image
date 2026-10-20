@@ -280,6 +280,90 @@ c4d-standard-384-lssd:
   write_iops: 2574418
   write_bandwidth: 11253578752
 
+c4a-highmem-4-lssd:
+  read_iops: 166420
+  read_bandwidth: 681692288
+  write_iops: 85762
+  write_bandwidth: 351281792
+
+c4a-highmem-8-lssd:
+  read_iops: 332724
+  read_bandwidth: 1363421568
+  write_iops: 171521
+  write_bandwidth: 702577152
+
+c4a-highmem-16-lssd:
+  read_iops: 665098
+  read_bandwidth: 2721487872
+  write_iops: 342891
+  write_bandwidth: 1405321856
+
+c4a-highmem-32-lssd:
+  read_iops: 998097
+  read_bandwidth: 4083163904
+  write_iops: 514388
+  write_bandwidth: 2108982912
+
+c4a-highmem-48-lssd:
+  read_iops: 1659903
+  read_bandwidth: 6720778240
+  write_iops: 828793
+  write_bandwidth: 3498316288
+
+c4a-highmem-64-lssd:
+  read_iops: 2321149
+  read_bandwidth: 9526630400
+  write_iops: 1186832
+  write_bandwidth: 4901741056
+
+c4a-highmem-72-lssd:
+  read_iops: 2657096
+  read_bandwidth: 10679014400
+  write_iops: 1368410
+  write_bandwidth: 5583524352
+
+c4a-standard-4-lssd:
+  read_iops: 166420
+  read_bandwidth: 681665856
+  write_iops: 85762
+  write_bandwidth: 351277056
+
+c4a-standard-8-lssd:
+  read_iops: 332608
+  read_bandwidth: 1361582848
+  write_iops: 171523
+  write_bandwidth: 702313920
+
+c4a-standard-16-lssd:
+  read_iops: 665585
+  read_bandwidth: 2726661120
+  write_iops: 342991
+  write_bandwidth: 1405223296
+
+c4a-standard-32-lssd:
+  read_iops: 998370
+  read_bandwidth: 4089990656
+  write_iops: 514411
+  write_bandwidth: 2108370816
+
+c4a-standard-48-lssd:
+  read_iops: 1661109
+  read_bandwidth: 6816686592
+  write_iops: 854727
+  write_bandwidth: 3492901376
+
+c4a-standard-64-lssd:
+  read_iops: 2321361
+  read_bandwidth: 9416438784
+  write_iops: 1191122
+  write_bandwidth: 4896195584
+
+c4a-standard-72-lssd:
+  read_iops: 2646014
+  read_bandwidth: 10678971392
+  write_iops: 1364108
+  write_bandwidth: 5597389312
+
 # Local SSD (NVMe) performance limits published by Google, keyed by the number of
 # local SSD disks attached to the instance. Used for machine types which do not
 # have their own entry above (n1, n2, n2d, c2, ...).
