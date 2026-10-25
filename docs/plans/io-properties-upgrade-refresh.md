@@ -1,0 +1,219 @@
+# Refreshing `io_properties.yaml` During Upgrade
+
+Tracking issue: [SMI-218](https://scylladb.atlassian.net/browse/SMI-218)
+(migrated from [scylla-machine-image#748](https://github.com/scylladb/scylla-machine-image/issues/748))
+
+## 1. Problem Statement
+
+`/etc/scylla.d/io_properties.yaml` is written exactly once, on the first boot of an
+instance, and is never revisited. Every later correction we make to the I/O parameter
+tables is therefore invisible to already-running fleets.
+
+What this costs us today:
+
+- **Corrected values never reach existing nodes.** We have re-measured and changed
+  values for families that were already shipping — i7ie, i7i, i8g/i8ge — and in some
+  cases changed the shape of the lookup keys. A node launched before those changes keeps
+  the old numbers for the rest of its life, even after `scylla-machine-image` is upgraded
+  to a version that knows better.
+- **The families SMI-218 names are the worst case.** i7ie was not a supported class at
+  all in earlier releases, so we never generated a file for it: the login banner told the
+  user to run `scylla_io_setup` themselves. Those nodes hold single-run `iotune` output
+  rather than our vetted values.
+- **The only remedy is slow and manual.** Running `scylla_io_setup` per node takes
+  minutes of `iotune` time — the very reason the preset tables exist — and has to be
+  driven node by node by the user.
+- **Instance resize is silently wrong.** Stop instance → change type → start, and the
+  file still describes the previous instance type. Nothing detects this.
+- **The upgrade already gives us a free restart.** Scylla reads the I/O properties only
+  at startup, and the documented rolling upgrade already stops Scylla, upgrades packages,
+  and starts it again. Correcting the file inside that window costs the user nothing.
+
+**The aim of this plan: correct I/O properties land as part of the ordinary upgrade
+sequence, with no added instruction for the common case, and without ever silently
+discarding a file the user tuned themselves.**
+
+## 2. Current State
+
+- The I/O properties file is produced by `common/scylla_cloud_io_setup` from the
+  per-cloud parameter tables (`common/{aws,gcp,azure,oci}_io_params.yaml`) shipped inside
+  the package. Its content is a pure function of *(parameter table, cloud, instance type,
+  disk count)* — it is a **derived artifact**, not configuration, despite living under
+  `/etc`.
+- It is generated from `common/scylla_image_setup`, inside the block gated by the
+  `/etc/scylla/machine_image_configured` marker — i.e. **once per instance lifetime**.
+  The setup service itself already runs on every boot and is ordered before
+  `scylla-server`, so the hook we need exists; the I/O step is simply on the wrong side
+  of the marker check.
+- Packaging installs the parameter tables but has **no upgrade-time logic at all**: the
+  Debian and RPM post-install scripts only reload systemd. The machine-image package is
+  version-locked to `scylla-server`, so a package upgrade hook would fire exactly during
+  a Scylla upgrade.
+- **No provenance is recorded.** Nothing on the node says who wrote the file, from which
+  table, for which instance type and disk count. Our output and `iotune` output are
+  structurally identical, so ownership must be recorded — it cannot be inferred after the
+  fact. *Needs Investigation only in the sense of confirming there is no distinguishing
+  marker; reading both writers says there is not.*
+- **No history of shipped values.** Once a value changes, its predecessor exists only in
+  git — not on the node, not in the package.
+
+### 2.1 Prior art — how other projects solve this
+
+| System | Mechanism | Lesson |
+| --- | --- | --- |
+| **`ucf(1)`** (Debian, for generated `/etc` files that are *not* conffiles — our exact category) | Vendor copy under `/usr/share`, a registry in `/var/lib`, `.ucf-dist`/`.ucf-new` artifacts, and critically a record of **the checksums of every previously published version**, so installs predating the mechanism can still be auto-adopted | The legacy-instance problem is already solved this way: keep a record of everything we ever wrote |
+| **dpkg conffiles / rpm `%config(noreplace)`** | The package DB holds the checksum of what was *shipped*; unmodified → replace silently, modified → keep and leave `.dpkg-dist` / `.rpmnew` | Provenance is what makes silent replacement safe; never discard user edits without leaving something discoverable |
+| **Ceph mclock** ([docs](https://docs.ceph.com/en/latest/rados/configuration/mclock-config-ref/)) | Measures device capacity at OSD start, stores it, skips when a stored value exists, offers an explicit force-refresh, and **rejects implausible measurements** against thresholds with a cluster warning | Bound any automatic performance-affecting change; always expose an explicit refresh/force switch |
+| **ca-certificates, systemd, tuned, sysctl.d** | Vendor data ships in `/usr/lib`, admin overrides in `/etc`, derived output regenerated by a package trigger | Treat the file as regenerable output, reconciled on a trigger |
+| **kernel / initramfs, `needrestart`** | Write now, effective at next restart, tell the operator | Matches Scylla's start-time read; we should never restart Scylla ourselves |
+| **mariadb-server, postgresql-common** | Post-upgrade fixups run from package maintainer scripts | The "post script" SMI-218 asks for — must be idempotent and must never fail the package transaction |
+| **scylla-operator** | Node tuning is reconciled from `NodeConfig` and re-runs when it changes, rather than once per node lifetime ([tuning docs](https://operator.docs.scylladb.com/stable/understand/tuning.html)) | Our sibling product already treats tuning as reconciled state |
+
+In short: this plan is **`ucf`'s ownership model plus Ceph's sanity bounds**, implemented
+in-package and applied to a derived artifact. (`ucf` itself is not usable here — Debian
+only, debconf-driven, and it compares file bytes rather than values.)
+
+## 3. Goals
+
+| # | Goal | Target |
+| --- | --- | --- |
+| G1 | Zero manual steps on upgrade | A node whose file we can prove we wrote gets the new values from the ordinary package upgrade + the restart already in the rolling upgrade |
+| G2 | Zero manual steps on reboot or resize | A boot after an instance-type change regenerates the file before `scylla-server` starts |
+| G3 | Never silently clobber user work | Files we cannot prove we own are left untouched; we leave a candidate file next to them and surface exactly one copy-paste command |
+| G4 | Fast | Refresh is a table lookup — under a second, never invokes `iotune` |
+| G5 | Auditable and reversible | Every automatic change is visible in the journal and on-node state, and revertible with one command |
+| G6 | Preset changes stay reviewable | Changing a shipped value carries its predecessor into a history record, enforced in CI |
+| G7 | Complete coverage | AWS, GCP, Azure, OCI; Debian and RPM packaging |
+
+**Headline metric:** on a fleet upgraded from an image predating the i7ie re-measurement,
+100% of i7ie nodes run with current values after the standard rolling upgrade, with no
+step added to the upgrade documentation.
+
+## 4. Implementation Phases
+
+Each phase is scoped to a single reviewable PR and is useful on its own.
+
+### Phase 1 — Make the computation reusable
+Separate "work out the right values" from "write them to disk", and put a small
+command-line surface in front of it (`--refresh`, `--dry-run`, `--force`, `--rollback`,
+`--status`).
+**DoD:** first-boot behaviour is unchanged; the value computation is unit-testable per
+cloud; a dry-run reports the decision without touching anything.
+**Dependencies:** none.
+
+### Phase 2 — Record provenance
+Persist, alongside the generated file, what we wrote, when, from which parameter table
+version, for which instance type and disk count, and by which package version.
+**DoD:** provenance is recorded on first boot and on every refresh; the image build
+strips it during cleanup, so a baked artifact can never make every instance from an image
+look "managed" with the builder's values.
+**Dependencies:** Phase 1.
+
+### Phase 3 — Keep the history of published values
+Ship, next to each parameter table, a generated-and-committed record of every value we
+have ever published for each key, so that nodes predating Phase 2 can still be recognised
+as ours. The same record carries deliberate, reviewed **overrides**: a per-family
+statement that the older values were known-bad and should be adopted on upgrade even
+without provenance — this is the lever that decides how much of the SMI-218 fleet we fix
+without asking.
+**DoD:** history generated for all four clouds and verified up-to-date by CI; overrides
+require a written justification; a real pre-change i7ie file is recognised in test.
+**Dependencies:** none (can land in parallel with Phases 1–2).
+
+### Phase 4 — Decide ownership, then act
+Classify the on-node file before touching it:
+
+| Situation | Action |
+| --- | --- |
+| No file at all | Generate it |
+| We recorded that we wrote it, and it is unchanged | Update in place |
+| No record, but the values match something we published (current or historical) | Update in place |
+| No record, values match nothing, and the node predates support for this family (likely `iotune` output) | Leave it; update only where an override applies |
+| Extra disks, extra keys, comments, non-default mount point, or values matching nothing | Leave it, never touch |
+| A newer package version wrote it (downgrade) | Leave it, notify |
+
+Comparison is on *values*, not file bytes, so formatting differences between distros are
+never mistaken for a user edit. Before applying: reject implausible changes (Ceph's
+lesson), back up the previous file, keep a few generations, log to the journal, and
+**never restart Scylla** — say when the change takes effect instead. When we decline to
+act, leave a candidate `.new` file and raise a notice (this is the
+"generate it and let the user decide" idea from the ticket, narrowed to the genuinely
+ambiguous cases and using a fast lookup rather than `iotune`).
+**DoD:** the full matrix above is unit-tested; backup and rollback tested; implausible
+changes rejected.
+**Dependencies:** Phases 1–3.
+
+### Phase 5 — Wire the triggers
+Three entry points, all calling the same idempotent operation, so running twice is a
+no-op:
+1. **Every boot**, before `scylla-server` — covers reboots and instance-type changes (G2).
+2. **Package upgrade**, from the Debian and RPM post-install scripts — covers in-place
+   upgrades without a reboot (G1). Guarded (configured node, storage mounted, not an
+   image build, short metadata timeout) and non-fatal, so it can never break a package
+   transaction.
+3. **On demand** — the single command we print in the login banner.
+
+**DoD:** upgrading on a live node updates the file; installing in a container or image
+build is a no-op; an injected failure in the package hook does not fail the upgrade.
+**Dependencies:** Phase 4.
+
+### Phase 6 — Operator-facing behaviour
+Login-banner notice when a change is pending, a policy setting (`auto` / `notify` /
+`never`, default `auto`) so fleets can opt in or out wholesale, settable at launch and on
+a running node, and documentation covering the ownership rules and the rollback command.
+**Open Question:** where the policy lives — a machine-image config file, the existing
+user-data schema, or both.
+**Open Question:** should likely-`iotune` nodes default to *notify* (safer) or *auto*
+(fixes more of the SMI-218 fleet unasked)? The per-family override from Phase 3 lets us
+decide this family by family instead of globally.
+**Dependencies:** Phase 5.
+
+### Phase 7 — Upgrade testing and backports
+End-to-end upgrade matrix on real instances, then backports.
+**Open Question:** which maintained branches must carry this for the i7ie fleet, and
+whether the overrides should be limited to those branches.
+
+## 5. Testing Requirements
+
+- **Unit:** value computation per cloud (including disk-count scaling and family-wide
+  fallback keys); the full ownership matrix, with a real pre-change i7ie file as a
+  fixture; history matching; implausible-change rejection; backup rotation and rollback.
+- **Packaging:** post-install hook is idempotent, is a no-op without cloud metadata or
+  mounted storage, and never fails the transaction; fresh install → upgrade → downgrade
+  on both Debian and RPM.
+- **Integration, per cloud:** fresh boot unchanged (regression); a node launched from an
+  image predating the value change is corrected by the standard upgrade, with Scylla
+  restarting clean and the cluster healthy; stop → resize → start picks up the new type;
+  a hand-edited file survives untouched, gets a `.new` candidate and a banner notice, and
+  can be accepted with one command and reverted with another.
+  Primary target AWS i7ie; secondary i4i plus one shape each on GCP, Azure and OCI.
+- **Performance:** refresh under a second, adds under a second to boot, and `iotune` is
+  never invoked on the refresh path.
+
+## 6. Success Criteria
+
+- A node launched from an image predating the i7ie re-measurement, upgraded by the
+  documented rolling upgrade, runs with current values — with **no** step added to the
+  upgrade documentation.
+- No case, in test or in the field, of a hand-tuned or non-default file being modified
+  without an explicit force.
+- Every automatic change is reconstructible from the journal and on-node state, and
+  revertible with one command.
+- Adding a new instance family stays a one-file data change; changing an existing value
+  additionally updates the history record, enforced by CI.
+- All four clouds, both packaging formats, unit and integration matrices green.
+
+## 7. Risk Mitigation
+
+| Risk | Mitigation |
+| --- | --- |
+| Overwriting a deliberately tuned node | Conservative classification (anything unrecognised is the user's), backups and one-command rollback, *notify* rather than act for likely-`iotune` nodes, `never` policy for opted-out fleets |
+| New values turn out to be wrong | Implausible changes rejected before they are applied; the previous values remain recoverable on-node; overrides require written justification and review |
+| A package hook failure breaks a Scylla upgrade | The hook is guarded, time-boxed and non-fatal; the same work also happens at the next boot |
+| Cloud metadata unreachable during package upgrade | Short timeout, bail out quietly; the boot-time trigger covers it |
+| An image build bakes provenance, making every instance from it look "managed" | Explicit cleanup during image build, asserted by an image test |
+| Values differ across a cluster mid-rolling-upgrade | Expected and bounded by the upgrade window; nodes already diverge today whenever one is rebuilt. Documented, not prevented |
+| Package downgrade rewrites newer values with older ones | Provenance records the writing version; a downgrade notifies instead of acting |
+| Non-default layouts (separate commitlog disk, custom mount point, multiple disks) | Classified as the user's; never touched |
+| An instance family disappears from the tables | Refresh becomes a no-op; the existing file is kept, never emptied |
+| Operator upgrades without restarting and does not see the change | Banner and journal state explicitly when the change takes effect; the documented rolling upgrade already restarts |
