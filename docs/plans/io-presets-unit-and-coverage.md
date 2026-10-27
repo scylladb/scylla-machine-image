@@ -57,7 +57,8 @@ Ticket: SMI-326. Related: SMI-324, SCT-1274 (artifacts-test threshold).
 ## 3. Goals
 
 - All four preset files use whole-instance values, and `scylla_cloud_io_setup` copies them without change.
-- A supported instance list exists for each backend, and the support lists in `lib/scylla_cloud.py` match it.
+- Each backend supports the current-generation types with fast local NVMe disks, also types that ScyllaDB Cloud does not offer.
+- The support lists in `lib/scylla_cloud.py` match the supported instance list.
 - Every size on the supported instance list has a measured preset.
 - The README of the measuring tools tells how to measure a backend again.
 - The changes go to `next`, `branch-2026.1` and `branch-2026.3`.
@@ -65,10 +66,11 @@ Ticket: SMI-326. Related: SMI-324, SCT-1274 (artifacts-test threshold).
 ### Decisions
 
 - **Unit: whole instance.** `io_properties.yaml` and iotune describe the RAID0 array of all local disks. A preset is then a copy of a measurement. GCP, Azure and OCI already use this unit.
+- **Support list: current-generation types with fast local NVMe.** Remove previous-generation types and types with no local NVMe. Add types with fast local NVMe, also when ScyllaDB Cloud does not offer them.
 - **Measure the sizes on the supported instance list only.** One run takes a few minutes.
 - **Official figures are a reference.** Each measurement PR compares the values to the official cloud figures and to the sibling sizes, as the c4, c4a and c4d PRs do. No unit test checks them. A large deviation gets a re-run and a decision for that size.
 - **One run per size.** Run again only on a large deviation.
-- **GCP:** the `-lssd`, z3 and z4 types need one measurement each. n2, n2d and c2 types with 24 or more vCPUs are measured per local SSD count, in `measured_local_ssd`.
+- **GCP:** the `-lssd`, z3, z4d and z4m types need one measurement each. n2, n2d and c2 types with 24 or more vCPUs are measured per local SSD count, in `measured_local_ssd`.
 
 ### Open questions
 
@@ -84,8 +86,21 @@ Ticket: SMI-326. Related: SMI-324, SCT-1274 (artifacts-test threshold).
 
 ### Phase 1: Supported instance list
 
-- [ ] Collect the list of supported instance types and sizes for each backend.
-- [ ] Make the support lists in `lib/scylla_cloud.py` match the list. Add z4 to the GCP support list.
+- [ ] Build the list for each backend: the current-generation types with fast local NVMe, and the types to remove.
+- [ ] Make the support lists in `lib/scylla_cloud.py` match the list. Also update the AWS ENA list in `get_en_interface_type` and `LOCAL_SSD_TABLE_CLASSES` in `scylla_cloud_io_setup`.
+- [ ] Remove the preset entries of the removed types.
+
+**Proposal for review.** Sources: `aws ec2 describe-instance-types` (NVMe instance storage, current generation), [GCP Local SSD](https://docs.cloud.google.com/compute/docs/disks/local-ssd), [GCP machine generations](https://docs.cloud.google.com/compute/docs/machine-resource), [GCP storage-optimized](https://docs.cloud.google.com/compute/docs/storage-optimized-machines), [Azure sizes](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/overview), [Azure End of Life sizes](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/lifecycle/end-of-life-sizes-list), [OCI shapes](https://docs.oracle.com/en-us/iaas/Content/Compute/References/computeshapes.htm).
+The lists leave out HDD types and accelerator types.
+
+| Backend | Remove | Keep (supported today) | Add |
+|---|---|---|---|
+| AWS | i2 (previous generation, no NVMe) | i3, i3en, c5d, m5d, m5ad, r5d, z1d, c6gd, m6gd, r6gd, x2gd, im4gn, is4gen, i4i, i4g, i7i, i7ie, i8g, i8ge, r8gd, m8gd, m9gd | c6id, m6id, r6id, m6idn, r6idn, x2idn, x2iedn, c7gd, m7gd, c8gd, c8id, m8id, r8id, m8idn, r8idn, m8idb, r8idb, c9gd, r9gd |
+| GCP | n1, m1-megamem-96 (older than 2nd generation) | n2, n2d, c2, z3, c4, c4a, c4d | c3, c3d, c4n and h4d (`-lssd` types), z4d, z4m |
+| Azure | Lsv2 (End of Life) | Lsv3, Lasv3, Lsv4, Lasv4, Laosv4, Dpdsv6 | Lasv5, Laosv5, Dadsv6, Ddsv7, Dadsv7, Eadsv6, Edsv7, Eadsv7, Epdsv6 |
+| OCI | VM.Standard and VM.Optimized3.Flex (block storage only), DenseIO1 and DenseIO2 (previous generation) | VM.DenseIO.E4.Flex, VM.DenseIO.E5.Flex, VM.DenseIO.E6.Ax.Flex, BM.DenseIO.E4.128, BM.DenseIO.E5.128, BM.DenseIO.E6.Ax.192, BM.Optimized3.36 | none |
+
+The Azure v5 sizes with 160 vCPUs have an `i` in the name: `L160ias_v5`, `L160iaos_v5`.
 
 Definition of Done:
 
@@ -117,7 +132,7 @@ Measure only the sizes on the supported instance list.
 Skip the sizes that have a measurement from the last months, for example c4, c4a and c4d (SMI-309).
 
 - [ ] AWS: measure every size on the list. Start with the sizes that have no preset and the multi-disk sizes.
-- [ ] GCP: measure the `-lssd`, z3 and z4 types. Measure n2, n2d and c2 types with 24 or more vCPUs at each local SSD count.
+- [ ] GCP: measure the `-lssd`, z3, z4d and z4m types. Measure n2, n2d and c2 types with 24 or more vCPUs at each local SSD count.
 - [ ] Azure: measure every size on the list. Run Lsv3 again when read IOPS are about 14k with normal bandwidth.
 - [ ] OCI: measure every shape on the list at each OCPU count.
 - [ ] Document the procedure for each backend in `tools/io_properties_measurements/README.md`.
@@ -163,4 +178,5 @@ Performance tests:
 - **iotune results change between versions.** SCT artifacts runs find such drift. The README makes a new measurement fast.
 - **Noisy sizes.** A single run can give a wrong value. The comparison to the official figures and to the sibling sizes finds it.
 - **Cloud capacity.** Large and metal sizes can have no capacity. The open question on metal sizes covers them.
+- **Removed types.** New nodes of a removed type get no preset, and `scylla_login` shows the type as not supported. The release notes list the removed types.
 - **Rollback.** Revert the PR of the phase. Existing nodes keep their files, so a revert changes only new nodes.
