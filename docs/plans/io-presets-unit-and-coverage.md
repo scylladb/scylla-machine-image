@@ -102,6 +102,13 @@ The lists leave out HDD types and accelerator types.
 
 The Azure v5 sizes with 160 vCPUs have an `i` in the name: `L160ias_v5`, `L160iaos_v5`.
 
+Priority list. Phase 3 measures these sizes first.
+
+| Backend | Sizes |
+|---|---|
+| AWS | i3 `large` to `16xlarge`. All i3en, i4i, i7i, i7ie and i8ge sizes, metal included. i8g, all sizes except `metal-48xl`. |
+| GCP | n2-highmem 2 to 80 vCPUs and n2d-highmem 2 to 32 vCPUs, with 1 to 24 local SSDs. n2d-standard 2 to 16 vCPUs. z3-highmem `highlssd` 8, 16, 22, 32 and 44. |
+
 Definition of Done:
 
 - The list is in `tools/io_properties_measurements/README.md`.
@@ -131,8 +138,8 @@ One PR per backend. Use the tool of the backend and the newest image of `next`.
 Measure only the sizes on the supported instance list.
 Skip the sizes that have a measurement from the last months, for example c4, c4a and c4d (SMI-309).
 
-- [ ] AWS: measure every size on the list. Start with the sizes that have no preset and the multi-disk sizes.
-- [ ] GCP: measure the `-lssd`, z3, z4d and z4m types. Measure n2, n2d and c2 types with 24 or more vCPUs at each local SSD count.
+- [ ] AWS: measure every size on the list. Start with the priority list, then the sizes that have no preset and the multi-disk sizes.
+- [ ] GCP: start with the priority list. Measure the `-lssd`, z3, z4d and z4m types. Measure n2, n2d and c2 types with 24 or more vCPUs at each local SSD count.
 - [ ] Azure: measure every size on the list. Run Lsv3 again when read IOPS are about 14k with normal bandwidth.
 - [ ] OCI: measure every shape on the list at each OCPU count.
 - [ ] Document the procedure for each backend in `tools/io_properties_measurements/README.md`.
