@@ -87,10 +87,14 @@ Ticket: SMI-326. Related: SMI-324, SCT-1274 (artifacts-test threshold).
 ### Phase 1: Supported instance list
 
 - [ ] Build the list for each backend: the current-generation types with fast local NVMe, and the types to remove.
-- [ ] Make the support lists in `lib/scylla_cloud.py` match the list. Also update the AWS ENA list in `get_en_interface_type` and `LOCAL_SSD_TABLE_CLASSES` in `scylla_cloud_io_setup`.
-- [ ] Remove the preset entries of the removed types.
+- [ ] Remove the removed types from the support lists in `lib/scylla_cloud.py` and their preset entries.
+- [ ] Remove n1 and m1 from `LOCAL_SSD_TABLE_CLASSES` in `scylla_cloud_io_setup`. The added GCP classes use measured presets only, so they do not go into it.
 
-**Proposal for review.** Sources: `aws ec2 describe-instance-types` (NVMe instance storage, current generation), [GCP Local SSD](https://docs.cloud.google.com/compute/docs/disks/local-ssd), [GCP machine generations](https://docs.cloud.google.com/compute/docs/machine-resource), [GCP storage-optimized](https://docs.cloud.google.com/compute/docs/storage-optimized-machines), [Azure sizes](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/overview), [Azure End of Life sizes](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/lifecycle/end-of-life-sizes-list), [OCI shapes](https://docs.oracle.com/en-us/iaas/Content/Compute/References/computeshapes.htm).
+The added types go into the support lists in Phase 3, in the PR that adds their presets.
+`test_supported_classes_have_io_params` requires a preset for each supported AWS class.
+The AWS PR also adds the new classes to the ENA list in `get_en_interface_type`.
+
+**Proposal for review.** Sources: `aws ec2 describe-instance-types --region us-east-1 --filters Name=current-generation,Values=true Name=instance-storage-info.nvme-support,Values=required`, [GCP Local SSD](https://docs.cloud.google.com/compute/docs/disks/local-ssd), [GCP machine generations](https://docs.cloud.google.com/compute/docs/machine-resource), [GCP storage-optimized](https://docs.cloud.google.com/compute/docs/storage-optimized-machines), [Azure sizes](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/overview), [Azure End of Life sizes](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/lifecycle/end-of-life-sizes-list), [OCI shapes](https://docs.oracle.com/en-us/iaas/Content/Compute/References/computeshapes.htm).
 The lists leave out HDD types and accelerator types.
 
 | Backend | Remove | Keep (supported today) | Add |
@@ -112,7 +116,7 @@ Priority list. Phase 3 measures these sizes first.
 Definition of Done:
 
 - The list is in `tools/io_properties_measurements/README.md`.
-- The support lists in `lib/scylla_cloud.py` match the list.
+- The support lists in `lib/scylla_cloud.py` do not have the removed types.
 
 Dependencies: none.
 
@@ -122,7 +126,7 @@ One PR. The yaml and the code change together.
 
 - [ ] Multiply each AWS entry by its local disk count. Replace each `.ALL` entry with one entry per size, because the sizes of a class have different disk counts.
 - [ ] Remove the `.ALL` lookup and the multiplication from `AwsIoSetup.generate`.
-- [ ] Remove the division from `get_scylla_io_properties.py`.
+- [ ] Remove the division from `get_scylla_io_properties.py`. Update its file header and docstring to say that entries are whole-instance values.
 - [ ] Make the AWS lookup tests the same as the tests of the other backends.
 
 Definition of Done:
@@ -138,6 +142,10 @@ One PR per backend. Use the tool of the backend and the newest image of `next`.
 Measure only the sizes on the supported instance list.
 Skip the sizes that have a measurement from the last months, for example c4, c4a and c4d (SMI-309).
 
+Each PR adds the measured types to the support lists in `lib/scylla_cloud.py`.
+Each backport PR to `branch-2026.1` or `branch-2026.3` shows an SCT artifacts run on the release image of that branch.
+
+- [ ] GCP tool: add an option for the local SSD count of n2, n2d and c2 types, and write the results to `measured_local_ssd`.
 - [ ] AWS: measure every size on the list. Start with the priority list, then the sizes that have no preset and the multi-disk sizes.
 - [ ] GCP: start with the priority list. Measure the `-lssd`, z3, z4d and z4m types. Measure n2, n2d and c2 types with 24 or more vCPUs at each local SSD count.
 - [ ] Azure: measure every size on the list. Run Lsv3 again when read IOPS are about 14k with normal bandwidth.
