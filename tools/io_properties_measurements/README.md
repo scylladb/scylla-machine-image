@@ -109,6 +109,25 @@ array of all local disks, the same as the io_properties.yaml read from the insta
 so the script writes them unchanged and `scylla_cloud_io_setup` copies them without
 change. GCP, Azure and OCI presets use the same unit.
 
+### Find new AWS sizes with no preset
+
+AWS adds sizes to existing classes, and a size with no entry runs iotune on first
+boot. This lists the sizes of every class in aws_io_params.yaml that have no entry:
+
+```bash
+aws ec2 describe-instance-types --region us-east-1 \
+    --filters Name=instance-storage-supported,Values=true \
+    --query 'InstanceTypes[].InstanceType' --output text \
+| python3 -c "
+import sys, yaml
+presets = yaml.safe_load(open('common/aws_io_params.yaml'))
+classes = {k.split('.')[0] for k in presets}
+print('\n'.join(sorted(t for t in sys.stdin.read().split() if t.split('.')[0] in classes and t not in presets)) or 'none')"
+```
+
+Measure each size it lists with `--update-aws-params`, and add its local disks to
+`AWS_LOCAL_DISKS` in `tests/test_aws_instance.py`.
+
 ### Instance Family with Limits
 ```bash
 python get_scylla_io_properties.py --ami ami-12345678 --instance-type i8g --key-path ~/.ssh/my-key.pem --max-instances 3 --dry-run
