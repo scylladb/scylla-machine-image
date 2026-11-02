@@ -44,20 +44,13 @@ class AwsIoSetup(CloudIoSetup):
             logging.error("This is not a recommended EC2 instance setup for auto local disk tuning.")
             raise UnsupportedInstanceClassError()
         self.disk_properties["mountpoint"] = "/var/lib/scylla"
-        nr_disks = len(self.idata.get_local_disks())
-        instance_type = self.idata.instancetype
-        instance_class_all = self.idata.instance_class() + ".ALL"
         with open("/opt/scylladb/scylla-machine-image/aws_io_params.yaml") as f:
             io_params = yaml.safe_load(f)
 
-        t = None
-        if instance_type in io_params:
-            t = instance_type
-        elif instance_class_all in io_params:
-            t = instance_class_all
-        if t:
+        params = io_params.get(self.idata.instancetype)
+        if params:
             for p in ["read_iops", "read_bandwidth", "write_iops", "write_bandwidth"]:
-                self.disk_properties[p] = io_params[t][p] * nr_disks
+                self.disk_properties[p] = params[p]
             self.save()
         else:
             logging.warning("This is a supported instance but with no pre-configured io, scylla_io_setup will be run")
