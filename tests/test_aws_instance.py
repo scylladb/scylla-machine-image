@@ -675,12 +675,6 @@ MOCK_AWS_IO_PARAMS = {
         "write_iops": 53180,
         "write_bandwidth": 423621267,
     },
-    "i3.ALL": {
-        "read_iops": 411200,
-        "read_bandwidth": 2015342735,
-        "write_iops": 181500,
-        "write_bandwidth": 808775652,
-    },
 }
 
 
@@ -706,70 +700,31 @@ class MockAwsInstance:
 class TestAwsIoSetup(TestCase):
     """Tests for AwsIoSetup class."""
 
-    def test_aws_io_setup_with_known_instance_type(self):
-        """Test that AwsIoSetup correctly loads IO params from YAML file."""
-        mock_instance = MockAwsInstance(instance_type="i3.xlarge", local_disks=["nvme0n1"])
-        io_setup = AwsIoSetup(mock_instance)
+    def test_aws_io_setup_copies_the_entry_whatever_the_disk_count(self):
+        """Entries are whole-instance values, so AwsIoSetup copies them without scaling by the disk count."""
+        for local_disks in (["nvme0n1"], ["nvme0n1", "nvme1n1"]):
+            with self.subTest(disks=len(local_disks)):
+                io_setup = AwsIoSetup(MockAwsInstance(instance_type="i3.xlarge", local_disks=local_disks))
+                with (
+                    unittest.mock.patch(
+                        "builtins.open", unittest.mock.mock_open(read_data=yaml.dump(MOCK_AWS_IO_PARAMS))
+                    ),
+                    unittest.mock.patch.object(io_setup, "save") as mock_save,
+                ):
+                    io_setup.generate()
 
-        mock_yaml_content = yaml.dump(MOCK_AWS_IO_PARAMS)
-
-        with (
-            unittest.mock.patch("builtins.open", unittest.mock.mock_open(read_data=mock_yaml_content)),
-            unittest.mock.patch.object(io_setup, "save") as mock_save,
-        ):
-            io_setup.generate()
-
-            # Verify disk properties were set correctly (multiplied by nr_disks=1)
-            assert io_setup.disk_properties["mountpoint"] == "/var/lib/scylla"
-            assert io_setup.disk_properties["read_iops"] == 200800
-            assert io_setup.disk_properties["read_bandwidth"] == 1185106376
-            assert io_setup.disk_properties["write_iops"] == 53180
-            assert io_setup.disk_properties["write_bandwidth"] == 423621267
-            mock_save.assert_called_once()
-
-    def test_aws_io_setup_with_multiple_disks(self):
-        """Test AwsIoSetup correctly multiplies IO params by number of disks."""
-        mock_instance = MockAwsInstance(instance_type="i3.xlarge", local_disks=["nvme0n1", "nvme1n1"])
-        io_setup = AwsIoSetup(mock_instance)
-
-        mock_yaml_content = yaml.dump(MOCK_AWS_IO_PARAMS)
-
-        with (
-            unittest.mock.patch("builtins.open", unittest.mock.mock_open(read_data=mock_yaml_content)),
-            unittest.mock.patch.object(io_setup, "save") as mock_save,
-        ):
-            io_setup.generate()
-
-            # Verify disk properties were multiplied by 2 (nr_disks)
-            assert io_setup.disk_properties["read_iops"] == 200800 * 2
-            assert io_setup.disk_properties["read_bandwidth"] == 1185106376 * 2
-            assert io_setup.disk_properties["write_iops"] == 53180 * 2
-            assert io_setup.disk_properties["write_bandwidth"] == 423621267 * 2
-            mock_save.assert_called_once()
-
-    def test_aws_io_setup_fallback_to_instance_class_all(self):
-        """Test AwsIoSetup falls back to instance_class.ALL when specific type not found."""
-        mock_instance = MockAwsInstance(instance_type="i3.8xlarge", instance_class="i3", local_disks=["nvme0n1"])
-        io_setup = AwsIoSetup(mock_instance)
-
-        mock_yaml_content = yaml.dump(MOCK_AWS_IO_PARAMS)
-
-        with (
-            unittest.mock.patch("builtins.open", unittest.mock.mock_open(read_data=mock_yaml_content)),
-            unittest.mock.patch.object(io_setup, "save") as mock_save,
-        ):
-            io_setup.generate()
-
-            # Should use i3.ALL values
-            assert io_setup.disk_properties["read_iops"] == 411200
-            assert io_setup.disk_properties["read_bandwidth"] == 2015342735
-            mock_save.assert_called_once()
+                assert io_setup.disk_properties == {
+                    "mountpoint": "/var/lib/scylla",
+                    "read_iops": 200800,
+                    "read_bandwidth": 1185106376,
+                    "write_iops": 53180,
+                    "write_bandwidth": 423621267,
+                }
+                mock_save.assert_called_once()
 
     def test_aws_io_setup_fallback_to_scylla_io_setup(self):
-        """Test that AwsIoSetup falls back to scylla_io_setup when instance type not in YAML."""
-        mock_instance = MockAwsInstance(
-            instance_type="unknown.xlarge", instance_class="unknown", local_disks=["nvme0n1"]
-        )
+        """A supported size with no entry of its own runs scylla_io_setup."""
+        mock_instance = MockAwsInstance(instance_type="i3.8xlarge", instance_class="i3", local_disks=["nvme0n1"])
         io_setup = AwsIoSetup(mock_instance)
 
         mock_yaml_content = yaml.dump(MOCK_AWS_IO_PARAMS)
@@ -845,8 +800,9 @@ class TestAwsM8gdM9gdParams(TestCase):
 AWS_LOCAL_DISKS = {
     "c5d": {"large": (1, 50), "xlarge": (1, 100), "2xlarge": (1, 200), "4xlarge": (1, 400), "9xlarge": (1, 900), "12xlarge": (2, 900), "18xlarge": (2, 900), "24xlarge": (4, 900), "metal": (4, 900)},
     "c6gd": {"medium": (1, 59), "large": (1, 118), "xlarge": (1, 237), "2xlarge": (1, 474), "4xlarge": (1, 950), "8xlarge": (1, 1900), "12xlarge": (2, 1425), "16xlarge": (2, 1900), "metal": (2, 1900)},
-    "i3": {"large": (1, 475), "xlarge": (1, 950)},
-    "i3en": {"large": (1, 1250), "xlarge": (1, 2500), "2xlarge": (2, 2500)},
+    "i2": {"xlarge": (1, 800), "2xlarge": (2, 800), "4xlarge": (4, 800), "8xlarge": (8, 800)},
+    "i3": {"large": (1, 475), "xlarge": (1, 950), "2xlarge": (1, 1900), "4xlarge": (2, 1900), "8xlarge": (4, 1900), "16xlarge": (8, 1900), "metal": (8, 1900)},
+    "i3en": {"large": (1, 1250), "xlarge": (1, 2500), "2xlarge": (2, 2500), "3xlarge": (1, 7500), "6xlarge": (2, 7500), "12xlarge": (4, 7500), "24xlarge": (8, 7500), "metal": (8, 7500)},
     "i4g": {"large": (1, 468), "xlarge": (1, 937), "2xlarge": (1, 1875), "4xlarge": (1, 3750), "8xlarge": (2, 3750), "16xlarge": (4, 3750)},
     "i4i": {"large": (1, 468), "xlarge": (1, 937), "2xlarge": (1, 1875), "4xlarge": (1, 3750), "8xlarge": (2, 3750), "12xlarge": (3, 3750), "16xlarge": (4, 3750), "24xlarge": (6, 3750), "32xlarge": (8, 3750), "metal": (8, 3750)},
     "i7i": {"large": (1, 468), "xlarge": (1, 937), "2xlarge": (1, 1875), "4xlarge": (1, 3750), "8xlarge": (2, 3750), "12xlarge": (3, 3750), "16xlarge": (4, 3750), "24xlarge": (6, 3750)},
@@ -870,11 +826,11 @@ AWS_LOCAL_DISKS = {
 
 
 @pytest.mark.unit
-class TestAwsIoParamsPerDisk(TestCase):
-    """aws_io_params.yaml entries are per local disk, since AwsIoSetup multiplies them by the disk count.
+class TestAwsIoParamsWholeInstance(TestCase):
+    """aws_io_params.yaml entries are whole-instance values, AwsIoSetup copies them unchanged.
 
-    i7i, i7ie, i8g and i8ge once had whole-instance entries for their multi-disk
-    sizes, so e.g. i8ge.12xlarge got 4x its real bandwidth in io_properties.yaml.
+    Sizes built from the same drive must agree on bandwidth per disk, which catches
+    a per-disk value written for a multi-disk size, or a total counted twice (SMI-324).
     """
 
     io_params_path = Path(__file__).parent.parent / "common" / "aws_io_params.yaml"
@@ -890,12 +846,23 @@ class TestAwsIoParamsPerDisk(TestCase):
     def test_every_instance_type_has_its_disks_listed(self):
         for instance_type in self.io_params():
             family, size = instance_type.split(".")
-            if size == "ALL":
-                continue
             assert size in AWS_LOCAL_DISKS.get(family, {}), (
                 f"{instance_type}: add its local disks to AWS_LOCAL_DISKS, "
-                "and make sure its aws_io_params.yaml entry is per disk"
+                "and make sure its aws_io_params.yaml entry is a whole-instance value"
             )
+
+    def test_every_supported_size_has_a_preset(self):
+        """A supported size without a preset runs iotune on first boot."""
+        from test_aws_instance_support_consistency import hardcoded_supported_classes
+
+        io_params = self.io_params()
+        missing = sorted(
+            f"{family}.{size}"
+            for family in hardcoded_supported_classes()
+            for size in AWS_LOCAL_DISKS.get(family, {"<no sizes in AWS_LOCAL_DISKS>": None})
+            if f"{family}.{size}" not in io_params
+        )
+        assert not missing, f"no aws_io_params.yaml preset for {missing}"
 
     def test_sizes_with_the_same_drive_have_the_same_per_disk_bandwidth(self):
         io_params = self.io_params()
@@ -905,8 +872,8 @@ class TestAwsIoParamsPerDisk(TestCase):
                 by_drive.setdefault(disk_gb, []).append((f"{family}.{size}", count))
             for disk_gb, instance_types in by_drive.items():
                 for key in ("read_bandwidth", "write_bandwidth"):
-                    values = {f"{it} ({count} disks)": io_params[it][key] for it, count in instance_types}
+                    values = {f"{it} ({count} disks)": io_params[it][key] / count for it, count in instance_types}
                     assert max(values.values()) <= self.max_bandwidth_spread * min(values.values()), (
                         f"{family} sizes with {disk_gb} GB disks disagree on per-disk {key}, "
-                        f"is one of them a whole-instance total? {values}"
+                        f"is one of them not a whole-instance value? {values}"
                     )
