@@ -73,15 +73,21 @@ def get_wait_times(instance_type):
         "24xlarge": 5,
         "32xlarge": 6,
         "48xlarge": 7,
+        # bare metal: iotune takes as long as 48xlarge, only boot is slower (see below)
+        "metal": 7,
+        "metal-24xl": 7,
+        "metal-48xl": 7,
     }
 
     multiplier = size_multipliers.get(size_part, 1)
+    # bare metal takes several minutes longer to boot than any virtualized size
+    boot_multiplier = 15 if size_part.startswith("metal") else multiplier
 
     # Base wait times - increased for all instance types
     base_initial_wait = 30  # seconds (increased from 10)
     base_io_wait = 30  # minutes (increased from 15)
 
-    initial_wait = int(base_initial_wait * multiplier)
+    initial_wait = int(base_initial_wait * boot_multiplier)
     io_wait_minutes = int(base_io_wait * multiplier)
 
     return initial_wait, io_wait_minutes
@@ -651,6 +657,8 @@ def sort_aws_instance_types(instance_types):
         "32xlarge",
         "48xlarge",
         "metal",
+        "metal-24xl",
+        "metal-48xl",
     ]
 
     def parse_family_for_sorting(family):
@@ -996,10 +1004,10 @@ def main():
         }
         save_config(current_config, args.config)
 
-    # Fix common instance type formatting issues
-    if args.instance_type and "-" in args.instance_type:
-        # Convert i8g-2xlarge to i8g.2xlarge
-        args.instance_type = args.instance_type.replace("-", ".")
+    # Fix common instance type formatting issues: i8g-2xlarge -> i8g.2xlarge,
+    # but keep the hyphen of sizes like i8g.metal-24xl
+    if args.instance_type and "-" in args.instance_type and "." not in args.instance_type:
+        args.instance_type = args.instance_type.replace("-", ".", 1)
         print(f"Corrected instance type to: {args.instance_type}")
 
     # Check if it's a family (no dot) or specific instance type (has dot)
