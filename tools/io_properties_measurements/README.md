@@ -104,10 +104,10 @@ python get_scylla_io_properties.py --ami ami-12345678 --instance-type i8g.2xlarg
 python get_scylla_io_properties.py --ami ami-12345678 --instance-type i8g --key-path ~/.ssh/my-key.pem --update-aws-params
 ```
 
-Entries in aws_io_params.yaml are per local disk: `scylla_cloud_io_setup` multiplies
-them by the number of local disks. The io_properties.yaml read from the instance
-covers the whole RAID0 array, so the script divides it by the instance type's local
-disk count before writing it.
+Entries in aws_io_params.yaml are whole-instance values: they describe the RAID0
+array of all local disks, the same as the io_properties.yaml read from the instance,
+so the script writes them unchanged and `scylla_cloud_io_setup` copies them without
+change. GCP, Azure and OCI presets use the same unit.
 
 ### Instance Family with Limits
 ```bash
