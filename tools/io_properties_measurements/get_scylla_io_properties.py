@@ -598,8 +598,7 @@ def sort_aws_instance_types(instance_types):
     """
     Sort AWS instance types in logical order:
     1. Group by instance family, sorted alphabetically by family components
-    2. Within each family, sort by size (large, xlarge, 2xlarge, etc.)
-    3. Put .ALL variants after the specific sizes for each family
+    2. Within each family, sort by size (large, xlarge, 2xlarge, etc.); unknown sizes go last
 
     Family sorting logic:
     - First by first letter (c, i, m, r, x, z, etc.)
@@ -633,24 +632,6 @@ def sort_aws_instance_types(instance_types):
         "metal",
     ]
 
-    def parse_instance_type(instance_type):
-        """Parse instance type into family, size, and ALL flag"""
-        if instance_type.endswith(".ALL"):
-            family = instance_type[:-4]  # Remove .ALL
-            size = "ALL"
-            is_all = True
-        else:
-            parts = instance_type.split(".")
-            if len(parts) == 2:
-                family, size = parts
-                is_all = False
-            else:
-                # Handle edge cases
-                family = instance_type
-                size = "unknown"
-                is_all = False
-        return family, size, is_all
-
     def parse_family_for_sorting(family):
         """
         Parse family name into components for natural sorting.
@@ -676,21 +657,9 @@ def sort_aws_instance_types(instance_types):
 
     def sort_key(instance_type):
         """Generate sort key for instance type"""
-        family, size, is_all = parse_instance_type(instance_type)
-
-        # Parse family for natural sorting
-        family_sort_key = parse_family_for_sorting(family)
-
-        # Get size order
-        if is_all:
-            size_idx = len(size_order)  # .ALL goes after all specific sizes
-        else:
-            try:
-                size_idx = size_order.index(size)
-            except ValueError:
-                size_idx = len(size_order) - 1  # Unknown sizes go before .ALL
-
-        return (family_sort_key, size_idx, is_all)
+        family, _, size = instance_type.partition(".")
+        size_idx = size_order.index(size) if size in size_order else len(size_order)
+        return (parse_family_for_sorting(family), size_idx)
 
     return sorted(instance_types, key=sort_key)
 
@@ -704,6 +673,9 @@ def extract_io_params(properties):
 
     We extract only: read_iops, read_bandwidth, write_iops, write_bandwidth
 
+    The file describes the whole RAID0 array over all local disks, the same
+    unit as aws_io_params.yaml, so the values are copied without change.
+
     Args:
         properties (dict): Raw IO properties from instance
 
@@ -712,12 +684,7 @@ def extract_io_params(properties):
     """
     if "disks" in properties and len(properties["disks"]) > 0:
         disk_props = properties["disks"][0]
-        return {
-            "read_bandwidth": int(disk_props.get("read_bandwidth", 0)),
-            "read_iops": int(disk_props.get("read_iops", 0)),
-            "write_bandwidth": int(disk_props.get("write_bandwidth", 0)),
-            "write_iops": int(disk_props.get("write_iops", 0)),
-        }
+        return {p: int(disk_props.get(p, 0)) for p in ("read_bandwidth", "read_iops", "write_bandwidth", "write_iops")}
     return None
 
 
