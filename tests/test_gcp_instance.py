@@ -1089,16 +1089,18 @@ class TestGcpIoSetup(TestCase):
     def test_every_z4d_machine_type_has_a_preset(self):
         """Every z4d machine type has a measured entry, so none runs iotune at boot.
 
-        From https://docs.cloud.google.com/compute/docs/storage-optimized-machines
+        The z4d machine types are the ones in gcp_net_params.json, which test_param_estimation checks
+        against Google's docs, so a new size only has to be added there.
         """
-        with open(Path(__file__).parent.parent / "common" / "gcp_io_params.yaml") as f:
+        common = Path(__file__).parent.parent / "common"
+        with open(common / "gcp_io_params.yaml") as f:
             io_params = yaml.safe_load(f)
-        machine_types = [f"z4d-highmem-{size}-highlssd" for size in (8, 16, 32, 48, 64, 96, 192)]
-        machine_types += [f"z4d-highmem-{size}-standardlssd" for size in (16, 32, 48, 64, 96, 192, 384)]
-        machine_types += ["z4d-highmem-384-standardlssd-metal"]
+        with open(common / "gcp_net_params.json") as f:
+            machine_types = {entry[0] for entry in json.load(f) if entry[0].startswith("z4d-")}
+        assert machine_types
+        assert {k for k in io_params if k.startswith("z4d-")} == machine_types
         for machine_type in machine_types:
-            with self.subTest(machine_type=machine_type):
-                assert set(io_params[machine_type]) == {"read_iops", "read_bandwidth", "write_iops", "write_bandwidth"}
+            assert set(io_params[machine_type]) == {"read_iops", "read_bandwidth", "write_iops", "write_bandwidth"}
 
 
 # Load scylla_image_setup module (file without .py extension)
