@@ -1,10 +1,9 @@
 # I/O properties of the WHOLE instance, per GCP machine type: the RAID0 array of
 # all its local SSDs, as io_properties.yaml and iotune describe it.
 #
-# scylla_cloud_io_setup (GcpIoSetup.generate) copies an entry without change,
-# so a preset is a plain copy of an iotune measurement, like on AWS, Azure and OCI.
-# Flat <machine-type> entries are for machine types with bundled local SSD;
-# measure them with tools/io_properties_measurements/get_scylla_io_properties_gcp.py.
+# Flat <machine-type> entries are whole-instance iotune measurements, for machine
+# types with bundled local SSD, and GcpIoSetup.generate copies them without change.
+# Measure them with tools/io_properties_measurements/get_scylla_io_properties_gcp.py.
 
 z3-highmem-8-highlssd:
   read_iops: 750000
