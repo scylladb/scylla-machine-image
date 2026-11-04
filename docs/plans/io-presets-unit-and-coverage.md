@@ -61,7 +61,7 @@ Ticket: SMI-326. Related: SMI-324, SCT-1274 (artifacts-test threshold).
 - The support lists in `lib/scylla_cloud.py` match the supported instance list.
 - Every size on the supported instance list has a measured preset.
 - The README of the measuring tools tells how to measure a backend again.
-- The changes go to `next`, `branch-2026.1` and `branch-2026.3`.
+- The changes go to `next`, `branch-2026.1`, `branch-2026.3` and `branch-2026.4`. The 2026.4 artifacts runs fail the Argus I/O deviation check on i4i, i3en, is4gen and im4gn.
 
 ### Decisions
 
@@ -143,7 +143,7 @@ Measure only the sizes on the supported instance list.
 Skip the sizes that have a measurement from the last months, for example c4, c4a and c4d (SMI-309).
 
 Each PR adds the measured types to the support lists in `lib/scylla_cloud.py`.
-Each backport PR to `branch-2026.1` or `branch-2026.3` shows an SCT artifacts run on the release image of that branch.
+Each backport PR to `branch-2026.1`, `branch-2026.3` or `branch-2026.4` shows an SCT artifacts run on the release image of that branch.
 
 - [ ] GCP tool: add an option for the local SSD count of n2, n2d and c2 types, and write the results to `measured_local_ssd`.
 - [ ] AWS: measure every size on the list. Start with the priority list, then the sizes that have no preset and the multi-disk sizes.
@@ -184,7 +184,7 @@ Performance tests:
 - Every size on the supported instance list has a preset, or follows the answer to the metal question.
 - Artifacts runs on single-disk and multi-disk sizes of each backend stay within the SCT-1274 threshold.
 - The README tells how to measure each backend again.
-- The changes are on `next`, `branch-2026.1` and `branch-2026.3`.
+- The changes are on `next`, `branch-2026.1`, `branch-2026.3` and `branch-2026.4`.
 
 ## 7. Risk Mitigation
 
