@@ -1086,6 +1086,20 @@ class TestGcpIoSetup(TestCase):
         with pytest.raises(UnsupportedInstanceClassError):
             io_setup.generate()
 
+    def test_every_z4d_machine_type_has_a_preset(self):
+        """Every z4d machine type has a measured entry, so none runs iotune at boot.
+
+        From https://docs.cloud.google.com/compute/docs/storage-optimized-machines
+        """
+        with open(Path(__file__).parent.parent / "common" / "gcp_io_params.yaml") as f:
+            io_params = yaml.safe_load(f)
+        machine_types = [f"z4d-highmem-{size}-highlssd" for size in (8, 16, 32, 48, 64, 96, 192)]
+        machine_types += [f"z4d-highmem-{size}-standardlssd" for size in (16, 32, 48, 64, 96, 192, 384)]
+        machine_types += ["z4d-highmem-384-standardlssd-metal"]
+        for machine_type in machine_types:
+            with self.subTest(machine_type=machine_type):
+                assert set(io_params[machine_type]) == {"read_iops", "read_bandwidth", "write_iops", "write_bandwidth"}
+
 
 # Load scylla_image_setup module (file without .py extension)
 _image_setup_path = Path(__file__).parent.parent / "common" / "scylla_image_setup"
