@@ -40,6 +40,8 @@ def test_update_gcp_params_adds_and_replaces_flat_entries(tmp_path):
         [
             {"machine_type": "c4-highmem-8-lssd", **IOTUNE},
             {"machine_type": "z3-highmem-8-highlssd", **IOTUNE},
+            # z4m has bundled Titanium SSD, though its name has no -lssd
+            {"machine_type": "z4m-highmem-16", **IOTUNE},
             {"machine_type": "c4d-highmem-8-lssd", "error": "boom"},
             # numbers that came from a preset, or iotune unknown, are not measurements
             {"machine_type": "c4d-highmem-16-lssd", **MEASURED, "iotune_ran": False},
@@ -54,6 +56,7 @@ def test_update_gcp_params_adds_and_replaces_flat_entries(tmp_path):
     after = yaml.safe_load(text)
     assert after["c4-highmem-8-lssd"] == MEASURED
     assert after["z3-highmem-8-highlssd"] == MEASURED
+    assert after["z4m-highmem-16"] == MEASURED
     assert not {"c4d-highmem-8-lssd", "c4d-highmem-16-lssd", "c4d-highmem-32-lssd", "n2-highmem-32"} & after.keys()
     assert after["local_ssd_nvme"] == yaml.safe_load(GCP_IO_PARAMS)["local_ssd_nvme"]
     # new flat entries go above Google's table and keep its comment
@@ -91,3 +94,26 @@ def test_arm_machine_types_boot_from_the_arm_image():
     assert tool.image_for("t2a-standard-4", args) == "arm-image"
     with pytest.raises(ValueError, match="--arm-image"):
         tool.image_for("c4a-highmem-8-lssd", SimpleNamespace(image="x86-image", arm_image=None))
+
+
+def test_create_vm_retries_with_the_maintenance_policy_gce_takes(monkeypatch, tmp_path):
+    (tmp_path / "key.pub").write_text("ssh-ed25519 AAAA")
+    args = SimpleNamespace(
+        image="image", arm_image=None, key_path=str(tmp_path / "key"), network="default", username="u"
+    )
+    rejected = (
+        "ERROR: (gcloud.compute.instances.create) Could not fetch resource:\n - Invalid value for field "
+        "'resource.scheduling.onHostMaintenance': 'TERMINATE'. Scheduling must have onHostMaintenance be one of "
+        "the following valid types: [MIGRATE]. But was TERMINATE"
+    )
+    policies = []
+
+    def gcloud(*cmd):
+        policies.append(next(a for a in cmd if a.startswith("--maintenance-policy=")))
+        if policies[-1] == "--maintenance-policy=TERMINATE":
+            raise subprocess.CalledProcessError(1, cmd, stderr=rejected)
+        return '[{"networkInterfaces": [{"accessConfigs": [{"natIP": "1.2.3.4"}]}]}]'
+
+    monkeypatch.setattr(tool, "gcloud", gcloud)
+    assert tool.create_vm("vm", "z4d-highmem-8-highlssd", "us-central1-a", args) == "1.2.3.4"
+    assert policies == ["--maintenance-policy=TERMINATE", "--maintenance-policy=MIGRATE"]
