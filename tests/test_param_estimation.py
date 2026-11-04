@@ -130,6 +130,16 @@ class TestGcpStreamingBandwidth(TestCase):
         result = self._estimate_gcp_bandwidth("c4d-highmem-384-lssd")
         assert result == self._expected_bandwidth_mib(100.0)
 
+    def test_z4d_highmem_8_highlssd_bandwidth(self):
+        """z4d-highmem-8-highlssd has 20 Gbps default bandwidth and no Tier_1."""
+        result = self._estimate_gcp_bandwidth("z4d-highmem-8-highlssd")
+        assert result == self._expected_bandwidth_mib(20.0)
+
+    def test_z4d_highmem_192_standardlssd_bandwidth(self):
+        """z4d-highmem-192-standardlssd has 200 Gbps, not 2003 from the docs' footnote marker."""
+        result = self._estimate_gcp_bandwidth("z4d-highmem-192-standardlssd")
+        assert result == self._expected_bandwidth_mib(200.0)
+
     def test_unknown_instance_returns_zero(self):
         """Unknown instance types should return 0 bandwidth."""
         result = self._estimate_gcp_bandwidth("unknown-instance-type")
@@ -215,6 +225,17 @@ class TestGcpStreamingBandwidth(TestCase):
                 for size in family_sizes:
                     assert f"{family}-{purpose}-{size}-lssd" in types
                 assert f"c4-{purpose}-288-lssd-metal" in types
+
+    def test_z4d_family_coverage(self):
+        """Verify all z4d instance types are present, with no Tier_1 (z4d doesn't support it)."""
+        with open(GCP_NET_PARAMS_PATH) as f:
+            entries = {entry[0]: entry for entry in json.load(f)}
+        types = [f"z4d-highmem-{size}-highlssd" for size in (8, 16, 32, 48, 64, 96, 192)]
+        types += [f"z4d-highmem-{size}-standardlssd" for size in (16, 32, 48, 64, 96, 192, 384)]
+        types += ["z4d-highmem-384-standardlssd-metal"]
+        for instance_type in types:
+            assert instance_type in entries
+            assert entries[instance_type][2] is None
 
     def test_tier1_values_only_for_large_n2(self):
         """Tier_1 bandwidth should only be set for N2/N2D instances with >=48 vCPUs."""
