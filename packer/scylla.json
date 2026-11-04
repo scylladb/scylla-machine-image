@@ -256,9 +256,9 @@
     {
       "inline": [
         "curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sudo sh -s -- -b /usr/local/bin",
-        "sudo syft -o cyclonedx-json@1.4 / > /tmp/sbom_report.json",
+        "sudo env SYFT_CACHE_DIR=/tmp/syft-cache SYFT_GOLANG_SEARCH_REMOTE_LICENSES=true SYFT_JAVA_USE_NETWORK=true SYFT_JAVA_MAX_PARENT_RECURSIVE_DEPTH=5 syft -o cyclonedx-json@1.4 --exclude ./usr/local/bin/syft --exclude \"./tmp/syft-cache/**\" / > /tmp/sbom_report.json",
         "python3 -c 'import json; d=json.load(open(\"/tmp/sbom_report.json\")); d[\"components\"]=[c for c in d[\"components\"] if c.get(\"type\")!=\"file\"]; json.dump(d, open(\"/tmp/ami_sbom_report_{{user `scylla_version`}}_{{user `arch`}}.json\", \"w\"), indent=2)'",
-        "sudo rm -f /usr/local/bin/syft /tmp/sbom_report.json"
+        "sudo rm -rf /usr/local/bin/syft /tmp/sbom_report.json /tmp/syft-cache /root/.cache/syft"
       ],
       "only": ["aws"],
       "type": "shell"
