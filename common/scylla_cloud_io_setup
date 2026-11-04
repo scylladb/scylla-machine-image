@@ -75,7 +75,7 @@ class GcpIoSetup(CloudIoSetup):
     # N1 is the exception, it needs more vCPUs than the rest of the machine families.
     MIN_CPU_FOR_MAX_PERFORMANCE_PER_CLASS = {"n1": 32}
     # The families Google's `local_ssd_nvme` table describes (standard local SSD). Others,
-    # like z3, c4, c4a and c4d with Titanium SSD, are measured unless they have an entry of their own.
+    # like z3, z4d, c4, c4a and c4d with Titanium SSD, are measured unless they have an entry of their own.
     LOCAL_SSD_TABLE_CLASSES = ("n1", "n2", "n2d", "c2", "m1")
 
     def __init__(self, idata):
