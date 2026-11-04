@@ -696,12 +696,12 @@
   ],
   [
     "z4d-highmem-384-standardlssd",
-    400.0,
+    200.0,
     null
   ],
   [
     "z4d-highmem-384-standardlssd-metal",
-    400.0,
+    200.0,
     null
   ],
   [

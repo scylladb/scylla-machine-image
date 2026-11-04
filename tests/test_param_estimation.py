@@ -140,6 +140,11 @@ class TestGcpStreamingBandwidth(TestCase):
         result = self._estimate_gcp_bandwidth("z4d-highmem-192-standardlssd")
         assert result == self._expected_bandwidth_mib(200.0)
 
+    def test_z4d_highmem_384_bandwidth_is_single_nic(self):
+        """z4d 384 vCPU sizes reach 400 Gbps only with 2 vNICs on separate physical NICs, the image boots with 1."""
+        for instance_type in ("z4d-highmem-384-standardlssd", "z4d-highmem-384-standardlssd-metal"):
+            assert self._estimate_gcp_bandwidth(instance_type) == self._expected_bandwidth_mib(200.0)
+
     def test_unknown_instance_returns_zero(self):
         """Unknown instance types should return 0 bandwidth."""
         result = self._estimate_gcp_bandwidth("unknown-instance-type")
