@@ -40,8 +40,6 @@ def test_update_gcp_params_adds_and_replaces_flat_entries(tmp_path):
         [
             {"machine_type": "c4-highmem-8-lssd", **IOTUNE},
             {"machine_type": "z3-highmem-8-highlssd", **IOTUNE},
-            # z4m has bundled Titanium SSD, though its name has no -lssd
-            {"machine_type": "z4m-highmem-16", **IOTUNE},
             {"machine_type": "c4d-highmem-8-lssd", "error": "boom"},
             # numbers that came from a preset, or iotune unknown, are not measurements
             {"machine_type": "c4d-highmem-16-lssd", **MEASURED, "iotune_ran": False},
@@ -56,7 +54,6 @@ def test_update_gcp_params_adds_and_replaces_flat_entries(tmp_path):
     after = yaml.safe_load(text)
     assert after["c4-highmem-8-lssd"] == MEASURED
     assert after["z3-highmem-8-highlssd"] == MEASURED
-    assert after["z4m-highmem-16"] == MEASURED
     assert not {"c4d-highmem-8-lssd", "c4d-highmem-16-lssd", "c4d-highmem-32-lssd", "n2-highmem-32"} & after.keys()
     assert after["local_ssd_nvme"] == yaml.safe_load(GCP_IO_PARAMS)["local_ssd_nvme"]
     # new flat entries go above Google's table and keep its comment
@@ -117,3 +114,13 @@ def test_create_vm_retries_with_the_maintenance_policy_gce_takes(monkeypatch, tm
     monkeypatch.setattr(tool, "gcloud", gcloud)
     assert tool.create_vm("vm", "z4d-highmem-8-highlssd", "us-central1-a", args) == "1.2.3.4"
     assert policies == ["--maintenance-policy=TERMINATE", "--maintenance-policy=MIGRATE"]
+
+
+def test_bundled_local_ssds(monkeypatch):
+    answers = {
+        "z4d-highmem-16-highlssd": '{"name": "z4d-highmem-16-highlssd", "bundledLocalSsds": {"partitionCount": 2}}',
+        "n2-highmem-8": '{"name": "n2-highmem-8"}',
+    }
+    monkeypatch.setattr(tool, "gcloud", lambda *cmd: answers[cmd[3]])
+    assert tool.bundled_local_ssds("z4d-highmem-16-highlssd", "us-east4-a") == 2
+    assert tool.bundled_local_ssds("n2-highmem-8", "us-east4-a") == 0

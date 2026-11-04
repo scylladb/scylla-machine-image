@@ -18,7 +18,7 @@ Usage:
     # arm64 machine types (c4a, t2a, ...) boot from --arm-image, a scylla-arm64 family image:
     ... --image <x86 image> --arm-image <arm64 image> --family '^(c4|c4a|c4d)-highmem-.*-lssd$'
     # an image built before the family was supported doesn't run iotune at boot, --override runs it:
-    ... --override --family '^(z4m|z4d)-'
+    ... --override --family '^z4d-'
 """
 
 import argparse
@@ -40,15 +40,21 @@ GCP_PARAMS_PATH = Path(__file__).parent.parent.parent / "common" / "gcp_io_param
 RETRY_IN_NEXT_ZONE = ("stockout", "ZONE_RESOURCE_POOL_EXHAUSTED", "Quota", "does not exist in zone")
 # same as SCT's _ARM_INSTANCE_TYPE_PATTERNS for gce
 ARM_MACHINE_TYPE = re.compile(r"^(t2a|c4a|n4a|x4a)-")
-# machine types with local SSD bundled: -lssd (c4, z3, z4d, ...), and every z4m, whose names don't say so
-BUNDLED_LOCAL_SSD = re.compile(r"lssd|^z4m-")
-# GCE's answer when a machine type doesn't take the maintenance policy asked for (z4d, z4m below 192 vCPUs)
+# machine types with local SSD bundled: -lssd (c4, z3, z4d, ...)
+BUNDLED_LOCAL_SSD = re.compile(r"lssd")
+# GCE's answer when a machine type doesn't take the maintenance policy asked for (z4d)
 VALID_MAINTENANCE_POLICY = re.compile(r"onHostMaintenance be one of the following valid types: \[(\w+)\]")
 SSH_OPTS = ["-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=30"]
 
 
 def gcloud(*args):
     return subprocess.run(["gcloud", *args, "--format=json"], check=True, capture_output=True, text=True).stdout
+
+
+def bundled_local_ssds(machine_type, zone):
+    """How many local SSDs GCE bundles with the machine type, 0 if none."""
+    out = gcloud("compute", "machine-types", "describe", machine_type, f"--zone={zone}")
+    return json.loads(out).get("bundledLocalSsds", {}).get("partitionCount", 0)
 
 
 def list_machine_types(regex):
@@ -160,6 +166,8 @@ def measure(machine_type, args):
                 if time.time() > deadline:
                     raise TimeoutError(f"scylla-image-setup not done after {args.wait_minutes} minutes")
                 time.sleep(15)
+            if probe(ip, args, "systemctl is-failed -q scylla-image-setup") == 0:
+                raise RuntimeError("scylla-image-setup failed, see `journalctl -u scylla-image-setup` on the VM")
             # a failed image setup can leave no RAID, and iotune would then measure the boot disk
             if probe(ip, args, "mountpoint -q /var/lib/scylla"):
                 raise RuntimeError("/var/lib/scylla is not mounted, the image setup didn't create the local SSD RAID")
@@ -186,6 +194,19 @@ def measure(machine_type, args):
         result["nvme_devices"] = int(ssh(ip, args, "ls /dev/ | grep -cE '^nvme[0-9]+n[0-9]+$'").stdout.strip() or 0)
         result["cpus"] = int(ssh(ip, args, "nproc").stdout.strip())
         result["lsblk"] = ssh(ip, args, "lsblk -b -o NAME,SIZE,TYPE,MODEL,MOUNTPOINT").stdout
+        # a whole-instance preset must cover every bundled SSD, not a RAID of the disks seen so far
+        result["data_disks"] = int(
+            ssh(
+                ip, args, "lsblk -nso NAME,TYPE $(findmnt -no SOURCE /var/lib/scylla) | grep -c ' disk$'"
+            ).stdout.strip()
+            or 0
+        )
+        result["bundled_local_ssds"] = bundled_local_ssds(machine_type, result["zone"])
+        if result["bundled_local_ssds"] and result["data_disks"] != result["bundled_local_ssds"]:
+            raise RuntimeError(
+                f"/var/lib/scylla is on {result['data_disks']} disk(s), "
+                f"but {machine_type} has {result['bundled_local_ssds']} local SSDs"
+            )
         result["scylla_version"] = ssh(ip, args, "scylla --version").stdout.strip()
         journal = ssh(ip, args, "sudo journalctl -b --no-pager -o short-iso")
         if journal.returncode == 0:
@@ -213,7 +234,7 @@ def measure(machine_type, args):
 def update_gcp_params(results, path=GCP_PARAMS_PATH):
     """Add or replace flat `<machine-type>:` entries, keeping the rest of the file (and its comments) as is.
 
-    Only for machine types with bundled local SSD (-lssd, z3, z4m, z4d), measured by iotune. The others are
+    Only for machine types with bundled local SSD (-lssd: z3, z4d, c4, ...), measured by iotune. The others are
     keyed by disk count (`measured_local_ssd`, `local_ssd_nvme`), and a flat entry would override that.
     """
     text = path.read_text()
@@ -255,7 +276,13 @@ if __name__ == "__main__":
     )
     parser.add_argument("--network", default="default")
     parser.add_argument("--parallel", type=int, default=1)
-    parser.add_argument("--wait-minutes", type=int, default=30, help="per VM, for SSH plus io_properties.yaml")
+    parser.add_argument(
+        "--wait-minutes",
+        type=int,
+        default=30,
+        help="per VM, from creation until io_properties.yaml is written: SSH, the image setup and, with --override, "
+        "the scylla_io_setup run. Give the largest machine types more, e.g. 60",
+    )
     parser.add_argument(
         "--override",
         action="store_true",
