@@ -184,3 +184,21 @@ This is useful when:
 - For large families, consider using `--max-instances` to limit processing
 - Configuration files help maintain consistent settings across runs
 - Progress indicators show real-time status for long-running operations
+
+## GCP
+
+`get_scylla_io_properties_gcp.py` measures GCP machine types with the gcloud CLI. It creates a VM from a Scylla image, reads `/etc/scylla.d/io_properties.yaml`, and deletes the VM. Every run is appended to `--results` (JSON lines). A successful run also has the raw `io_properties.yaml`, `lsblk` and the setup log. A failed run has `error` instead, and `delete_error` if the VM wasn't deleted.
+
+Prerequisites: gcloud logged in, with the project set (`gcloud config set project ...`), an SSH key with its `.pub` next to it, and a network that allows SSH (`--network`, default `default`).
+
+```bash
+uv run --no-project --with pyyaml python tools/io_properties_measurements/get_scylla_io_properties_gcp.py \
+    --image <image id> --key-path ~/.ssh/id_ed25519 \
+    --zones us-east4-a,us-east4-b,us-east4-c --override --parallel 5 \
+    --family '^z4d-' --update-gcp-params
+```
+
+- Use the newest `next` image. `--override` runs `scylla_io_setup` after the image setup. It also measures a family the image doesn't support yet, and a type that already has a preset.
+- `--update-gcp-params` writes flat `<machine-type>:` entries (whole-instance values) to `common/gcp_io_params.yaml`, only for machine types with bundled local SSD and only when iotune ran.
+- Zones are tried in order on a capacity or quota error. Families such as z4d have their own regional CPU and local SSD quotas (`CPUS_PER_VM_FAMILY`, `LOCAL_SSD_TOTAL_GB_PER_VM_FAMILY`), so keep `--parallel` within them, and run the largest sizes one at a time.
+- `--dry-run` lists the machine types without creating VMs. `--keep` keeps the VMs.
