@@ -418,6 +418,13 @@ class TestGcpInstance(TestCase, GcpMetadata):
                 ins = GcpInstance()
                 assert ins.is_supported_instance_class()
 
+    def test_is_supported_instance_class_z4d(self):
+        for instance_type in ["z4d-highmem-8-highlssd", "z4d-highmem-384-standardlssd"]:
+            with self.subTest(instance_type=instance_type):
+                self.httpretty_gcp_metadata(instance_type=instance_type)
+                ins = GcpInstance()
+                assert ins.is_supported_instance_class()
+
     def test_is_recommended_instance_size_n2_standard_8(self):
         self.httpretty_gcp_metadata()
         ins = GcpInstance()
@@ -1031,7 +1038,7 @@ class TestGcpIoSetup(TestCase):
             mock_save.assert_called_once()
 
     def test_gcp_io_setup_titanium_ssd_runs_iotune(self):
-        """Titanium SSD families (c4, c4d, c4a, z3), Google's local SSD table must not be applied to them."""
+        """Titanium SSD families (c4, c4d, c4a, z3, z4d), Google's local SSD table must not be applied to them."""
         mock_yaml_content = yaml.dump(MOCK_GCP_IO_PARAMS)
 
         # none of these has an entry in MOCK_GCP_IO_PARAMS
@@ -1040,6 +1047,7 @@ class TestGcpIoSetup(TestCase):
             "c4d-highmem-192-lssd",
             "c4a-highmem-72-lssd",
             "z3-highmem-88-highlssd",
+            "z4d-highmem-96-highlssd",
         ]:
             with self.subTest(instance_type=instance_type):
                 mock_instance = MockGcpInstance(instance_type=instance_type, nvme_disk_count=16, cpu=96)
@@ -1077,6 +1085,22 @@ class TestGcpIoSetup(TestCase):
 
         with pytest.raises(UnsupportedInstanceClassError):
             io_setup.generate()
+
+    def test_every_z4d_machine_type_has_a_preset(self):
+        """Every z4d machine type has a measured entry, so none runs iotune at boot.
+
+        The z4d machine types are the ones in gcp_net_params.json, which test_param_estimation checks
+        against Google's docs, so a new size only has to be added there.
+        """
+        common = Path(__file__).parent.parent / "common"
+        with open(common / "gcp_io_params.yaml") as f:
+            io_params = yaml.safe_load(f)
+        with open(common / "gcp_net_params.json") as f:
+            machine_types = {entry[0] for entry in json.load(f) if entry[0].startswith("z4d-")}
+        assert machine_types
+        assert {k for k in io_params if k.startswith("z4d-")} == machine_types
+        for machine_type in machine_types:
+            assert set(io_params[machine_type]) == {"read_iops", "read_bandwidth", "write_iops", "write_bandwidth"}
 
 
 # Load scylla_image_setup module (file without .py extension)

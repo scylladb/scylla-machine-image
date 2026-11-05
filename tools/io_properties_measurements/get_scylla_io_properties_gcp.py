@@ -17,6 +17,8 @@ Usage:
     ... --family '^(c4|c4d)-highmem-.*-lssd(-metal)?$'
     # arm64 machine types (c4a, t2a, ...) boot from --arm-image, a scylla-arm64 family image:
     ... --image <x86 image> --arm-image <arm64 image> --family '^(c4|c4a|c4d)-highmem-.*-lssd$'
+    # an image built before the family was supported doesn't run iotune at boot, --override runs it:
+    ... --override --family '^z4d-'
 """
 
 import argparse
@@ -38,11 +40,21 @@ GCP_PARAMS_PATH = Path(__file__).parent.parent.parent / "common" / "gcp_io_param
 RETRY_IN_NEXT_ZONE = ("stockout", "ZONE_RESOURCE_POOL_EXHAUSTED", "Quota", "does not exist in zone")
 # same as SCT's _ARM_INSTANCE_TYPE_PATTERNS for gce
 ARM_MACHINE_TYPE = re.compile(r"^(t2a|c4a|n4a|x4a)-")
+# machine types with local SSD bundled: -lssd (c4, z3, z4d, ...)
+BUNDLED_LOCAL_SSD = re.compile(r"lssd")
+# GCE's answer when a machine type doesn't take the maintenance policy asked for (z4d)
+VALID_MAINTENANCE_POLICY = re.compile(r"onHostMaintenance be one of the following valid types: \[(\w+)\]")
 SSH_OPTS = ["-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=30"]
 
 
 def gcloud(*args):
     return subprocess.run(["gcloud", *args, "--format=json"], check=True, capture_output=True, text=True).stdout
+
+
+def bundled_local_ssds(machine_type, zone):
+    """How many local SSDs GCE bundles with the machine type, 0 if none."""
+    out = gcloud("compute", "machine-types", "describe", machine_type, f"--zone={zone}")
+    return json.loads(out).get("bundledLocalSsds", {}).get("partitionCount", 0)
 
 
 def list_machine_types(regex):
@@ -65,20 +77,26 @@ def image_for(machine_type, args):
     return args.arm_image
 
 
-def create_vm(name, machine_type, zone, args):
+def create_vm(name, machine_type, zone, args, maintenance_policy="TERMINATE"):
     pub_key = Path(args.key_path).with_suffix(".pub").read_text().strip()
-    out = gcloud(
-        "compute", "instances", "create", name,
-        f"--zone={zone}",
-        f"--machine-type={machine_type}",
-        f"--image={image_url(image_for(machine_type, args))}",
-        "--boot-disk-type=hyperdisk-balanced",  # c4 and c4d reject every pd-* boot disk
-        "--boot-disk-size=50GB",
-        f"--network={args.network}",
-        "--maintenance-policy=TERMINATE",
-        f"--metadata=ssh-keys={args.username}:{pub_key},block-project-ssh-keys=true",
-        "--labels=keep=4,keep_action=terminate,purpose=io-properties-measurement",
-    )  # fmt: skip
+    try:
+        out = gcloud(
+            "compute", "instances", "create", name,
+            f"--zone={zone}",
+            f"--machine-type={machine_type}",
+            f"--image={image_url(image_for(machine_type, args))}",
+            "--boot-disk-type=hyperdisk-balanced",  # c4 and c4d reject every pd-* boot disk
+            "--boot-disk-size=50GB",
+            f"--network={args.network}",
+            f"--maintenance-policy={maintenance_policy}",
+            f"--metadata=ssh-keys={args.username}:{pub_key},block-project-ssh-keys=true",
+            "--labels=keep=4,keep_action=terminate,purpose=io-properties-measurement",
+        )  # fmt: skip
+    except subprocess.CalledProcessError as e:
+        # rejected before the VM exists, so it's safe to create it again with the policy GCE wants
+        if not (valid := VALID_MAINTENANCE_POLICY.search(e.stderr)) or valid.group(1) == maintenance_policy:
+            raise
+        return create_vm(name, machine_type, zone, args, valid.group(1))
     return json.loads(out)[0]["networkInterfaces"][0]["accessConfigs"][0]["natIP"]
 
 
@@ -127,9 +145,9 @@ def measure(machine_type, args):
                 if not any(reason in e.stderr for reason in RETRY_IN_NEXT_ZONE):
                     raise
                 result["zone"] = None
-                print(
-                    f"[{machine_type}] can't create in {zone}: {next(r for r in RETRY_IN_NEXT_ZONE if r in e.stderr)}"
-                )
+                # GCE's own reason, "Quota" alone doesn't say which quota
+                reason = next(line for line in e.stderr.splitlines() if any(r in line for r in RETRY_IN_NEXT_ZONE))
+                print(f"[{machine_type}] can't create in {zone}: {reason.strip(' -')}")
         else:
             raise RuntimeError(f"could not create it in any of {', '.join(args.zones)}")
 
@@ -138,6 +156,30 @@ def measure(machine_type, args):
             if time.time() > deadline:
                 raise TimeoutError("no SSH")
             time.sleep(15)
+
+        if args.override:
+            # an image older than a family's support skips io setup at boot, and a preset isn't a
+            # measurement: once the image setup is done, run iotune the way GcpIoSetup does at boot
+            while probe(
+                ip, args, "systemctl is-active -q scylla-image-setup || systemctl is-failed -q scylla-image-setup"
+            ):
+                if time.time() > deadline:
+                    raise TimeoutError(f"scylla-image-setup not done after {args.wait_minutes} minutes")
+                time.sleep(15)
+            if probe(ip, args, "systemctl is-failed -q scylla-image-setup") == 0:
+                raise RuntimeError("scylla-image-setup failed, see `journalctl -u scylla-image-setup` on the VM")
+            # a failed image setup can leave no RAID, and iotune would then measure the boot disk
+            if probe(ip, args, "mountpoint -q /var/lib/scylla"):
+                raise RuntimeError("/var/lib/scylla is not mounted, the image setup didn't create the local SSD RAID")
+            print(f"[{machine_type}] running scylla_io_setup")
+            io_setup = ssh(
+                ip,
+                args,
+                f"sudo systemctl stop scylla-server && sudo rm -f {IO_PROPERTIES} && sudo scylla_io_setup",
+                timeout=max(deadline - time.time(), 60),
+            )
+            if io_setup.returncode:
+                raise RuntimeError(f"scylla_io_setup failed: {io_setup.stderr.strip() or io_setup.stdout.strip()}")
 
         while probe(ip, args, f"test -s {IO_PROPERTIES}") != 0:
             if time.time() > deadline:
@@ -152,6 +194,19 @@ def measure(machine_type, args):
         result["nvme_devices"] = int(ssh(ip, args, "ls /dev/ | grep -cE '^nvme[0-9]+n[0-9]+$'").stdout.strip() or 0)
         result["cpus"] = int(ssh(ip, args, "nproc").stdout.strip())
         result["lsblk"] = ssh(ip, args, "lsblk -b -o NAME,SIZE,TYPE,MODEL,MOUNTPOINT").stdout
+        # a whole-instance preset must cover every bundled SSD, not a RAID of the disks seen so far
+        result["data_disks"] = int(
+            ssh(
+                ip, args, "lsblk -nso NAME,TYPE $(findmnt -no SOURCE /var/lib/scylla) | grep -c ' disk$'"
+            ).stdout.strip()
+            or 0
+        )
+        result["bundled_local_ssds"] = bundled_local_ssds(machine_type, result["zone"])
+        if result["bundled_local_ssds"] and result["data_disks"] != result["bundled_local_ssds"]:
+            raise RuntimeError(
+                f"/var/lib/scylla is on {result['data_disks']} disk(s), "
+                f"but {machine_type} has {result['bundled_local_ssds']} local SSDs"
+            )
         result["scylla_version"] = ssh(ip, args, "scylla --version").stdout.strip()
         journal = ssh(ip, args, "sudo journalctl -b --no-pager -o short-iso")
         if journal.returncode == 0:
@@ -161,9 +216,9 @@ def measure(machine_type, args):
                 if re.search(r"io_setup|iotune|io_properties|scylla_image_setup|raid", line, re.I)
             ]
             # tells whether the value came from iotune or from a preset in gcp_io_params.yaml
-            result["iotune_ran"] = "scylla_io_setup will be run" in journal.stdout
+            result["iotune_ran"] = args.override or "scylla_io_setup will be run" in journal.stdout
         else:
-            result["iotune_ran"] = None  # unknown, the journal couldn't be read
+            result["iotune_ran"] = args.override or None  # unknown, the journal couldn't be read
         print(f"[{machine_type}] {', '.join(f'{k}={result[k]}' for k in IO_KEYS)}")
     except Exception as e:  # noqa: BLE001
         result["error"] = str(e) if not isinstance(e, subprocess.CalledProcessError) else e.stderr.strip()
@@ -179,7 +234,7 @@ def measure(machine_type, args):
 def update_gcp_params(results, path=GCP_PARAMS_PATH):
     """Add or replace flat `<machine-type>:` entries, keeping the rest of the file (and its comments) as is.
 
-    Only for machine types with bundled local SSD (-lssd, z3), measured by iotune. The others are
+    Only for machine types with bundled local SSD (-lssd: z3, z4d, c4, ...), measured by iotune. The others are
     keyed by disk count (`measured_local_ssd`, `local_ssd_nvme`), and a flat entry would override that.
     """
     text = path.read_text()
@@ -187,7 +242,7 @@ def update_gcp_params(results, path=GCP_PARAMS_PATH):
     for r in results:
         if "error" in r:
             continue
-        if "lssd" not in r["machine_type"]:
+        if not BUNDLED_LOCAL_SSD.search(r["machine_type"]):
             print(f"{r['machine_type']}: not written, no bundled local SSD, its presets are keyed by disk count")
             continue
         if r.get("iotune_ran") is not True:
@@ -221,7 +276,18 @@ if __name__ == "__main__":
     )
     parser.add_argument("--network", default="default")
     parser.add_argument("--parallel", type=int, default=1)
-    parser.add_argument("--wait-minutes", type=int, default=30, help="per VM, for SSH plus io_properties.yaml")
+    parser.add_argument(
+        "--wait-minutes",
+        type=int,
+        default=30,
+        help="per VM, from creation until io_properties.yaml is written: SSH, the image setup and, with --override, "
+        "the scylla_io_setup run. Give the largest machine types more, e.g. 60",
+    )
+    parser.add_argument(
+        "--override",
+        action="store_true",
+        help="run scylla_io_setup after the image setup, even if a preset or an older image skipped iotune",
+    )
     parser.add_argument("--keep", action="store_true", help="don't delete the VMs")
     parser.add_argument("--results", default="gcp_io_results.jsonl", help="JSON lines file results are appended to")
     parser.add_argument("--update-gcp-params", action="store_true", help=f"write the results into {GCP_PARAMS_PATH}")

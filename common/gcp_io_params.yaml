@@ -1,3 +1,10 @@
+# I/O properties of the WHOLE instance, per GCP machine type: the RAID0 array of
+# all its local SSDs, as io_properties.yaml and iotune describe it.
+#
+# Flat <machine-type> entries are whole-instance iotune measurements, for machine
+# types with bundled local SSD, and GcpIoSetup.generate copies them without change.
+# Measure them with tools/io_properties_measurements/get_scylla_io_properties_gcp.py.
+
 z3-highmem-8-highlssd:
   read_iops: 750000
   read_bandwidth: 3221225472
@@ -363,6 +370,96 @@ c4a-standard-72-lssd:
   read_bandwidth: 10678971392
   write_iops: 1364108
   write_bandwidth: 5597389312
+
+z4d-highmem-8-highlssd:
+  read_iops: 650740
+  read_bandwidth: 3306776320
+  write_iops: 512278
+  write_bandwidth: 2518926080
+
+z4d-highmem-16-highlssd:
+  read_iops: 1301394
+  read_bandwidth: 6613587968
+  write_iops: 1024550
+  write_bandwidth: 5037936640
+
+z4d-highmem-32-highlssd:
+  read_iops: 2602364
+  read_bandwidth: 13215523840
+  write_iops: 2049098
+  write_bandwidth: 10081500160
+
+z4d-highmem-48-highlssd:
+  read_iops: 3902687
+  read_bandwidth: 19840788480
+  write_iops: 3073069
+  write_bandwidth: 15128542208
+
+z4d-highmem-64-highlssd:
+  read_iops: 5206017
+  read_bandwidth: 26415603712
+  write_iops: 4097283
+  write_bandwidth: 20182341632
+
+z4d-highmem-96-highlssd:
+  read_iops: 7805506
+  read_bandwidth: 39551168512
+  write_iops: 6146150
+  write_bandwidth: 30311069696
+
+z4d-highmem-192-highlssd:
+  read_iops: 15614330
+  read_bandwidth: 79211782144
+  write_iops: 12288626
+  write_bandwidth: 60766195712
+
+z4d-highmem-16-standardlssd:
+  read_iops: 650749
+  read_bandwidth: 3306836992
+  write_iops: 512272
+  write_bandwidth: 2518910976
+
+z4d-highmem-32-standardlssd:
+  read_iops: 1301406
+  read_bandwidth: 6609803776
+  write_iops: 1024297
+  write_bandwidth: 5039177216
+
+z4d-highmem-48-standardlssd:
+  read_iops: 1952220
+  read_bandwidth: 9920337920
+  write_iops: 1536631
+  write_bandwidth: 7562413568
+
+z4d-highmem-64-standardlssd:
+  read_iops: 2602124
+  read_bandwidth: 13227791360
+  write_iops: 2048684
+  write_bandwidth: 10084009984
+
+z4d-highmem-96-standardlssd:
+  read_iops: 3903857
+  read_bandwidth: 19806300160
+  write_iops: 3073292
+  write_bandwidth: 15150820352
+
+z4d-highmem-192-standardlssd:
+  read_iops: 7806650
+  read_bandwidth: 39680745472
+  write_iops: 6146052
+  write_bandwidth: 30390898688
+
+z4d-highmem-384-standardlssd:
+  read_iops: 15607686
+  read_bandwidth: 78167842816
+  write_iops: 12286376
+  write_bandwidth: 61082255360
+
+z4d-highmem-384-standardlssd-metal:
+  read_iops: 15600131
+  read_bandwidth: 78941257728
+  write_iops: 12269158
+  write_bandwidth: 61064241152
 
 # Local SSD (NVMe) performance limits published by Google, keyed by the number of
 # local SSD disks attached to the instance. Used for machine types which do not

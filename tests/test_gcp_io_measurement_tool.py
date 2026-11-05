@@ -91,3 +91,36 @@ def test_arm_machine_types_boot_from_the_arm_image():
     assert tool.image_for("t2a-standard-4", args) == "arm-image"
     with pytest.raises(ValueError, match="--arm-image"):
         tool.image_for("c4a-highmem-8-lssd", SimpleNamespace(image="x86-image", arm_image=None))
+
+
+def test_create_vm_retries_with_the_maintenance_policy_gce_takes(monkeypatch, tmp_path):
+    (tmp_path / "key.pub").write_text("ssh-ed25519 AAAA")
+    args = SimpleNamespace(
+        image="image", arm_image=None, key_path=str(tmp_path / "key"), network="default", username="u"
+    )
+    rejected = (
+        "ERROR: (gcloud.compute.instances.create) Could not fetch resource:\n - Invalid value for field "
+        "'resource.scheduling.onHostMaintenance': 'TERMINATE'. Scheduling must have onHostMaintenance be one of "
+        "the following valid types: [MIGRATE]. But was TERMINATE"
+    )
+    policies = []
+
+    def gcloud(*cmd):
+        policies.append(next(a for a in cmd if a.startswith("--maintenance-policy=")))
+        if policies[-1] == "--maintenance-policy=TERMINATE":
+            raise subprocess.CalledProcessError(1, cmd, stderr=rejected)
+        return '[{"networkInterfaces": [{"accessConfigs": [{"natIP": "1.2.3.4"}]}]}]'
+
+    monkeypatch.setattr(tool, "gcloud", gcloud)
+    assert tool.create_vm("vm", "z4d-highmem-8-highlssd", "us-central1-a", args) == "1.2.3.4"
+    assert policies == ["--maintenance-policy=TERMINATE", "--maintenance-policy=MIGRATE"]
+
+
+def test_bundled_local_ssds(monkeypatch):
+    answers = {
+        "z4d-highmem-16-highlssd": '{"name": "z4d-highmem-16-highlssd", "bundledLocalSsds": {"partitionCount": 2}}',
+        "n2-highmem-8": '{"name": "n2-highmem-8"}',
+    }
+    monkeypatch.setattr(tool, "gcloud", lambda *cmd: answers[cmd[3]])
+    assert tool.bundled_local_ssds("z4d-highmem-16-highlssd", "us-east4-a") == 2
+    assert tool.bundled_local_ssds("n2-highmem-8", "us-east4-a") == 0
