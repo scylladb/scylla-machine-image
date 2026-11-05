@@ -79,7 +79,10 @@ def scrape_docs_bandwidth():
             for row in df.itertuples(index=False):
                 default_gbps = extract_gbps(row[default_col])
                 if default_gbps:
-                    if nics_col is not None and (nics := extract_gbps(row[nics_col])):
+                    if nics_col is not None:
+                        nics = extract_gbps(row[nics_col])
+                        if not nics:
+                            raise ValueError(f"{row[0]}: can't read the number of NICs from {row[nics_col]!r}")
                         default_gbps /= nics
                     tier1_gbps = extract_gbps(row[tier1_col]) if tier1_col is not None else None
                     data[str(row[0]).strip()] = (default_gbps, tier1_gbps)
