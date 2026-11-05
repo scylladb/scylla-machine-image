@@ -64,6 +64,8 @@ def scrape_docs_bandwidth():
     """Return {machine_type: (default_gbps, tier1_gbps_or_None)} from every machine table in the docs.
 
     Tables without a Tier_1 column (z4d, z4m don't support it) give None for Tier_1.
+    Where a table has a "Number of NICs" column (z4d, z4m), the default egress is divided by it: the
+    figure for 2 physical NICs needs 2 vNICs, and Scylla images boot with 1 (until SMI-340).
     """
     data = {}
     for url in DOCS_URLS:
@@ -71,11 +73,14 @@ def scrape_docs_bandwidth():
             cols = [str(c).lower() for c in df.columns]
             default_col = next((i for i, c in enumerate(cols) if "default egress" in c), None)
             tier1_col = next((i for i, c in enumerate(cols) if "tier_1 egress" in c), None)
+            nics_col = next((i for i, c in enumerate(cols) if "number of nics" in c), None)
             if not cols[0].startswith("machine type") or default_col is None:
                 continue
             for row in df.itertuples(index=False):
                 default_gbps = extract_gbps(row[default_col])
                 if default_gbps:
+                    if nics_col is not None and (nics := extract_gbps(row[nics_col])):
+                        default_gbps /= nics
                     tier1_gbps = extract_gbps(row[tier1_col]) if tier1_col is not None else None
                     data[str(row[0]).strip()] = (default_gbps, tier1_gbps)
     return data
