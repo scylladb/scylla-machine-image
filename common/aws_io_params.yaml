@@ -118,41 +118,6 @@ i2.8xlarge:
   read_iops: 512000
   write_bandwidth: 3865133848
   write_iops: 456800
-i3.large:
-  read_bandwidth: 653925080
-  read_iops: 111000
-  write_bandwidth: 215066473
-  write_iops: 36800
-i3.xlarge:
-  read_bandwidth: 1185106376
-  read_iops: 200800
-  write_bandwidth: 423621267
-  write_iops: 53180
-i3.2xlarge:
-  read_bandwidth: 2015342735
-  read_iops: 411200
-  write_bandwidth: 808775652
-  write_iops: 181500
-i3.4xlarge:
-  read_bandwidth: 4030685470
-  read_iops: 822400
-  write_bandwidth: 1617551304
-  write_iops: 363000
-i3.8xlarge:
-  read_bandwidth: 8061370940
-  read_iops: 1644800
-  write_bandwidth: 3235102608
-  write_iops: 726000
-i3.16xlarge:
-  read_bandwidth: 16122741880
-  read_iops: 3289600
-  write_bandwidth: 6470205216
-  write_iops: 1452000
-i3.metal:
-  read_bandwidth: 16122741880
-  read_iops: 3289600
-  write_bandwidth: 6470205216
-  write_iops: 1452000
 i3en.large:
   read_bandwidth: 330301440
   read_iops: 43315
