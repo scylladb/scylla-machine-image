@@ -313,6 +313,21 @@ i7i.24xlarge:
   read_iops: 2647697
   write_bandwidth: 19944206336
   write_iops: 2002573
+i7i.48xlarge:
+  read_bandwidth: 52991713280
+  read_iops: 4748682
+  write_bandwidth: 40788762624
+  write_iops: 4081277
+i7i.metal-24xl:
+  read_bandwidth: 25457860608
+  read_iops: 2540345
+  write_bandwidth: 20484485120
+  write_iops: 2015371
+i7i.metal-48xl:
+  read_bandwidth: 51098853376
+  read_iops: 4956771
+  write_bandwidth: 40952111104
+  write_iops: 4066014
 i7ie.large:
   read_bandwidth: 500035616
   read_iops: 54183
@@ -353,6 +368,21 @@ i7ie.24xlarge:
   read_iops: 1770378
   write_bandwidth: 12060468224
   write_iops: 1234112
+i7ie.48xlarge:
+  read_bandwidth: 50262446080
+  read_iops: 3189556
+  write_bandwidth: 24538812416
+  write_iops: 2459952
+i7ie.metal-24xl:
+  read_bandwidth: 24738744320
+  read_iops: 1649918
+  write_bandwidth: 12139486208
+  write_iops: 1229427
+i7ie.metal-48xl:
+  read_bandwidth: 49315598336
+  read_iops: 3255623
+  write_bandwidth: 24539693056
+  write_iops: 2466485
 i8g.large:
   read_bandwidth: 526759424
   read_iops: 75029
@@ -393,6 +423,21 @@ i8g.24xlarge:
   read_iops: 2662435
   write_bandwidth: 19786680320
   write_iops: 2071598
+i8g.48xlarge:
+  read_bandwidth: 50871656448
+  read_iops: 4998194
+  write_bandwidth: 41141010432
+  write_iops: 4043003
+i8g.metal-24xl:
+  read_bandwidth: 25575784448
+  read_iops: 2539736
+  write_bandwidth: 20489381888
+  write_iops: 2023165
+i8g.metal-48xl:
+  read_bandwidth: 51578748928
+  read_iops: 4968996
+  write_bandwidth: 40827662336
+  write_iops: 4047154
 i8ge.large:
   read_bandwidth: 500071552
   read_iops: 54183
@@ -433,6 +478,21 @@ i8ge.24xlarge:
   read_iops: 1757931
   write_bandwidth: 12050609152
   write_iops: 1232681
+i8ge.48xlarge:
+  read_bandwidth: 49085112320
+  read_iops: 3251077
+  write_bandwidth: 24856426496
+  write_iops: 2489101
+i8ge.metal-24xl:
+  read_bandwidth: 24078018560
+  read_iops: 1641291
+  write_bandwidth: 12132154368
+  write_iops: 1247086
+i8ge.metal-48xl:
+  read_bandwidth: 48757145600
+  read_iops: 3237339
+  write_bandwidth: 24525635584
+  write_iops: 2478569
 im4gn.large:
   read_bandwidth: 288433525
   read_iops: 33943
