@@ -747,6 +747,17 @@ class TestAwsIoSetup(TestCase):
             io_setup.generate()
 
 
+@pytest.mark.parametrize(
+    ("instance_type", "supported"),
+    [("i3.large", False), ("i3.16xlarge", False), ("i3.metal", False), ("i3en.large", True), ("i3en.metal", True)],
+)
+def test_i3_is_unsupported_but_i3en_is(instance_type, supported):
+    """i3 is deprecated (SMI-326); the class match must not catch i3en by prefix."""
+    instance = AwsInstance.__new__(AwsInstance)
+    instance.__dict__["instancetype"] = instance_type
+    assert instance.is_supported_instance_class() is supported
+
+
 @pytest.mark.unit
 class TestAwsM8gdM9gdParams(TestCase):
     """m8gd/m9gd must have both pre-configured IO params and network params."""
@@ -801,7 +812,6 @@ AWS_LOCAL_DISKS = {
     "c5d": {"large": (1, 50), "xlarge": (1, 100), "2xlarge": (1, 200), "4xlarge": (1, 400), "9xlarge": (1, 900), "12xlarge": (2, 900), "18xlarge": (2, 900), "24xlarge": (4, 900), "metal": (4, 900)},
     "c6gd": {"medium": (1, 59), "large": (1, 118), "xlarge": (1, 237), "2xlarge": (1, 474), "4xlarge": (1, 950), "8xlarge": (1, 1900), "12xlarge": (2, 1425), "16xlarge": (2, 1900), "metal": (2, 1900)},
     "i2": {"xlarge": (1, 800), "2xlarge": (2, 800), "4xlarge": (4, 800), "8xlarge": (8, 800)},
-    "i3": {"large": (1, 475), "xlarge": (1, 950), "2xlarge": (1, 1900), "4xlarge": (2, 1900), "8xlarge": (4, 1900), "16xlarge": (8, 1900), "metal": (8, 1900)},
     "i3en": {"large": (1, 1250), "xlarge": (1, 2500), "2xlarge": (2, 2500), "3xlarge": (1, 7500), "6xlarge": (2, 7500), "12xlarge": (4, 7500), "24xlarge": (8, 7500), "metal": (8, 7500)},
     "i4g": {"large": (1, 468), "xlarge": (1, 937), "2xlarge": (1, 1875), "4xlarge": (1, 3750), "8xlarge": (2, 3750), "16xlarge": (4, 3750)},
     "i4i": {"large": (1, 468), "xlarge": (1, 937), "2xlarge": (1, 1875), "4xlarge": (1, 3750), "8xlarge": (2, 3750), "12xlarge": (3, 3750), "16xlarge": (4, 3750), "24xlarge": (6, 3750), "32xlarge": (8, 3750), "metal": (8, 3750)},
