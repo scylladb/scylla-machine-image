@@ -128,6 +128,10 @@ print('\n'.join(sorted(t for t in sys.stdin.read().split() if t.split('.')[0] in
 Measure each size it lists with `--update-aws-params`, and add its local disks to
 `AWS_LOCAL_DISKS` in `tests/test_aws_instance.py`.
 
+After any change to a `*_io_params.yaml` (any cloud), regenerate the preset history so
+running nodes get the new values on upgrade: see
+[Adding or changing a preset](../../README.md#adding-or-changing-a-preset).
+
 ### Instance Family with Limits
 ```bash
 python get_scylla_io_properties.py --ami ami-12345678 --instance-type i8g --key-path ~/.ssh/my-key.pem --max-instances 3 --dry-run
