@@ -165,15 +165,17 @@ flowchart TD
 ```
 
 - `apply`: copy each file of the pair to `.bak`, write the pair and the
-  provenance, log when the change takes effect.
+  provenance, log when the change takes effect. When `--force` replaces a
+  file that is not ours, also copy it to `.orig`. A later automatic apply
+  replaces `.bak` but not `.orig`.
 - `adopt`: the values are current and have no provenance. Write the
   provenance only.
 - `notify`: write the preset to `io_properties.yaml.new` and write the
   notice. Change nothing else.
 - The comparison uses values, not bytes. A different `yaml.dump` format on
   another distribution is not an edit.
-- `yaml.dump` never writes comments. A comment line means a person edited
-  the file.
+- `yaml.dump` never writes comments, and our files hold no `#`. Any `#`
+  means a person edited the file.
 - "Before the preset" compares the first-boot date with the date of the
   most specific key that has one. A GCP or Azure `*/<disks>` wildcard dates
   the disk-count rule, not the instance type. The rule changes only the
@@ -246,8 +248,8 @@ published:
 ### Outputs
 
 ```
-/etc/scylla.d/io_properties.yaml(.bak|.new)
-/etc/scylla.d/io.conf(.bak)
+/etc/scylla.d/io_properties.yaml(.bak|.orig|.new)
+/etc/scylla.d/io.conf(.bak|.orig)
 /etc/scylla/io_properties_notice            # shown by scylla_login
 /etc/scylla/io_properties_provenance.yaml
 ```
@@ -262,7 +264,7 @@ pinned: false
 ```
 
 The image build removes the provenance, the notice, the policy, and the
-`.bak` and `.new` files. An instance from the image does not look managed by
+`.bak`, `.orig`, and `.new` files. An instance from the image does not look managed by
 the values of the builder.
 
 The CLI:
@@ -272,12 +274,6 @@ scylla_cloud_io_setup --status              # what --refresh would do, change no
 scylla_cloud_io_setup --refresh [--force]   # --force replaces a file that is not ours
 scylla_cloud_io_setup --rollback            # restore the pair from .bak, and pin
 scylla_cloud_io_setup --pin | --unpin       # keep the current file / refresh again
-```
-
-The Debian package:
-
-```
-Depends: scylla (>= V), scylla (<< V.0), ...
 ```
 
 ### Module API
@@ -308,12 +304,12 @@ class CloudIoSetup:
 |---|---|
 | We overwrite a node that a person tuned | Only files that we recorded or whose four values match a published preset. All else gets a notice. `.bak`, `--rollback`, `--pin`, and the `never` policy |
 | A new preset is wrong | Each table change is reviewed. CI requires its history. `.bak` keeps the old values on the node |
-| A package downgrade writes older values over newer ones | The downgrade rule comes before the update rule: the recorded values are not in the history of the older package, so it notifies |
+| A package downgrade writes older values over newer ones | Accepted: the file follows the installed package, as on a new node of that version, and `.bak` keeps the newer values. The history is copied to release branches, so the older package usually knows the newer values. The downgrade rule notifies only when it does not (a preset change that was not backported) |
 | The package hook breaks an upgrade | Time limit, errors ignored. The next boot does the same work |
 | An image bakes the provenance of the builder | The image build removes it |
 | Nodes of one cluster have different values during the rolling upgrade | Expected for the length of the upgrade. Not prevented |
 | A family leaves the tables | No preset, so skip. The file stays |
-| `apt-get install scylla` leaves `scylla-machine-image` old | The Debian package now requires its Scylla version. The documented `dist-upgrade scylla` upgrades all packages already |
+| `apt-get install scylla` leaves `scylla-machine-image` old | Accepted. The documented `dist-upgrade scylla` upgrades it, and Scylla Cloud (siren, ansible `scylla_ops`) installs it explicitly. A node left behind keeps working presets and catches up on the next upgrade that includes the package |
 | The operator does not restart Scylla | The journal and the notice say that the change takes effect when `scylla-server` starts |
 
 ## Deferred work
@@ -327,7 +323,7 @@ class CloudIoSetup:
 
 ## Decisions
 
-- The Debian package requires `scylla (>= V), scylla (<< V.0)`. An exact `(= ${binary:Version})` never matches, because scylla-pkg builds `scylla` and `scylla-machine-image` with different release strings. (build)
+- No version lock between the Debian packages. A lock to the scylla version (`scylla (>= V), scylla (<< V.0)`) was built and dropped: the two repos bump `VERSION` separately (branch-2026.2 had machine-image 2026.2.12 with scylla 2026.2.11), so image builds could not install the pair. And when scylla-machine-image has no build for a Cloud target (2026.2.3), siren and ansible upgrade `scylla` without it, and `apt-get install -y` silently removes the locked package. A lock to the release series only moves that to the series boundary. (review)
 - No change in scylladb. `apt-get dist-upgrade scylla` upgrades every upgradable package, so it upgrades this one. (build)
 - A file with four values equal to a published preset is ours, with no provenance. A person who types the exact preset values gets that preset again, with a `.bak`. (spec)
 - The history covers every release branch of this repository and of scylla-enterprise-machine-image (2022.1 to 2024.2), so nodes from those releases update automatically. (review)
@@ -340,6 +336,11 @@ class CloudIoSetup:
 - OCI history keys hold the OCPU count, as the OCI table does. (review)
 - The boot refresh and the package hooks run with a 120 s time limit and ignore errors. The lock has no time limit of its own. (review)
 - A rollback pins the node, so the next boot does not apply the reverted preset again. (spec)
+- `--force` keeps a pin. Only `--unpin` resumes automatic updates. A `skip` clears the notice and `.new` of an earlier run. (review)
+- A rollback drops the recorded values, which describe the file rolled back from. After `--unpin` the history decides whether the restored file is ours. (review)
+- A downgrade between two versions that share the history applies the older preset. Ordering value sets by release is not worth a history format change. (review)
+- Any `#` in `io_properties.yaml` is a comment, inline ones included. (review)
+- `--force` over a file that is not ours keeps that file in `.orig` too, because the next automatic apply replaces `.bak`. One `.bak` stays the rule for files that are ours. (review)
 - `io.conf` that differs from our line makes the pair the user's. (spec)
 - Backport to 2026.1, 2026.3, and 2026.4, after #1054. 2026.2 is at its end. The history is generated on `next` and copied unchanged. (review)
 
@@ -350,20 +351,18 @@ class CloudIoSetup:
 ## Rules
 
 - Unit tests run with `uv run pytest tests/`. Lint with `uv run ruff check`.
-- Each task is one commit. Tasks 1 to 3 are one pull request, #1081, so the
+- Each task is one commit. Tasks 2 and 3 are one pull request, #1081, so the
   policy ships with the triggers.
 - A decision during the build that changes Part 2 updates it in the same
   commit, with a line in `Decisions`.
 - Real-instance tests reuse the existing Jenkins jobs, with the branch as a
   parameter.
 
-## Task 1: Lock the Debian package to its Scylla version
+## Task 1: Lock the Debian package to its Scylla version (dropped)
 
-**Files:**
-- Modify: `dist/debian/control.template`, `dist/debian/debian_files_gen.py`
-
-- [x] Check the range with `dpkg --compare-versions` for GA and rc versions.
-- [x] Commit `7c7071a`.
+Built, then dropped in review: the lock breaks image builds when the two
+`VERSION`s differ, and removes scylla-machine-image during a Cloud upgrade
+that skips it. See `Decisions`.
 
 ## Task 2: Classification and history
 
@@ -376,7 +375,7 @@ class CloudIoSetup:
   the value), 2025.3 only, Enterprise 2024.1 code presets, an Azure
   disk-count preset, and GCP disk-count presets.
 - [x] Test that each current preset is in the history (CI gate).
-- [x] Commit `0a3516d`.
+- [x] Commit "lib/io_refresh: decide which io_properties.yaml files are ours to update".
 
 ## Task 3: CLI, triggers, policy, and docs
 
@@ -393,7 +392,7 @@ class CloudIoSetup:
   fail setup, and the policy from user-data.
 - [x] README: the policy, the commands, and a checklist for adding or
   changing a preset.
-- [x] Commit `f4aea1f`.
+- [x] Commit "scylla_cloud_io_setup: refresh io_properties.yaml on upgrade and boot".
 
 ## Task 4: Real-instance tests
 
@@ -406,10 +405,10 @@ class CloudIoSetup:
   [rolling-upgrade-ami-test #373](https://jenkins.scylladb.com/job/scylla-master/job/rolling-upgrade/job/rolling-upgrade-ami-test/373/).
   Each node got the current preset during `dist-upgrade`.
 - [x] Downgrade: in #373 one node was upgraded, rolled back to 2026.1, and
-  upgraded again. Both package transactions passed with the Debian lock,
-  and the second upgrade found the file current. A downgrade between two
-  versions that both have the refresh (expect a notice) is unit-tested.
-  The same job covers it once two releases carry the refresh.
+  upgraded again. Both package transactions passed, and the second upgrade
+  found the file current. A downgrade from values
+  the older history lacks (expect a notice) is unit-tested. The same job
+  covers it once two releases carry the refresh.
 
 ## Task 5: Backports
 
