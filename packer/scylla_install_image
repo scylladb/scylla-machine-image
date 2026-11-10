@@ -35,6 +35,25 @@ YQ_SHA256 = {
     "arm64": "03061b2a50c7a498de2bbb92d7cb078ce433011f085a4994117c2726be4106ea",
 }
 
+# Observability agents pre-installed for Siren. Siren skips its own upload
+# only when the binary is at the expected path, has exactly the version it
+# pins and is root-owned without group/world write anywhere up its path.
+# The pins must match observability-agents/bundle/manifest.yaml in
+# scylladb/siren, the source of truth. The hashes are the SHA-256 of the
+# release archives.
+VECTOR_VERSION = "0.58.0"
+VECTOR_SHA256 = {
+    "x86_64": "a4634bea859a7ad7064ff3dd6f6ad7eb0e8dd4493cc41657d84da8dd66f09d09",
+    "aarch64": "06d9f9768feb0cb5c7cdfc12e0b737b22f1220967f5455f391a395361b5799e5",
+}
+VECTOR_DIR = "/opt/vector"
+VMAGENT_VERSION = "v1.151.0"
+VMUTILS_SHA256 = {
+    "amd64": "1813b8c8f5c609b56ee01243e1c1213b302be9bbd1243e51fd67a06cb83e53d6",
+    "arm64": "5fdfe95bbd09cc4f0884feda725fda25f39aede9deef8cddb11070ecea494206",
+}
+VMUTILS_DIR = "/opt/vmutils"
+
 
 def _wait_for_apt_lock(timeout=300, interval=10):
     """Wait for background processes to release apt and dpkg locks.
@@ -75,15 +94,36 @@ def deb_arch():
     return darch[arch()]
 
 
+def pinned_sha256(name, table, key):
+    """Return the pinned SHA-256 for key, failing the build if there is none.
+
+    Defensive: guards against a new arch being added to arch()/deb_arch()
+    without a corresponding pinned hash.
+    """
+    expected = table.get(key)
+    if expected is None:
+        print(f"no pinned {name} SHA-256 for architecture {key!r}", file=sys.stderr)
+        sys.exit(1)
+    return expected
+
+
+def download_verified(name, url, dest, expected):
+    """Download url to dest and fail the build unless its SHA-256 matches expected."""
+    run(
+        ["curl", "-fL", "--retry", "10", "--retry-max-time", "600", "--connect-timeout", "30", "-o", dest, url],
+        check=True,
+    )
+    with open(dest, "rb") as f:
+        actual = hashlib.file_digest(f, "sha256").hexdigest()
+    if actual.lower() != expected.lower():
+        print(f"{name} checksum mismatch for {url}: expected {expected}, got {actual}", file=sys.stderr)
+        sys.exit(1)
+
+
 def install_yq():
     """Download a pinned yq release and verify its SHA-256 before installing."""
     yq_arch = deb_arch()
-    # Defensive: guards against a new arch being added to deb_arch() without a
-    # corresponding pinned hash here.
-    expected = YQ_SHA256.get(yq_arch)
-    if expected is None:
-        print(f"no pinned yq SHA-256 for architecture {yq_arch!r}", file=sys.stderr)
-        sys.exit(1)
+    expected = pinned_sha256("yq", YQ_SHA256, yq_arch)
     url = f"https://github.com/mikefarah/yq/releases/download/v{YQ_VERSION}/yq_linux_{yq_arch}"
     dest = "/usr/local/bin/yq"
     # Download into the destination directory so the final move is an atomic,
@@ -91,23 +131,62 @@ def install_yq():
     with tempfile.NamedTemporaryFile(dir=os.path.dirname(dest), delete=False) as tmp:
         tmp_path = tmp.name
     try:
-        run(
-            ["curl", "-fL", "--retry", "10", "--retry-max-time", "600", "--connect-timeout", "30", "-o", tmp_path, url],
-            check=True,
-        )
-        with open(tmp_path, "rb") as f:
-            actual = hashlib.file_digest(f, "sha256").hexdigest()
-        if actual.lower() != expected.lower():
-            print(
-                f"yq checksum mismatch for {yq_arch}: expected {expected}, got {actual}",
-                file=sys.stderr,
-            )
-            sys.exit(1)
+        download_verified("yq", url, tmp_path, expected)
         os.chmod(tmp_path, 0o755)
         os.replace(tmp_path, dest)
     finally:
         with contextlib.suppress(FileNotFoundError):
             os.remove(tmp_path)
+
+
+def check_version(cmd, expected):
+    """Fail the build unless the output of cmd contains expected."""
+    out = run(cmd, check=True, capture_output=True, encoding="utf-8").stdout
+    if expected not in out:
+        print(f"{cmd[0]}: expected version {expected!r}, got {out.strip()!r}", file=sys.stderr)
+        sys.exit(1)
+
+
+def install_observability_agents():
+    """Pre-install the Vector and vmagent binaries Siren would otherwise upload.
+
+    Binaries only: no package, unit, user or /etc/vector, since Siren creates
+    those per cluster. The archives are extracted as root, which keeps the
+    uid/gid stored in them, so ownership and modes are reset explicitly instead
+    of relying on tar or the umask.
+    """
+    vector_sha = pinned_sha256("vector", VECTOR_SHA256, arch())
+    vmutils_sha = pinned_sha256("vmutils", VMUTILS_SHA256, deb_arch())
+    vector_url = (
+        f"https://packages.timber.io/vector/{VECTOR_VERSION}/vector-{VECTOR_VERSION}-{arch()}-unknown-linux-gnu.tar.gz"
+    )
+    vmutils_url = (
+        f"https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/{VMAGENT_VERSION}/"
+        f"vmutils-linux-{deb_arch()}-{VMAGENT_VERSION}.tar.gz"
+    )
+    with tempfile.TemporaryDirectory(prefix="obs-agents-") as tmpdir:
+        vector_tgz = os.path.join(tmpdir, "vector.tar.gz")
+        vmutils_tgz = os.path.join(tmpdir, "vmutils.tar.gz")
+        download_verified("vector", vector_url, vector_tgz, vector_sha)
+        download_verified("vmutils", vmutils_url, vmutils_tgz, vmutils_sha)
+
+        os.makedirs(VECTOR_DIR, exist_ok=True)
+        os.makedirs(VMUTILS_DIR, exist_ok=True)
+        # The archive layout is ./vector-<target>/bin/vector, so this lands the
+        # binary at /opt/vector/bin/vector.
+        run(
+            ["tar", "-xzf", vector_tgz, "-C", VECTOR_DIR, "--strip-components=2", "--no-same-owner"],
+            check=True,
+        )
+        run(["tar", "-xzf", vmutils_tgz, "-C", VMUTILS_DIR, "--no-same-owner", "vmagent-prod"], check=True)
+
+    for d in (VECTOR_DIR, VMUTILS_DIR):
+        run(["chown", "-R", "root:root", d], check=True)
+        run(["chmod", "-R", "go-w", d], check=True)
+        os.chmod(d, 0o755)
+
+    check_version([f"{VECTOR_DIR}/bin/vector", "--version"], f"vector {VECTOR_VERSION} ")
+    check_version([f"{VMUTILS_DIR}/vmagent-prod", "-version"], VMAGENT_VERSION)
 
 
 def get_chrony_sources(target_cloud: str) -> str:
@@ -271,6 +350,7 @@ if __name__ == "__main__":
         check=False,
     )
     install_yq()
+    install_observability_agents()
     os.remove("/etc/apt/sources.list.d/scylla_install.list")
     if args.repo_for_update:
         run(f"curl -L -o /etc/apt/sources.list.d/scylla.list {args.repo_for_update}", shell=True, check=True)
