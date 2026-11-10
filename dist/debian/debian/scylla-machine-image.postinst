@@ -4,4 +4,11 @@ if [ -d /run/systemd/system ]; then
     systemctl --system daemon-reload >/dev/null || true
 fi
 
+# Bring io_properties.yaml in line with the presets this package ships (SMI-218).
+# Only on a node that already finished its first boot, so image builds and containers
+# are a no-op. Bounded and never fatal: the next boot retries anyway.
+if [ "$1" = "configure" ] && [ -e /etc/scylla/machine_image_configured ]; then
+    timeout 120 /opt/scylladb/scylla-machine-image/scylla_cloud_io_setup --refresh || true
+fi
+
 #DEBHELPER#

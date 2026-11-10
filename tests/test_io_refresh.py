@@ -4,9 +4,11 @@
 # SPDX-License-Identifier: Apache-2.0
 """Refreshing io_properties.yaml on upgrade and boot (SMI-218)."""
 
+import importlib.util
 import sys
 import threading
 import types
+import unittest.mock
 from pathlib import Path
 
 import pytest
@@ -20,6 +22,15 @@ sys.path.insert(0, str(Path(__file__).parent))
 from lib import io_refresh  # noqa: E402
 from lib.io_refresh import History, classify, render  # noqa: E402
 
+
+def load_script(name):
+    path = REPO / "common" / name
+    module = importlib.util.module_from_spec(importlib.util.spec_from_loader(name, loader=None, origin=str(path)))
+    exec(path.read_text(), module.__dict__)
+    return module
+
+
+io_setup = load_script("scylla_cloud_io_setup")
 
 I7IE_LARGE_NOW = (54183, 500035616, 43342, 250007504)
 I7IE_LARGE_OLD = (58449, 574854656, 47145, 253132917)
@@ -260,3 +271,102 @@ class TestRefreshOnNode:
             assert file_values(node) == I7IE_LARGE_OLD
         worker.join(5)
         assert file_values(node) == I7IE_LARGE_NOW
+
+
+class FakeInstance:
+    def __init__(self, instancetype, instance_class, nvme_disk_count=0, cpu=64, ocpus=None, supported=True):
+        self.instancetype, self._class, self.nvme_disk_count = instancetype, instance_class, nvme_disk_count
+        self.cpu, self.ocpus, self._supported = cpu, ocpus, supported
+
+    def instance_class(self):
+        return self._class
+
+    def is_supported_instance_class(self):
+        return self._supported
+
+
+@pytest.fixture
+def tables():
+    """The installed tables under /opt are the repo's common/ ones."""
+    real_open = open
+
+    def open_tables(path, *args, **kwargs):
+        if str(path).startswith("/opt/scylladb/scylla-machine-image/"):
+            path = REPO / "common" / Path(path).name
+        return real_open(path, *args, **kwargs)
+
+    with unittest.mock.patch("builtins.open", side_effect=open_tables):
+        yield
+
+
+class TestPresetsPerCloud:
+    def test_gcp_disk_count_rule_is_a_preset(self, node, tables):
+        """n2 with local SSD has no table entry of its own, Google's 4-disk numbers apply."""
+        gcp = io_setup.GcpIoSetup(FakeInstance("n2-standard-32", "n2", nvme_disk_count=4))
+        preset = gcp.compute()
+        assert preset
+        # What GcpIoSetup's built-in rule wrote for 4 disks before gcp_io_params.yaml existed.
+        write_legacy(node, (680000, 2650 * 1024 * 1024, 360000, 1400 * 1024 * 1024))
+        assert gcp.refresh().action == ("adopt" if io_refresh.values_of(preset)[0] == 680000 else "apply")
+        assert file_values(node) == io_refresh.values_of(preset)
+
+    @pytest.mark.parametrize(
+        ("cls", "instance"),
+        [
+            (io_setup.AwsIoSetup, FakeInstance("i7ie.nonexistent", "i7ie")),
+            (io_setup.GcpIoSetup, FakeInstance("z3-highmem-1-lssd", "z3", nvme_disk_count=1)),
+            (io_setup.AzureIoSetup, FakeInstance("Standard_L1s_v9", "Lsv9")),
+            (io_setup.OciIoSetup, FakeInstance("VM.DenseIO.X.Flex", "DenseIO", ocpus=3)),
+        ],
+    )
+    def test_no_preset_never_runs_iotune(self, node, tables, cls, instance):
+        write_legacy(node, IOTUNE_OUTPUT)
+        with unittest.mock.patch("subprocess.run") as run:
+            assert cls(instance).refresh().action == "skip"
+        run.assert_not_called()
+        assert file_values(node) == IOTUNE_OUTPUT
+
+    def test_first_boot_records_provenance(self, node, tables):
+        aws = io_setup.AwsIoSetup(FakeInstance("i7ie.large", "i7ie"))
+        aws.generate()
+        assert file_values(node) == I7IE_LARGE_NOW
+        assert node.conf.read_text() == io_refresh.io_conf_line()
+        assert io_refresh.read_provenance()["keys"] == ["i7ie.large"]
+
+
+class TestEntryPoints:
+    def test_refresh_without_raid_is_a_quiet_no_op(self):
+        with unittest.mock.patch("os.path.ismount", return_value=False):
+            assert io_setup.main(["--refresh"]) == 0
+            assert io_setup.main([]) == 1
+
+    def test_refresh_on_unsupported_instance_is_a_no_op(self, node, tables):
+        aws = io_setup.AwsIoSetup(FakeInstance("t3.micro", "t3", supported=False))
+        with (
+            unittest.mock.patch("os.path.ismount", return_value=True),
+            unittest.mock.patch.object(io_setup, "get_cloud_instance"),
+            unittest.mock.patch.object(io_setup, "get_io_setup", return_value=aws),
+        ):
+            assert io_setup.main(["--refresh"]) == 0
+
+    def test_boot_refresh_failure_does_not_fail_setup(self):
+        image_setup = load_script("scylla_image_setup")
+        with unittest.mock.patch.object(image_setup, "run", side_effect=TimeoutError("metadata")) as run:
+            image_setup.refresh_io_properties()  # must not raise
+        assert "--refresh" in run.call_args.args[0]
+
+    @pytest.mark.parametrize(("policy", "written"), [("notify", "notify\n"), ("bogus", None), (None, None)])
+    def test_policy_from_user_data(self, node, policy, written):
+        from common.scylla_configure import ScyllaMachineImageConfigurator
+
+        configurator = ScyllaMachineImageConfigurator.__new__(ScyllaMachineImageConfigurator)
+        configurator._instance_user_data = {} if policy is None else {"io_properties_refresh": policy}
+        configurator.set_io_properties_refresh_policy()
+        assert (io_refresh.read_text(io_refresh.POLICY)) == written
+
+    def test_packaging_hooks_are_guarded_and_non_fatal(self):
+        postinst = (REPO / "dist/debian/debian/scylla-machine-image.postinst").read_text()
+        spec = (REPO / "dist/redhat/scylla-machine-image.spec").read_text()
+        for text, never_fail in ((postinst, "--refresh || true"), (spec, "--refresh || :")):
+            assert "-e /etc/scylla/machine_image_configured" in text
+            assert f"timeout 120 /opt/scylladb/scylla-machine-image/scylla_cloud_io_setup {never_fail}" in text
