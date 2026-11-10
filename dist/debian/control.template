@@ -8,7 +8,7 @@ Rules-Requires-Root: no
 
 Package: %{product}-machine-image
 Architecture: all
-Depends: %{product}, %{product}-python3, ${shlibs:Depends}, ${misc:Depends}
+Depends: %{product} (>= %{version}), %{product} (<< %{version}.0), %{product}-python3, ${shlibs:Depends}, ${misc:Depends}
 Replaces: scylla-enterprise-machine-image (<< 2025.1.0~)
 Breaks: scylla-enterprise-machine-image (<< 2025.1.0~)
 Description: Scylla Machine Image
