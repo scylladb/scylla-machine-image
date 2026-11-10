@@ -16,6 +16,7 @@ from textwrap import dedent
 
 import yaml
 
+from lib import io_refresh
 from lib.log import setup_logging
 from lib.param_estimation import estimate_streaming_bandwidth
 from lib.scylla_cloud import scylla_excepthook
@@ -211,7 +212,18 @@ class ScyllaMachineImageConfigurator(UserData):
                 LOGGER.error("Failed to create devices: %s", e)
                 sys.exit(1)
 
+    def set_io_properties_refresh_policy(self):
+        """Persist `io_properties_refresh` for scylla_cloud_io_setup --refresh, which runs without user-data."""
+        policy = self.instance_user_data.get("io_properties_refresh")
+        if policy is None:
+            return
+        if policy not in io_refresh.POLICIES:
+            LOGGER.warning("Ignoring io_properties_refresh=%r, expected one of %s", policy, io_refresh.POLICIES)
+            return
+        io_refresh.POLICY.write_text(f"{policy}\n")
+
     def configure(self):
+        self.set_io_properties_refresh_policy()
         self.configure_scylla_yaml()
         self.configure_cassandra_rackdc()
         self.configure_scylla_startup_args()
