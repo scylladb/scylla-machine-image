@@ -34,11 +34,12 @@ install -m644 common/scylla-image-setup.service common/scylla-image-post-start.s
 install -d -m755 $RPM_BUILD_ROOT/opt/scylladb
 install -d -m755 $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image
 install -d -m755 $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/lib
-install -m644 lib/log.py lib/scylla_cloud.py lib/user_data.py lib/param_estimation.py $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/lib
+install -m644 lib/log.py lib/scylla_cloud.py lib/user_data.py lib/param_estimation.py lib/io_refresh.py $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/lib
 install -m644 common/aws_io_params.yaml $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/
 install -m644 common/azure_io_params.yaml $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/
 install -m644 common/oci_io_params.yaml $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/
 install -m644 common/gcp_io_params.yaml $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/
+install -m644 common/aws_io_params_history.yaml common/azure_io_params_history.yaml common/gcp_io_params_history.yaml common/oci_io_params_history.yaml $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/
 install -m644 common/aws_net_params.json $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/
 install -m644 common/azure_net_params.json $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/
 install -m644 common/gcp_net_params.json $RPM_BUILD_ROOT/opt/scylladb/scylla-machine-image/
@@ -70,6 +71,12 @@ install -m755 common/scylla_configure.py common/scylla_post_start.py common/scyl
 %systemd_postun scylla-image-post-start.service
 
 %posttrans
+# Bring io_properties.yaml in line with the presets this package ships (SMI-218).
+# Only on a node that already finished its first boot, so image builds and containers
+# are a no-op. Bounded and never fatal: the next boot retries anyway.
+if [ -e /etc/scylla/machine_image_configured ]; then
+    timeout 120 /opt/scylladb/scylla-machine-image/scylla_cloud_io_setup --refresh || :
+fi
 if [ -L /home/scyllaadm/.bash_profile ] && [ ! -e /home/scyllaadm/.bash_profile ]; then
     rm /home/scyllaadm/.bash_profile
     cp /etc/skel/.bash_profile /home/scyllaadm/
