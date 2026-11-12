@@ -4,6 +4,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import argparse
 import logging
 import os
 import subprocess
@@ -12,6 +13,7 @@ from abc import ABCMeta, abstractmethod
 
 import yaml
 
+from lib import io_refresh
 from lib.scylla_cloud import get_cloud_instance, is_azure, is_ec2, is_gce, is_oci
 
 
@@ -20,48 +22,73 @@ class UnsupportedInstanceClassError(Exception):
 
 
 class CloudIoSetup(metaclass=ABCMeta):
-    @abstractmethod
-    def generate(self):
-        pass
+    cloud = None
 
-    def save(self):
-        assert "read_iops" in self.disk_properties
-        with open("/etc/scylla.d/io_properties.yaml", "w") as properties_file:
-            yaml.dump({"disks": [self.disk_properties]}, properties_file, default_flow_style=False)
-        with open("/etc/scylla.d/io.conf", "w") as ioconf:
-            ioconf.write('SEASTAR_IO="--io-properties-file=/etc/scylla.d/io_properties.yaml"\n')
-        os.chmod("/etc/scylla.d/io_properties.yaml", 0o644)
-        os.chmod("/etc/scylla.d/io.conf", 0o644)
-
-
-class AwsIoSetup(CloudIoSetup):
     def __init__(self, idata):
         self.idata = idata
         self.disk_properties = {}
 
-    def generate(self):
-        if not self.idata.is_supported_instance_class():
-            logging.error("This is not a recommended EC2 instance setup for auto local disk tuning.")
-            raise UnsupportedInstanceClassError()
-        self.disk_properties["mountpoint"] = "/var/lib/scylla"
-        with open("/opt/scylladb/scylla-machine-image/aws_io_params.yaml") as f:
-            io_params = yaml.safe_load(f)
+    @abstractmethod
+    def compute(self):
+        """The preset for this instance as a params dict, or None. Never runs iotune."""
 
-        params = io_params.get(self.idata.instancetype)
+    def history_keys(self):
+        """Keys this instance's file is listed under in <cloud>_io_params_history.yaml."""
+        return [self.idata.instancetype]
+
+    def check_supported(self):
+        if not self.idata.is_supported_instance_class():
+            logging.error(f"This is not a recommended {self.cloud} instance setup for auto local disk tuning.")
+            raise UnsupportedInstanceClassError()
+
+    def load_params(self):
+        with open(f"/opt/scylladb/scylla-machine-image/{self.cloud}_io_params.yaml") as f:
+            return yaml.safe_load(f)
+
+    def generate(self):
+        """First boot: write the preset, or measure the disks with iotune when there is none."""
+        self.check_supported()
+        params = self.compute()
         if params:
-            for p in ["read_iops", "read_bandwidth", "write_iops", "write_bandwidth"]:
-                self.disk_properties[p] = params[p]
+            self.disk_properties = {"mountpoint": io_refresh.MOUNTPOINT, **params}
             self.save()
-        else:
-            logging.warning("This is a supported instance but with no pre-configured io, scylla_io_setup will be run")
-            try:
-                subprocess.run("scylla_io_setup", shell=True, check=True, capture_output=True, timeout=300)
-            except subprocess.CalledProcessError as e:
-                logging.error(f"scylla_io_setup failed with error: {e.stderr.decode().strip()}")
-                raise
+            return
+        logging.warning("This is a supported instance but with no pre-configured io, scylla_io_setup will be run")
+        try:
+            subprocess.run("scylla_io_setup", shell=True, check=True, capture_output=True, timeout=300)
+        except subprocess.TimeoutExpired as e:
+            stderr = e.stderr.decode().strip() if e.stderr else ""
+            logging.error(f"scylla_io_setup timed out after {e.timeout} seconds. Stderr: {stderr}")
+            raise
+        except subprocess.CalledProcessError as e:
+            logging.error(f"scylla_io_setup failed with error: {e.stderr.decode().strip()}")
+            raise
+
+    def save(self):
+        assert "read_iops" in self.disk_properties
+        io_refresh.save(self.disk_properties, cloud=self.cloud, keys=self.history_keys())
+
+    def refresh(self, force=False, dry_run=False):
+        self.check_supported()
+        return io_refresh.refresh(
+            preset=self.compute(), cloud=self.cloud, keys=self.history_keys(), force=force, dry_run=dry_run
+        )
+
+
+def pick(params):
+    return {p: params[p] for p in io_refresh.PARAM_KEYS}
+
+
+class AwsIoSetup(CloudIoSetup):
+    cloud = "aws"
+
+    def compute(self):
+        params = self.load_params().get(self.idata.instancetype)
+        return pick(params) if params else None
 
 
 class GcpIoSetup(CloudIoSetup):
+    cloud = "gcp"
     # Google's local SSD limits are only reachable when the instance has enough vCPUs.
     # https://cloud.google.com/compute/docs/disks/local-ssd#configure_your_instance_to_maximize_performance
     MIN_CPU_FOR_MAX_PERFORMANCE = 24
@@ -71,49 +98,32 @@ class GcpIoSetup(CloudIoSetup):
     # like z3, z4d, c4, c4a and c4d with Titanium SSD, are measured unless they have an entry of their own.
     LOCAL_SSD_TABLE_CLASSES = ("n1", "n2", "n2d", "c2", "m1")
 
-    def __init__(self, idata):
-        self.idata = idata
-        self.disk_properties = {}
-
     def min_cpu_for_max_performance(self):
         return self.MIN_CPU_FOR_MAX_PERFORMANCE_PER_CLASS.get(
             self.idata.instance_class(), self.MIN_CPU_FOR_MAX_PERFORMANCE
         )
 
-    def generate(self):
-        if not self.idata.is_supported_instance_class():
-            logging.error("This is not a recommended Google Cloud instance setup for auto local disk tuning.")
-            raise UnsupportedInstanceClassError()
-        self.disk_properties["mountpoint"] = "/var/lib/scylla"
+    def history_keys(self):
+        itype, nr_disks = self.idata.instancetype, self.idata.nvme_disk_count
+        return [f"{itype}/{nr_disks}", itype, f"*/{nr_disks}"]
 
+    def compute(self):
+        # What we measured for this exact instance type and disk count first, then by
+        # instance type, and finally by the number of local SSDs attached (Google's
+        # published limits).
         instance_type = self.idata.instancetype
         nr_disks = self.idata.nvme_disk_count
-
-        # Try to load parameters from YAML file: what we measured for this exact
-        # instance type and disk count first, then by instance type, and finally by
-        # the number of local SSDs attached (Google's published limits).
-        params = None
         try:
-            with open("/opt/scylladb/scylla-machine-image/gcp_io_params.yaml") as f:
-                io_params = yaml.safe_load(f)
-            params = (
-                io_params.get("measured_local_ssd", {}).get(instance_type, {}).get(nr_disks)
-                or io_params.get(instance_type)
-                or self.local_ssd_params(io_params, nr_disks)
-            )
+            io_params = self.load_params()
         except FileNotFoundError:
-            logging.warning("GCP I/O parameters file not found, falling back to scylla_io_setup")
-        except Exception as e:
-            logging.warning(f"Error loading GCP I/O parameters: {e}, falling back to scylla_io_setup")
-
-        if params:
-            for p in ["read_iops", "read_bandwidth", "write_iops", "write_bandwidth"]:
-                self.disk_properties[p] = params[p]
-            self.save()
-            return
-
-        logging.warning("This is a supported instance but with no pre-configured io, scylla_io_setup will be run")
-        subprocess.run("scylla_io_setup", shell=True, check=True, capture_output=True, timeout=300)
+            logging.warning("GCP I/O parameters file not found")
+            return None
+        params = (
+            io_params.get("measured_local_ssd", {}).get(instance_type, {}).get(nr_disks)
+            or io_params.get(instance_type)
+            or self.local_ssd_params(io_params, nr_disks)
+        )
+        return pick(params) if params else None
 
     def local_ssd_params(self, io_params, nr_disks):
         """Google's published local SSD (NVMe) limits for this number of disks, if applicable.
@@ -136,107 +146,99 @@ class GcpIoSetup(CloudIoSetup):
 
 
 class AzureIoSetup(CloudIoSetup):
-    def __init__(self, idata):
-        self.idata = idata
-        self.disk_properties = {}
+    cloud = "azure"
 
-    def generate(self):
-        if not self.idata.is_supported_instance_class():
-            logging.error("This is not a recommended Azure Cloud instance setup for auto local disk tuning.")
-            raise UnsupportedInstanceClassError()
+    def history_keys(self):
+        # Until the table (Jan 2026) the Azure presets were keyed by local disk count.
+        return [self.idata.instancetype, f"*/{self.idata.nvme_disk_count}"]
 
-        self.disk_properties["mountpoint"] = "/var/lib/scylla"
-        instance_type = self.idata.instancetype
-
-        # Try to load instance-specific parameters from YAML file
+    def compute(self):
         try:
-            with open("/opt/scylladb/scylla-machine-image/azure_io_params.yaml") as f:
-                io_params = yaml.safe_load(f)
-
-            if instance_type in io_params:
-                disk_params = io_params[instance_type]["disks"][0]
-                for p in ["read_iops", "read_bandwidth", "write_iops", "write_bandwidth"]:
-                    self.disk_properties[p] = disk_params[p]
-                self.save()
-                return
+            io_params = self.load_params()
         except FileNotFoundError:
-            logging.warning("Azure I/O parameters file not found, falling back to scylla_io_setup")
-        except Exception as e:
-            logging.warning(f"Error loading Azure I/O parameters: {e}, falling back to scylla_io_setup")
-
-        # Fallback to scylla_io_setup for instances not in YAML
-        logging.warning("This is a supported instance but with no pre-configured io, scylla_io_setup will be run")
-        subprocess.run("scylla_io_setup", shell=True, check=True, capture_output=True, timeout=300)
+            logging.warning("Azure I/O parameters file not found")
+            return None
+        entry = io_params.get(self.idata.instancetype)
+        return pick(entry["disks"][0]) if entry else None
 
 
 class OciIoSetup(CloudIoSetup):
-    def __init__(self, idata):
-        self.idata = idata
-        self.disk_properties = {}
+    cloud = "oci"
 
-    def generate(self):
-        if not self.idata.is_supported_instance_class():
-            logging.error("This is not a recommended OCI instance setup for auto local disk tuning.")
-            raise UnsupportedInstanceClassError()
+    def history_keys(self):
+        itype, ocpus = self.idata.instancetype, self.idata.ocpus
+        return [f"{itype}-{ocpus}", itype] if "Flex" in itype and ocpus else [itype]
 
-        self.disk_properties["mountpoint"] = "/var/lib/scylla"
-        instance_type = self.idata.instancetype
-        ocpus = self.idata.ocpus
-
-        # Try to load instance-specific parameters from YAML file
+    def compute(self):
         try:
-            with open("/opt/scylladb/scylla-machine-image/oci_io_params.yaml") as f:
-                io_params = yaml.safe_load(f)
-
-            lookup_key = None
-            if "Flex" in instance_type and ocpus:
-                flex_key = f"{instance_type}-{ocpus}"
-                if flex_key in io_params:
-                    lookup_key = flex_key
-
-            if not lookup_key and instance_type in io_params:
-                lookup_key = instance_type
-
-            if lookup_key:
-                for p in ["read_iops", "read_bandwidth", "write_iops", "write_bandwidth"]:
-                    self.disk_properties[p] = io_params[lookup_key][p]
-                self.save()
-                return
-
+            io_params = self.load_params()
         except FileNotFoundError:
-            logging.warning("OCI I/O parameters file not found, falling back to scylla_io_setup logic")
-        except Exception as e:
-            logging.warning(f"Error loading OCI I/O parameters: {e}, falling back to scylla_io_setup logic")
+            logging.warning("OCI I/O parameters file not found")
+            return None
+        for key in self.history_keys():
+            if key in io_params:
+                return pick(io_params[key])
+        return None
 
-        if "read_iops" in self.disk_properties:
-            self.save()
+
+def get_io_setup(cloud_instance):
+    if is_ec2():
+        return AwsIoSetup(cloud_instance)
+    if is_gce():
+        return GcpIoSetup(cloud_instance)
+    if is_azure():
+        return AzureIoSetup(cloud_instance)
+    if is_oci():
+        return OciIoSetup(cloud_instance)
+    raise UnsupportedInstanceClassError("unknown cloud")
+
+
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Write /etc/scylla.d/io_properties.yaml from the I/O presets. "
+        "With no option: first-boot setup (falls back to iotune when there is no preset)."
+    )
+    action = parser.add_mutually_exclusive_group()
+    action.add_argument(
+        "--refresh", action="store_true", help="update the file to the current preset when it is ours to change"
+    )
+    action.add_argument("--status", action="store_true", help="show what --refresh would do, change nothing")
+    action.add_argument("--rollback", action="store_true", help="restore the file from .bak and pin it")
+    action.add_argument("--pin", action="store_true", help="keep the current file, stop refreshing it")
+    action.add_argument("--unpin", action="store_true", help="resume refreshing the file")
+    parser.add_argument("--force", action="store_true", help="with --refresh: replace the file even if not ours")
+    parser.add_argument("--dry-run", action="store_true", help="with --refresh: same as --status")
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    args = parse_args(argv)
+    if args.rollback:
+        io_refresh.rollback()
+        print(f"Restored {io_refresh.IO_YAML} from .bak and pinned it. It takes effect when scylla-server restarts.")
+        return 0
+    if args.pin or args.unpin:
+        io_refresh.set_pinned(args.pin)
+        print("Pinned: refresh will leave the file alone." if args.pin else "Unpinned: refresh resumes.")
+        return 0
+
+    refreshing = args.refresh or args.status or args.dry_run
+    if not os.path.ismount(io_refresh.MOUNTPOINT):
+        logging.error("RAID volume not mounted")
+        # A node without its RAID has nothing to refresh, and the refresh triggers must not fail.
+        return 0 if refreshing else 1
+    try:
+        io = get_io_setup(get_cloud_instance())
+        if refreshing:
+            decision = io.refresh(force=args.force, dry_run=args.status or args.dry_run)
+            print(f"{decision.action}: {decision.reason}")
         else:
-            logging.warning("This is a supported instance but with no pre-configured io, scylla_io_setup will be run")
-            try:
-                subprocess.run("scylla_io_setup", shell=True, check=True, capture_output=True, timeout=300)
-            except subprocess.TimeoutExpired as e:
-                stderr = e.stderr.decode().strip() if e.stderr else ""
-                logging.error(f"scylla_io_setup timed out after {e.timeout} seconds. Stderr: {stderr}")
-                raise
-            except subprocess.CalledProcessError as e:
-                logging.error(f"scylla_io_setup failed with error: {e.stderr.decode().strip()}")
-                raise
+            io.generate()
+    except UnsupportedInstanceClassError:
+        return 0 if refreshing else 1
+    return 0
 
 
 if __name__ == "__main__":
-    if not os.path.ismount("/var/lib/scylla"):
-        logging.error("RAID volume not mounted")
-        sys.exit(1)
-    cloud_instance = get_cloud_instance()
-    if is_ec2():
-        io = AwsIoSetup(cloud_instance)
-    elif is_gce():
-        io = GcpIoSetup(cloud_instance)
-    elif is_azure():
-        io = AzureIoSetup(cloud_instance)
-    elif is_oci():
-        io = OciIoSetup(cloud_instance)
-    try:
-        io.generate()
-    except UnsupportedInstanceClassError:
-        sys.exit(1)
+    sys.exit(main())

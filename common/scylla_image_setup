@@ -145,6 +145,18 @@ def disable_perftune():
         f.write(sysconfig)
 
 
+def refresh_io_properties():
+    """Catch up io_properties.yaml with the presets of the installed package (SMI-218).
+
+    Never fatal: this unit is RequiredBy=scylla-server, and the current file is still
+    a working one, so a failed refresh must not keep Scylla from starting.
+    """
+    try:
+        run("/opt/scylladb/scylla-machine-image/scylla_cloud_io_setup --refresh", shell=True, check=True, timeout=120)
+    except Exception:
+        LOGGER.warning("Failed to refresh I/O properties, keeping the current file", exc_info=True)
+
+
 def main():
     setup_logging()
     if is_azure():
@@ -158,6 +170,8 @@ def main():
         swap_unit.unlink(missing_ok=True)
         run(f"/opt/scylladb/scripts/scylla_swap_setup --swap-directory {swap_directory}", shell=True, check=True)
     machine_image_configured = Path("/etc/scylla/machine_image_configured")
+    if machine_image_configured.exists():
+        refresh_io_properties()
     try:
         if not machine_image_configured.exists():
             run("/opt/scylladb/scripts/scylla_cpuscaling_setup", shell=True, check=True)

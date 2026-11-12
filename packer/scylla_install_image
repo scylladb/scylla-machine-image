@@ -521,6 +521,18 @@ WantedBy=multi-user.target
         with open("/etc/ssh/sshd_config.d/50-cloudimg-settings.conf", "w") as f:
             f.write("ClientAliveInterval 180 \n")
 
+    # Never ship I/O properties state from the build VM: a baked provenance record would
+    # make every instance from this image look like we wrote its io_properties.yaml.
+    for path in (
+        "/etc/scylla/io_properties_provenance.yaml",
+        "/etc/scylla/io_properties_notice",
+        "/etc/scylla/io_properties_refresh_policy",
+        "/etc/scylla.d/io_properties.yaml.bak",
+        "/etc/scylla.d/io_properties.yaml.new",
+        "/etc/scylla.d/io.conf.bak",
+    ):
+        Path(path).unlink(missing_ok=True)
+
     kver = run("uname -r", shell=True, check=True, capture_output=True, encoding="utf-8").stdout.strip()
     with open(f"/tmp/{args.product}-{args.target_cloud}-kernel-{args.scylla_version}-{arch()}.txt", "a+") as f:
         f.write(f"kernel-version: {kver}\n")
