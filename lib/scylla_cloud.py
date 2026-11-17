@@ -1081,7 +1081,6 @@ class AwsInstance(CloudInstance):
 
     def is_supported_instance_class(self):
         return self.instance_class() in [
-            "i2",
             "i3en",
             "c5d",
             "m5d",
