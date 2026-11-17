@@ -98,26 +98,6 @@ c6gd.metal:
   read_iops: 832514
   write_bandwidth: 2127314176
   write_iops: 312652
-i2.xlarge:
-  read_bandwidth: 507338935
-  read_iops: 64000
-  write_bandwidth: 483141731
-  write_iops: 57100
-i2.2xlarge:
-  read_bandwidth: 1014677870
-  read_iops: 128000
-  write_bandwidth: 966283462
-  write_iops: 114200
-i2.4xlarge:
-  read_bandwidth: 2029355740
-  read_iops: 256000
-  write_bandwidth: 1932566924
-  write_iops: 228400
-i2.8xlarge:
-  read_bandwidth: 4058711480
-  read_iops: 512000
-  write_bandwidth: 3865133848
-  write_iops: 456800
 i3en.large:
   read_bandwidth: 326474368
   read_iops: 42516
