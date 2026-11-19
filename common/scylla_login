@@ -8,6 +8,7 @@
 import os
 from subprocess import run
 
+from lib import io_refresh
 from lib.scylla_cloud import colorprint, get_cloud_instance, out
 
 
@@ -146,4 +147,7 @@ if __name__ == "__main__":
                     colorprint(MSG_SCYLLA_ACTIVE)
                     run("nodetool status", shell=True)
             cloud_instance.check()
+            # Written by scylla_cloud_io_setup --refresh when it left a hand-tuned file alone.
+            if notice := io_refresh.read_text(io_refresh.NOTICE):
+                colorprint("{yellow}{notice}{nocolor}", notice=notice.strip())
             print("\n", end="")
