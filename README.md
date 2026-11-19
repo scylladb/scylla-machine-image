@@ -48,6 +48,7 @@ User Data that can pass when create EC2 instances
     * **post_configuration_script_timeout** ([*int*](https://docs.python.org/library/stdtypes.html#int)) – Time in seconds to limit the post_configuration_script (*default=’600’*)
     * **start_scylla_on_first_boot** ([*boolean*](https://docs.python.org/library/stdtypes.html#boolean-values)) – If true, scylla-server would boot at AMI boot (*default=’true’*)
     * **device_wait_seconds** ([*int*](https://docs.python.org/library/stdtypes.html#int)) – Maximum seconds to wait for storage devices to appear before configuring RAID. Useful in cloud environments where device attachment may be delayed (*default=’0’*)
+    * **io_properties_refresh** ([*string*](https://docs.python.org/library/stdtypes.html#str)) – `auto`, `notify` or `never`, see [I/O Properties Refresh](#io-properties-refresh) (*default=’auto’*)
 
 ### <a href="scylla_yaml"></a>Scylla YAML
 All fields that would pass down to scylla.yaml configuration file
@@ -169,6 +170,75 @@ msg.attach(part)
 
 print(msg)
 ```
+
+## I/O Properties Refresh
+
+`/etc/scylla.d/io_properties.yaml` is written from the I/O preset tables on first boot.
+When an upgrade of `scylla-machine-image` ships a corrected preset, the node picks it up
+on the package upgrade and again on every boot, before `scylla-server` starts. It never
+restarts Scylla and never runs `iotune`: the new values take effect at the next restart
+of `scylla-server`, which the rolling upgrade already does.
+
+A file is updated only when it is ours: we recorded writing it, or it holds values one
+of our presets wrote (`common/*_io_params_history.yaml`). A file that was edited, has
+comments, extra disks or keys, or an `io.conf` changed by hand is left alone; the preset
+goes to `io_properties.yaml.new` and the login banner shows the command to use it.
+
+The policy is one of:
+
+- `auto` (default): update files that are ours.
+- `notify`: never update, only write the `.new` candidate and the banner notice.
+- `never`: do nothing.
+
+Where it is set:
+
+1. **At launch**, with the `io_properties_refresh` user-data option. First boot copies
+   it into `/etc/scylla/io_properties_refresh_policy`. User-data is read only then:
+   changing it later has no effect.
+2. **On a running node**, by editing `/etc/scylla/io_properties_refresh_policy` (one
+   word). This file is the only setting the refresh reads; when it is missing, the
+   policy is `auto`.
+
+To keep a single node's file without changing the policy, use `--pin` below.
+
+```bash
+S=/opt/scylladb/scylla-machine-image/scylla_cloud_io_setup
+sudo $S --status            # what a refresh would do, and why
+sudo $S --refresh --force   # use the current preset even for a file that is not ours;
+                            # that file is also kept in io_properties.yaml.orig;
+                            # a pinned node stays pinned
+sudo $S --rollback          # restore the previous file (.bak) and pin it
+sudo $S --pin               # keep this file (e.g. after running iotune), hide the notice
+sudo $S --unpin             # resume refreshing
+```
+
+### Adding or changing a preset
+
+Nodes are recognised as ours by `common/<cloud>_io_params_history.yaml`, so every preset
+change has to reach that file too. A unit test fails when a value in a table is missing
+from its history.
+
+1. Add or change the entry in `common/<cloud>_io_params.yaml` and commit it. Values are
+   whole-instance, see [`tools/io_properties_measurements`](tools/io_properties_measurements/README.md).
+2. Regenerate the history, from a full clone with the release branches of this repo and
+   of the enterprise repo fetched (older releases' presets are part of it). The generator
+   reads committed tables only, so the table change must be committed first:
+
+   ```bash
+   git fetch upstream '+refs/heads/branch-*:refs/remotes/upstream/branch-*'
+   git fetch git@github.com:scylladb/scylla-enterprise-machine-image.git \
+       '+refs/heads/branch-*:refs/remotes/enterprise/branch-*'
+   ./tools/gen_io_params_history.py
+   ```
+
+3. Amend the history files into that commit (`git commit --amend`), and backport the
+   table and the history together: the
+   history is generated on `next` and copied unchanged to release branches.
+4. A **new family or size** that was a supported class before its preset existed: nodes
+   launched before it hold `iotune` output, and get a notice, not an update.
+5. A **new way to look a preset up** (keyed by something other than the instance type,
+   like GCP's disk counts or OCI's flex ocpus): give the cloud's `history_keys()` in
+   `scylla_cloud_io_setup` the same key, and make `render()` in the tool emit it.
 
 ## Device Wait Mechanism
 
