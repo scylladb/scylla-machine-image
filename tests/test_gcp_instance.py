@@ -1307,6 +1307,8 @@ def test_image_setup_already_configured_still_reconciles_mtu(image_setup):
     scylla_image_setup.main()
 
     assert image_setup.marker.exists()
-    image_setup.run.assert_not_called()
+    # The only command on a configured node is the I/O properties refresh (SMI-218).
+    image_setup.run.assert_called_once()
+    assert "scylla_cloud_io_setup --refresh" in image_setup.run.call_args.args[0]
     image_setup.cloud.io_setup.assert_not_called()
     image_setup.mtu.assert_called_once_with()
