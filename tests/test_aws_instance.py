@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import logging
+import re
 import sys
 import unittest.mock
 from collections import namedtuple
@@ -246,7 +247,9 @@ class TestAsyncAwsInstance(IsolatedAsyncioTestCase, AwsMetadata):
         assert await AwsInstance.identify_metadata()
 
     async def test_not_identify_metadata(self):
-        httpretty.disable()
+        # Don't hit the real 169.254.169.254: GitHub runners live on Azure,
+        # whose metadata service answers there.
+        httpretty.register_uri(httpretty.PUT, re.compile("http://.*"), "", status=404)
         real_curl = lib.scylla_cloud.aiocurl
 
         async def mocked_curl(*args, **kwargs):
