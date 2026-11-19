@@ -16,7 +16,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from subprocess import run
+from subprocess import PIPE, STDOUT, CalledProcessError, Popen, run
 from textwrap import dedent
 
 import yaml
@@ -79,10 +79,45 @@ def _wait_for_apt_lock(timeout=300, interval=10):
     raise RuntimeError(f"Timed out after {timeout}s waiting for apt locks")
 
 
-def apt_get(cmd, **kwargs):
-    """Run apt-get, waiting for locks first and retrying on lock failure."""
-    _wait_for_apt_lock()
-    return run(f"apt-get -o DPkg::Lock::Timeout=300 {cmd}", shell=True, check=True, **kwargs)
+APT_GET = "LC_ALL=C apt-get -o DPkg::Lock::Timeout=300 -o Acquire::Retries=5"
+APT_MIRROR_ERROR = re.compile(
+    r"^E: (?:Failed to fetch|Unable to fetch some archives|Some index files failed to download)",
+    re.MULTILINE,
+)
+
+
+def apt_get(cmd, attempts=5, backoff=30):
+    """Run apt-get, waiting for locks first and retrying on mirror errors.
+
+    Acquire::Retries covers 5xx and network errors within one run, but a
+    mirror that is still syncing returns 404 for packages its index already
+    lists, and apt never retries a 404. On a mirror error, wait, refresh
+    the index with apt-get update and run the command again.
+    apt-get update only warns and exits 0 when an index fails to download
+    and an old one is cached, so it runs with --error-on=any.
+    """
+    full_cmd = f"{APT_GET} {cmd}"
+    if cmd.startswith("update"):
+        full_cmd += " --error-on=any"
+    for attempt in range(1, attempts + 1):
+        _wait_for_apt_lock()
+        proc = Popen(full_cmd, shell=True, stdout=PIPE, stderr=STDOUT, encoding="utf-8", errors="replace")
+        output = []
+        for line in proc.stdout:
+            sys.stdout.write(line)
+            sys.stdout.flush()
+            output.append(line)
+        returncode = proc.wait()
+        if returncode == 0:
+            return
+        if attempt == attempts or not APT_MIRROR_ERROR.search("".join(output)):
+            raise CalledProcessError(returncode, full_cmd)
+        delay = backoff * 2 ** (attempt - 1)
+        print(f"apt-get {cmd.split()[0]} hit a mirror error (attempt {attempt}/{attempts}), retrying in {delay}s")
+        time.sleep(delay)
+        if not cmd.startswith("update"):
+            _wait_for_apt_lock()
+            run(f"{APT_GET} update -y", shell=True, check=False)
 
 
 def arch():
@@ -317,16 +352,26 @@ if __name__ == "__main__":
     with tempfile.TemporaryDirectory(prefix="scylladb-gpg-") as gnupghome:
         keybox = f"{gnupghome}/scylladb-keybox.gpg"
         gpg_base = f"gpg --homedir {gnupghome} --no-default-keyring --keyring {keybox}"
+        os.makedirs(apt_keys_dir, exist_ok=True)
+        recv_keys = f"{gpg_base} --keyserver hkps://keyserver.ubuntu.com --recv-keys {key_id}"
+        for attempt in range(1, 6):
+            result = run(recv_keys, shell=True)
+            if result.returncode == 0:
+                break
+            if attempt == 5:
+                raise CalledProcessError(result.returncode, recv_keys)
+            print(f"gpg --recv-keys failed (attempt {attempt}/5), retrying in {30 * attempt}s")
+            time.sleep(30 * attempt)
+            run(f"gpgconf --homedir {gnupghome} --kill dirmngr", shell=True, check=False)
+        run(f"{gpg_base} --export --output {apt_keys_dir}/scylladb.gpg {key_id}", shell=True, check=True)
+
+    curl_retry = "curl -fL --retry 10 --retry-connrefused --retry-max-time 600 --connect-timeout 30"
+    if args.repo_for_install:
         run(
-            f"mkdir -p {apt_keys_dir} && "
-            f"{gpg_base} --keyserver hkps://keyserver.ubuntu.com --recv-keys {key_id} && "
-            f"{gpg_base} --export --output {apt_keys_dir}/scylladb.gpg {key_id}",
+            f"{curl_retry} -o /etc/apt/sources.list.d/scylla_install.list {args.repo_for_install}",
             shell=True,
             check=True,
         )
-
-    if args.repo_for_install:
-        run(f"curl -L -o /etc/apt/sources.list.d/scylla_install.list {args.repo_for_install}", shell=True, check=True)
     elif args.localdeb:
         with open("/etc/apt/sources.list.d/scylla_install.list", "w") as f:
             f.write("deb file:/home/ubuntu ./")
@@ -353,7 +398,7 @@ if __name__ == "__main__":
     install_observability_agents()
     os.remove("/etc/apt/sources.list.d/scylla_install.list")
     if args.repo_for_update:
-        run(f"curl -L -o /etc/apt/sources.list.d/scylla.list {args.repo_for_update}", shell=True, check=True)
+        run(f"{curl_retry} -o /etc/apt/sources.list.d/scylla.list {args.repo_for_update}", shell=True, check=True)
 
     if args.target_cloud == "aws":
         kernel_opt = ""
