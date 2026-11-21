@@ -766,6 +766,22 @@ def test_i2_i3_are_unsupported_but_i3en_is(instance_type, supported):
     assert instance.is_supported_instance_class() is supported
 
 
+@pytest.mark.parametrize(
+    ("instance_type", "dev"),
+    [
+        ("t3.micro", True),
+        ("t9g.micro", True),
+        ("t3.small", False),
+        ("t9g.small", False),
+    ],
+)
+def test_dev_instance_type(instance_type, dev):
+    instance = AwsInstance.__new__(AwsInstance)
+    instance.__dict__["instancetype"] = instance_type
+    assert instance.is_dev_instance_type() is dev
+    assert instance.get_en_interface_type() == "ena"
+
+
 @pytest.mark.unit
 class TestAwsM8gdM9gdParams(TestCase):
     """m8gd/m9gd must have both pre-configured IO params and network params."""

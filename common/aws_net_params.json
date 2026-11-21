@@ -4335,6 +4335,26 @@
     1.024
   ],
   [
+    "t9g.medium",
+    "Up to 7.5 Gigabit",
+    0.256
+  ],
+  [
+    "t9g.micro",
+    "Up to 7.5 Gigabit",
+    0.064
+  ],
+  [
+    "t9g.nano",
+    "Up to 7.5 Gigabit",
+    0.032
+  ],
+  [
+    "t9g.small",
+    "Up to 7.5 Gigabit",
+    0.128
+  ],
+  [
     "trn1.2xlarge",
     "Up to 12.5 Gigabit",
     3.125
