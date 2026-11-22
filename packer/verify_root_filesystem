@@ -1,0 +1,87 @@
+#!/bin/bash -e
+#
+# Copyright 2026 ScyllaDB
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Run at the end of the image build: make the kernel read every directory and
+# inode of the image's ext4 filesystems back from disk, so it verifies their
+# metadata_csum checksums, and fail the build if it reports an error. A bad
+# directory checksum written during the build otherwise only shows up when the
+# image boots, as a root filesystem remounted read-only.
+
+# findmnt exits 1 when nothing matches; anything else is a failure.
+rc=0
+LISTING=$(findmnt -rno TARGET -t ext2,ext3,ext4) || rc=$?
+if [ "$rc" -gt 1 ]; then
+    echo "ERROR: findmnt failed (exit $rc), can't list the ext filesystems to verify" >&2
+    exit 1
+fi
+mapfile -t RAW_MOUNTS < <(printf '%s' "$LISTING" | sed '/^$/d')
+# -r escapes spaces and other unsafe characters as \xHH; decode them back.
+MOUNTS=()
+for raw in "${RAW_MOUNTS[@]}"; do
+    MOUNTS+=("$(printf '%b' "$raw")")
+done
+if [ "${#MOUNTS[@]}" -eq 0 ]; then
+    echo "No ext filesystem mounted, nothing to verify"
+    exit 0
+fi
+
+# Write everything out, then drop the cached copies, so the reads below come
+# from disk.
+sync
+echo 3 > /proc/sys/vm/drop_caches
+
+STATUS=0
+for mount in "${MOUNTS[@]}"; do
+    echo "Reading every directory and inode of $mount"
+    # %s needs stat(), so every inode is read, not only the directories: find
+    # skips stat() for an empty -printf format. Entries that a background job
+    # removed during the walk are not errors; a bad checksum or I/O error is.
+    FIND_ERRORS=$(find "$mount" -xdev -printf '%s\n' 2>&1 >/dev/null | grep -v 'No such file or directory' || true)
+    if [ -n "$FIND_ERRORS" ]; then
+        echo "ERROR: could not read all of $mount:" >&2
+        echo "$FIND_ERRORS" >&2
+        STATUS=1
+    fi
+done
+
+# A bad checksum and the aborted journal that follows it are both logged as
+# "EXT4-fs error". The kernel ring buffer can wrap during a long build, and
+# journald can rotate out old entries, so read both the journal's copy of the
+# kernel log for this boot and dmesg.
+JOURNAL_LOG=$(journalctl -k -b 0 -q --no-pager 2>/dev/null || true)
+DMESG_LOG=$(dmesg 2>/dev/null || true)
+if [ -z "$JOURNAL_LOG" ] && [ -z "$DMESG_LOG" ]; then
+    echo "ERROR: can't read the kernel log to check for ext4 errors" >&2
+    exit 1
+fi
+ERRORS=$(printf '%s\n%s\n' "$JOURNAL_LOG" "$DMESG_LOG" | grep 'EXT4-fs error' || true)
+if [ -n "$ERRORS" ]; then
+    echo "ERROR: the kernel reported ext4 errors during the build:" >&2
+    echo "$ERRORS" >&2
+    STATUS=1
+fi
+for mount in "${MOUNTS[@]}"; do
+    if findmnt -no OPTIONS "$mount" | grep -qE '(^|,)ro(,|$)'; then
+        echo "ERROR: $mount is mounted read-only, the kernel remounted it after an error" >&2
+        STATUS=1
+    fi
+    # The superblock keeps a count of every error ever recorded, also those
+    # from before this boot, which the kernel log no longer has.
+    fs_source=$(findmnt -no SOURCE "$mount" | head -n 1)
+    errors_count_file="/sys/fs/ext4/$(basename "$(readlink -f "$fs_source")")/errors_count"
+    if [ -r "$errors_count_file" ]; then
+        errors_count=$(cat "$errors_count_file")
+        if [ "$errors_count" -ne 0 ]; then
+            echo "ERROR: the superblock of $mount ($fs_source) records $errors_count ext4 error(s)" >&2
+            STATUS=1
+        fi
+    fi
+done
+
+if [ "$STATUS" -eq 0 ]; then
+    echo "All ext filesystems read back without errors: ${MOUNTS[*]}"
+fi
+exit "$STATUS"
