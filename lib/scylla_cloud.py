@@ -1105,7 +1105,7 @@ class AwsInstance(CloudInstance):
         ]
 
     def is_dev_instance_type(self):
-        return self.instancetype in ["t3.micro"]
+        return self.instancetype in ["t3.micro", "t9g.micro"]
 
     def get_en_interface_type(self):
         instance_class = self.instance_class()
@@ -1160,6 +1160,7 @@ class AwsInstance(CloudInstance):
             "m6g",
             "m6gd",
             "t4g",
+            "t9g",
             "r6g",
             "r6gd",
             "x2gd",
